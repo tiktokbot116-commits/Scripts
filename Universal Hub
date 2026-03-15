@@ -1,0 +1,166 @@
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+-- 1. ESTRUTURA BASE DA GUI
+if CoreGui:FindFirstChild("UniversalHub") then CoreGui.UniversalHub:Destroy() end
+local ScreenGui = Instance.new("ScreenGui", CoreGui)
+ScreenGui.Name = "UniversalHub"
+ScreenGui.ResetOnSpawn = false
+
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 500, 0, 350)
+Main.Position = UDim2.new(0.5, -250, 0.5, -175)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main)
+
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 40)
+Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Instance.new("UICorner", Header)
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.Text = "Hub Universal - Haua"; Title.TextColor3 = Color3.new(1, 1, 1); Title.Font = Enum.Font.GothamBold; Title.BackgroundTransparency = 1
+
+local TabContainer = Instance.new("Frame", Main)
+TabContainer.Size = UDim2.new(1, 0, 0, 40); TabContainer.Position = UDim2.new(0, 0, 0, 45); TabContainer.BackgroundTransparency = 1
+
+local Content = Instance.new("Frame", Main)
+Content.Size = UDim2.new(0.9, 0, 0.7, 0); Content.Position = UDim2.new(0.05, 0, 0.25, 0); Content.BackgroundTransparency = 1
+
+local function Clear() for _, c in pairs(Content:GetChildren()) do c:Destroy() end end
+
+-- 2. FUNÇÕES DE CRIAÇÃO (TABELA)
+local function CreateRow(yPos, labelText, propertyName)
+    local Label = Instance.new("TextLabel", Content); Label.Size = UDim2.new(0.3, 0, 0.15, 0); Label.Position = UDim2.new(0, 0, yPos, 0); Label.Text = labelText; Label.TextColor3 = Color3.new(1, 1, 1); Label.BackgroundTransparency = 1
+    local Box = Instance.new("TextBox", Content); Box.Size = UDim2.new(0.3, 0, 0.15, 0); Box.Position = UDim2.new(0.35, 0, yPos, 0); Box.PlaceholderText = "Valor"; Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40); Box.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", Box)
+    local Apply = Instance.new("TextButton", Content); Apply.Size = UDim2.new(0.3, 0, 0.15, 0); Apply.Position = UDim2.new(0.7, 0, yPos, 0); Apply.Text = "Aplicar"; Apply.BackgroundColor3 = Color3.fromRGB(60, 60, 60); Apply.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", Apply)
+    Apply.MouseButton1Click:Connect(function() if Player.Character and Player.Character:FindFirstChild("Humanoid") then Player.Character.Humanoid[propertyName] = tonumber(Box.Text) or Player.Character.Humanoid[propertyName] end end)
+end
+
+local function CreateCustomRow(yPos, labelText, callback)
+    local Label = Instance.new("TextLabel", Content); Label.Size = UDim2.new(0.3, 0, 0.15, 0); Label.Position = UDim2.new(0, 0, yPos, 0); Label.Text = labelText; Label.TextColor3 = Color3.new(1, 1, 1); Label.BackgroundTransparency = 1
+    local Box = Instance.new("TextBox", Content); Box.Size = UDim2.new(0.3, 0, 0.15, 0); Box.Position = UDim2.new(0.35, 0, yPos, 0); Box.PlaceholderText = "Valor"; Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40); Box.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", Box)
+    local Apply = Instance.new("TextButton", Content); Apply.Size = UDim2.new(0.3, 0, 0.15, 0); Apply.Position = UDim2.new(0.7, 0, yPos, 0); Apply.Text = "Aplicar"; Apply.BackgroundColor3 = Color3.fromRGB(60, 60, 60); Apply.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", Apply)
+    Apply.MouseButton1Click:Connect(function() callback(tonumber(Box.Text)) end)
+end
+
+local function CreateToggle(yPos, text, callback)
+    local Btn = Instance.new("TextButton", Content); Btn.Size = UDim2.new(0.95, 0, 0.13, 0); Btn.Position = UDim2.new(0.02, 0, yPos, 0); Btn.Text = text; Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40); Btn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", Btn)
+    local active = false
+    Btn.MouseButton1Click:Connect(function() active = not active; Btn.BackgroundColor3 = active and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(40, 40, 40); callback(active) end)
+end
+
+-- 3. MOTOR DE ESP (QUADRADO + HIGHLIGHT VERMELHO)
+_G.RedESP = false
+
+local function ApplyESP(p)
+    local function CreateVisuals(char)
+        if not _G.RedESP then return end
+        local hrp = char:WaitForChild("HumanoidRootPart", 10)
+        if not hrp then return end
+
+        -- Highlight Vermelho
+        local hi = char:FindFirstChild("RedHighlight") or Instance.new("Highlight")
+        hi.Name = "RedHighlight"; hi.Parent = char
+        hi.FillColor = Color3.new(1, 0, 0); hi.FillTransparency = 0.5
+        hi.OutlineColor = Color3.new(1, 0, 0); hi.OutlineTransparency = 0
+        hi.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+
+        -- Quadrado Vermelho (Box Adornment - Mais estável que Billboard)
+        local box = hrp:FindFirstChild("RedBox") or Instance.new("BoxHandleAdornment")
+        box.Name = "RedBox"; box.Parent = hrp
+        box.AlwaysOnTop = true; box.Adornee = hrp; box.ZIndex = 10
+        box.Size = Vector3.new(4.5, 6, 4.5) -- Tamanho do quadrado ao redor do player
+        box.Color3 = Color3.new(1, 0, 0); box.Transparency = 0.7
+    end
+    
+    p.CharacterAdded:Connect(CreateVisuals)
+    if p.Character then CreateVisuals(p.Character) end
+end
+
+local function ToggleESP(state)
+    _G.RedESP = state
+    if state then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= Player then ApplyESP(p) end
+        end
+    else
+        -- Limpar tudo ao desligar
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character then
+                local hi = p.Character:FindFirstChild("RedHighlight")
+                if hi then hi:Destroy() end
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hrp and hrp:FindFirstChild("RedBox") then hrp.RedBox:Destroy() end
+            end
+        end
+    end
+end
+
+-- Conectar novos players que entrarem
+Players.PlayerAdded:Connect(function(p)
+    if _G.RedESP then ApplyESP(p) end
+end)
+
+-- 4. ANTI-LAG MANTIDO
+local function ActivateAntiLag()
+    Lighting.GlobalShadows = false; Lighting.FogEnd = 9e9
+    for _, v in pairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") or v:IsA("Clouds") then v:Destroy() end
+    end
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Material = Enum.Material.SmoothPlastic; v.Reflectance = 0; v.CastShadow = false
+        elseif v:IsA("Decal") or v:IsA("Texture") then v:Destroy()
+        elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then v.Enabled = false end
+    end
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    if terrain then terrain.Decoration = false; terrain.WaterWaveSize = 0; terrain.WaterWaveSpeed = 0 end
+end
+
+-- 5. ABAS
+_G.FlySpeed = 50
+local tabs = {"Main", "Visual"}
+for i, name in pairs(tabs) do
+    local b = Instance.new("TextButton", TabContainer); b.Size = UDim2.new(0.5, 0, 1, 0); b.Position = UDim2.new((i-1)*0.5, 0, 0, 0); b.Text = name; b.BackgroundColor3 = Color3.fromRGB(35, 35, 35); b.TextColor3 = Color3.new(1, 1, 1)
+    b.MouseButton1Click:Connect(function()
+        Clear()
+        if name == "Main" then
+            CreateRow(0, "Speed", "WalkSpeed")
+            CreateRow(0.16, "Jump Height", "JumpHeight")
+            CreateCustomRow(0.32, "Fly Speed", function(val) if val then _G.FlySpeed = val end end)
+            CreateToggle(0.48, "Fly", function(s) 
+                _G.Fly = s 
+                if not s and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                    if Player.Character.HumanoidRootPart:FindFirstChild("FlyBV") then Player.Character.HumanoidRootPart.FlyBV:Destroy() end
+                    if Player.Character.HumanoidRootPart:FindFirstChild("FlyBG") then Player.Character.HumanoidRootPart.FlyBG:Destroy() end
+                end
+            end)
+            CreateToggle(0.64, "Noclip", function(s) _G.NC = s end)
+            CreateToggle(0.80, "Anti-Lag Supremo", function(s) if s then ActivateAntiLag() end end)
+        elseif name == "Visual" then
+            CreateToggle(0, "Max Bright", function(s) Lighting.Brightness = s and 5 or 2 end)
+            CreateToggle(0.18, "ESP Vermelho (Quadrado + Highlight)", function(s) ToggleESP(s) end)
+        end
+    end)
+end
+
+-- 6. LOOPS (FLY/NOCLIP)
+RunService.Stepped:Connect(function()
+    if _G.NC and Player.Character then for _,p in pairs(Player.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end
+    if _G.Fly and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp, hum, cam = Player.Character.HumanoidRootPart, Player.Character:FindFirstChild("Humanoid"), workspace.CurrentCamera
+        local bg = hrp:FindFirstChild("FlyBG") or Instance.new("BodyGyro", hrp); bg.Name = "FlyBG"; bg.P = 90000; bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge); bg.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
+        local bv = hrp:FindFirstChild("FlyBV") or Instance.new("BodyVelocity", hrp); bv.Name = "FlyBV"; bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        if hum and hum.MoveDirection.Magnitude > 0 then
+            local fL = (cam.CFrame.LookVector * Vector3.new(1,0,1)).Unit; local fR = (cam.CFrame.RightVector * Vector3.new(1,0,1)).Unit
+            local moveVec = (cam.CFrame.LookVector * hum.MoveDirection:Dot(fL)) + (cam.CFrame.RightVector * hum.MoveDirection:Dot(fR))
+            bv.Velocity = moveVec.Unit * _G.FlySpeed
+        else bv.Velocity = Vector3.new(0,0,0) end
+    end
+end)
