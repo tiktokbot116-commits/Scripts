@@ -1,0 +1,93 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- // CONFIGURAÇÕES E TRAVAS
+local isBusy = false
+local lastUsed = {["Lapse Blue"]=0, ["Reversal Red"]=0, ["Rapid Punches"]=0, ["Twofold Kick"]=0}
+local cooldowns = {["Lapse Blue"]=15, ["Reversal Red"]=20, ["Rapid Punches"]=13, ["Twofold Kick"]=18}
+
+local function canUse(name)
+    if isBusy then return false end
+    if tick() - lastUsed[name] < cooldowns[name] then return false end
+    return true
+end
+
+-- // HABILIDADES
+local function SkillLapseBlue()
+    if not canUse("Lapse Blue") then return end
+    isBusy = true; lastUsed["Lapse Blue"] = tick()
+    local char = LocalPlayer.Character; local hum = char:FindFirstChild("Humanoid"); local root = char:FindFirstChild("HumanoidRootPart"); local hand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
+    if not hum or not root or not hand then isBusy = false; return end
+
+    root.Anchored = true
+    local sound = Instance.new("Sound", root); sound.SoundId = "rbxassetid://120124330408448"; sound.Volume = 10; sound:Play()
+    local cc = Instance.new("ColorCorrectionEffect", Lighting); cc.TintColor = Color3.fromRGB(150, 180, 255)
+    local baseBlue = ReplicatedStorage.Utils.Gojo.LapseBlue:FindFirstChild("LapseBlue"); local clone = baseBlue and baseBlue:Clone()
+    if clone then
+        clone.Parent = hand; clone.Size = Vector3.new(0.2, 0.2, 0.2)
+        local att = Instance.new("Attachment", hand); att.Position = Vector3.new(0, -1.5, 0)
+        local conn; conn = RunService.RenderStepped:Connect(function() if clone and att then clone.CFrame = att.WorldCFrame else if conn then conn:Disconnect() end end end)
+        task.delay(1.5, function() if conn then conn:Disconnect() end; TweenService:Create(cc, TweenInfo.new(0.3), {TintColor = Color3.fromRGB(255, 255, 255)}):Play(); game:GetService("Debris"):AddItem(clone, 0.3); game:GetService("Debris"):AddItem(cc, 0.3); att:Destroy() end)
+    end
+    local track1 = hum:LoadAnimation(ReplicatedStorage.Animations.Misc.C.SevenSouls.FirstQTEMiss)
+    track1.Priority = Enum.AnimationPriority.Action4; track1:Play(); track1.TimePosition = 1.1; track1:AdjustSpeed(1.2); track1.Ended:Wait(); root.Anchored = false; isBusy = false
+end
+
+local function SkillReversalRed()
+    if not canUse("Reversal Red") then return end
+    isBusy = true; lastUsed["Reversal Red"] = tick()
+    local char = LocalPlayer.Character; local hum = char:FindFirstChild("Humanoid"); local root = char:FindFirstChild("HumanoidRootPart"); local hand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
+    if not hum or not root or not hand then isBusy = false; return end
+
+    local s1, s2 = Instance.new("Sound", root), Instance.new("Sound", root); s1.SoundId = "rbxassetid://121581411829669"; s2.SoundId = "rbxassetid://122174738768960"; s1.Volume = 10; s2.Volume = 10; s1:Play(); s2:Play(); game:GetService("Debris"):AddItem(s1, 3); game:GetService("Debris"):AddItem(s2, 3)
+    root.Anchored = true; local cc = Instance.new("ColorCorrectionEffect", Lighting); cc.TintColor = Color3.fromRGB(255, 150, 150)
+    for _, item in pairs(ReplicatedStorage.Utils.Gojo.ReversalRed:GetChildren()) do
+        if not string.find(string.lower(item.Name), "max") then
+            local clone = item:Clone(); local function desativarFisica(obj) if obj:IsA("BasePart") then obj.Anchored=false; obj.Massless=true; obj.CanCollide=false; obj.Size=Vector3.new(0.01,0.01,0.01) elseif obj:IsA("ParticleEmitter") then obj.Enabled=true; obj.Rate=obj.Rate*0.3 elseif obj:IsA("Beam") or obj:IsA("Trail") then obj.Enabled=true end end
+            for _, obj in pairs(clone:GetDescendants()) do desativarFisica(obj) end; desativarFisica(clone); clone.Parent = hand
+            if clone:IsA("Model") then clone:SetPrimaryPartCFrame(hand.CFrame * CFrame.new(0, -1.5, 0)) else clone.CFrame = hand.CFrame * CFrame.new(0, -1.5, 0) end
+            local weld = Instance.new("WeldConstraint", clone); weld.Part0 = hand; weld.Part1 = clone:IsA("Model") and clone.PrimaryPart or clone; game:GetService("Debris"):AddItem(clone, 1.5)
+        end
+    end
+    local track = hum:LoadAnimation(ReplicatedStorage.Animations.Gojo.ReversalRedMaximum); track.Priority = Enum.AnimationPriority.Action4; track:Play(); track:AdjustSpeed(1.4); task.delay(1.5, function() if track.IsPlaying then track:Stop() end end); task.wait(1.5); TweenService:Create(cc, TweenInfo.new(0.3), {TintColor = Color3.fromRGB(255, 255, 255)}):Play(); root.Anchored = false; isBusy = false
+end
+
+local function SkillRapidPunches()
+    if not canUse("Rapid Punches") then return end
+    isBusy = true; lastUsed["Rapid Punches"] = tick()
+    local char = LocalPlayer.Character; local hum = char:FindFirstChild("Humanoid"); local root = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not root then isBusy = false; return end
+    root.Anchored = true; local sfx = Instance.new("Sound", root); sfx.SoundId = "rbxassetid://113001170533530"; sfx.Volume = 5; sfx:Play()
+    local cc = Instance.new("ColorCorrectionEffect", Lighting); cc.TintColor = Color3.fromRGB(255, 255, 255); TweenService:Create(cc, TweenInfo.new(1), {TintColor = Color3.fromRGB(150, 180, 255)}):Play()
+    task.delay(1, function() TweenService:Create(cc, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 255, 255)}):Play() end)
+    local track = hum:LoadAnimation(ReplicatedStorage.Animations.Misc.C.Atonement.Windup); track.Priority = Enum.AnimationPriority.Action4; track:Play(); track.TimePosition = 1.2; task.delay(1.0, function() if track.IsPlaying then track:Stop() end end); task.wait(1.0); root.Anchored = false; isBusy = false
+end
+
+local function SkillTwofoldKick()
+    if not canUse("Twofold Kick") then return end
+    isBusy = true; lastUsed["Twofold Kick"] = tick()
+    local char = LocalPlayer.Character; local hum = char:FindFirstChild("Humanoid"); local root = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not root then isBusy = false; return end
+    root.Anchored = true; local sfx = Instance.new("Sound", root); sfx.SoundId = "rbxassetid://80150811287968"; sfx.Volume = 2; sfx:Play(); local cc = Instance.new("ColorCorrectionEffect", Lighting); cc.TintColor = Color3.fromRGB(150, 180, 255)
+    local track1 = hum:LoadAnimation(ReplicatedStorage.Animations.Goku.MeleeUlt.Melee4); track1.Priority = Enum.AnimationPriority.Action4; track1:Play(); task.delay(0.8, function() if track1.IsPlaying then track1:Stop() end end); task.wait(0.8)
+    local track2 = hum:LoadAnimation(ReplicatedStorage.Animations.Hakari.Melee.Up); track2.Priority = Enum.AnimationPriority.Action4; track2:Play(); track2:AdjustSpeed(0.5); TweenService:Create(cc, TweenInfo.new(1), {TintColor = Color3.fromRGB(255, 255, 255)}):Play(); task.wait(track2.Length / 0.5); root.Anchored = false; isBusy = false
+end
+
+-- // SETUP E RESPAWN
+local function connectButtons()
+    local playerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
+    if not playerGui then return end
+    local mapping = {["Lapse Blue"] = SkillLapseBlue, ["Reversal Red"] = SkillReversalRed, ["Rapid Punches"] = SkillRapidPunches, ["Twofold Kick"] = SkillTwofoldKick}
+    for name, func in pairs(mapping) do
+        local btn = playerGui:FindFirstChild("Main", true) and playerGui.Main.Moveset[name] and playerGui.Main.Moveset[name].ItemName
+        if btn then btn.MouseButton1Down:Connect(func) end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function() isBusy = false; task.wait(2); connectButtons() end)
+connectButtons()
+
