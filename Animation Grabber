@@ -1,20 +1,20 @@
 local HttpService = game:GetService("HttpService")
+local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local recording = false
-local replaying = false
-local buffer = {}
-local startTick = 0
+local currentAnimID = nil
+local sessionSkip = {}
+local currentTrack = nil
+local isWaiting = false
 
 -- [[ INTERFACE ]] --
 local sg = Instance.new("ScreenGui", CoreGui)
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 400, 0, 110)
-main.Position = UDim2.new(0.5, -200, 0, 20)
+main.Size = UDim2.new(0, 380, 0, 100)
+main.Position = UDim2.new(0.5, -190, 0, -120)
 main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Instance.new("UICorner", main)
 local stroke = Instance.new("UIStroke", main)
@@ -22,10 +22,11 @@ stroke.Color = Color3.fromRGB(0, 150, 255)
 
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "ESTRUTURA ORIGINAL (12 NUM)"
+title.Text = "AGUARDANDO ANIMAÇÃO..."
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
+title.Font = Enum.Font.GothamBold
 
 local btnContainer = Instance.new("Frame", main)
 btnContainer.Size = UDim2.new(1, 0, 0.4, 0)
@@ -34,114 +35,104 @@ btnContainer.BackgroundTransparency = 1
 local layout = Instance.new("UIListLayout", btnContainer)
 layout.FillDirection = Enum.FillDirection.Horizontal
 layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.Padding = UDim.new(0, 5)
+layout.Padding = UDim.new(0, 8)
 
 local function createBtn(text, color, cb)
     local b = Instance.new("TextButton", btnContainer)
-    b.Size = UDim2.new(0.23, 0, 0.9, 0)
+    b.Size = UDim2.new(0.22, 0, 0.9, 0)
     b.Text = text
     b.BackgroundColor3 = color
     b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
     b.TextScaled = true
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(cb)
 end
 
--- [[ CAPTURA COM 12 COMPONENTES (IGUAL À FOTO) ]] --
-local function captureFrame()
-    if not recording or not character then return end
-    local ps = {}
-    for _, v in ipairs(character:GetDescendants()) do
-        if v:IsA("Motor6D") and v.Part1 then
-            -- Pega os 12 números originais para o seu unpack no PC
-            local cf = {v.Transform:GetComponents()}
-            -- Arredonda para 2 casas para o texto caber no Android
-            for k, val in ipairs(cf) do cf[k] = math.floor(val * 100) / 100 end
-            
-            table.insert(ps, {
-                Name = v.Part1.Name, 
-                CFrame = cf          
-            })
-        end
-    end
-    table.insert(buffer, {
-        Time = math.floor((tick() - startTick) * 100) / 100,
-        Poses = ps
-    })
-end
-
--- [[ BOTÕES ]] --
-
-createBtn("REC", Color3.fromRGB(200, 0, 0), function()
-    if not recording then
-        buffer = {}
-        startTick = tick()
-        recording = true
-        replaying = false
-        title.Text = "🔴 GRAVANDO..."
-    else
-        recording = false
-        title.Text = "FIM: "..#buffer.." FRAMES"
-    end
-end)
-
-createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
-    if #buffer == 0 then return end
-    replaying = true
-    title.Text = "▶️ REPLAY ATIVO"
-    task.spawn(function()
-        local start = tick()
-        local idx = 1
-        while replaying and idx <= #buffer do
-            local elapsed = tick() - start
-            if elapsed >= buffer[idx].Time then
-                for _, p in ipairs(buffer[idx].Poses) do
-                    for _, m in ipairs(character:GetDescendants()) do
-                        if m:IsA("Motor6D") and m.Part1 and m.Part1.Name == p.Name then
-                            -- Usa o unpack original
-                            m.Transform = CFrame.new(unpack(p.CFrame))
-                        end
+-- [[ LÓGICA DE SALVAMENTO PARA O SEU UNPACK ]] --
+local function saveToClipboard()
+    if not currentAnimID then return end
+    title.Text = "LENDO COMPONENTES..."
+    
+    local success, seq = pcall(function() 
+        return KeyframeSequenceProvider:GetKeyframeSequenceAsync("rbxassetid://"..currentAnimID) 
+    end)
+    
+    if success then
+        local data = {Keyframes = {}}
+        for _, kf in ipairs(seq:GetKeyframes()) do
+            local ps = {}
+            local function scan(obj)
+                for _, v in ipairs(obj:GetChildren()) do
+                    if v:IsA("Pose") then 
+                        -- IMPORTANTE: Transforma CFrame em uma lista de números para o UNPACK da sua foto
+                        local cf = v.CFrame
+                        local components = {cf:GetComponents()}
+                        
+                        table.insert(ps, {
+                            Name = v.Name, -- Sua foto usa poseData.Name
+                            CFrame = components 
+                        }) 
+                        scan(v) 
                     end
                 end
-                idx = idx + 1
             end
-            RunService.Stepped:Wait()
+            scan(kf)
+            table.insert(data.Keyframes, {Time = kf.Time, Poses = ps})
         end
-        replaying = false
-        title.Text = "REPLAY FIM"
-    end)
-end)
+        
+        local json = HttpService:JSONEncode(data)
+        if setclipboard then
+            setclipboard(json)
+            title.Text = "COPIADO PARA O IMPORTADOR!"
+            task.wait(1)
+            isWaiting = false
+            main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+        end
+    end
+end
 
-createBtn("SAVE", Color3.fromRGB(0, 150, 0), function()
-    recording = false
-    if #buffer == 0 then return end
-    title.Text = "COPIANDO..."
-    
-    local data = { Keyframes = buffer }
-    local json = HttpService:JSONEncode(data)
-    
-    if setclipboard then
-        setclipboard(json)
-        title.Text = "COPIADO! ]}]}]} OK"
-        task.wait(1.5)
-        title.Text = "PRONTO"
+createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
+    if currentAnimID then
+        if currentTrack then currentTrack:Stop() end
+        local a = Instance.new("Animation")
+        a.AnimationId = "rbxassetid://" .. currentAnimID
+        currentTrack = player.Character.Humanoid:LoadAnimation(a)
+        currentTrack:Play()
     end
 end)
 
 createBtn("STOP", Color3.fromRGB(150, 0, 0), function()
-    recording = false
-    replaying = false
-    buffer = {}
-    title.Text = "LIMPO"
+    if currentTrack then currentTrack:Stop() end
 end)
 
--- Loop de Gravação (12 FPS - Otimizado para Android/Clipboard)
-local lastCap = 0
-RunService.Heartbeat:Connect(function()
-    if recording and (tick() - lastCap) > (1/12) then
-        lastCap = tick()
-        captureFrame()
-    end
+createBtn("SAVE", Color3.fromRGB(0, 150, 0), saveToClipboard)
+
+createBtn("SKIP", Color3.fromRGB(150, 100, 0), function()
+    if currentAnimID then sessionSkip[currentAnimID] = true end
+    isWaiting = false
+    main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
 end)
 
-player.CharacterAdded:Connect(function(c) character = c end)
+-- [[ MONITOR ]] --
+local function setupMonitor(char)
+    local hum = char:WaitForChild("Humanoid")
+    hum.AnimationPlayed:Connect(function(track)
+        if isWaiting then return end
+        local id = track.Animation.AnimationId:match("%d+")
+        if id and not sessionSkip[id] then
+            local n = track.Name:lower()
+            if n:find("walk") or n:find("idle") or n:find("run") then return end
+            
+            isWaiting = true
+            track.Stopped:Wait()
+            
+            currentAnimID = id
+            title.Text = "ID: " .. id .. " | SALVAR?"
+            main:TweenPosition(UDim2.new(0.5, -190, 0, 20), "Out", "Back", 0.4)
+        end
+    end)
+end
+
+player.CharacterAdded:Connect(setupMonitor)
+setupMonitor(character)
