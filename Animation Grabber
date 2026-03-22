@@ -7,54 +7,49 @@ local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local currentAnimID = nil
 local sessionSkip = {}
-local currentTrack = nil
 local isWaiting = false
 
--- [[ GUI ]] --
+-- [[ GUI SIMPLIFICADA ]] --
 local sg = Instance.new("ScreenGui", CoreGui)
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 380, 0, 100)
-main.Position = UDim2.new(0.5, -190, 0, -120)
-main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+main.Size = UDim2.new(0, 300, 0, 80)
+main.Position = UDim2.new(0.5, -150, 0, -100)
+main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Instance.new("UICorner", main)
-local stroke = Instance.new("UIStroke", main)
-stroke.Color = Color3.fromRGB(0, 150, 255)
 
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "AGUARDANDO..."
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Text = "PRONTO PARA CAPTURAR"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
-title.Font = Enum.Font.GothamBold
 
 local btnContainer = Instance.new("Frame", main)
-btnContainer.Size = UDim2.new(1, 0, 0.4, 0)
-btnContainer.Position = UDim2.new(0, 0, 0.5, 0)
+btnContainer.Size = UDim2.new(1, 0, 0.5, 0)
+btnContainer.Position = UDim2.new(0, 0, 0.4, 0)
 btnContainer.BackgroundTransparency = 1
 local layout = Instance.new("UIListLayout", btnContainer)
 layout.FillDirection = Enum.FillDirection.Horizontal
 layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.Padding = UDim.new(0, 8)
+layout.Padding = UDim.new(0, 10)
 
 local function createBtn(text, color, cb)
     local b = Instance.new("TextButton", btnContainer)
-    b.Size = UDim2.new(0.22, 0, 0.9, 0)
+    b.Size = UDim2.new(0.4, 0, 0.8, 0)
     b.Text = text
     b.BackgroundColor3 = color
     b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold
     b.TextScaled = true
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(cb)
 end
 
--- [[ SALVAMENTO OTIMIZADO (ANTI-CRASH) ]] --
+-- [[ LÓGICA ANTI-LAG ]] --
 local function saveToClipboard()
     if not currentAnimID then return end
     
     task.spawn(function()
-        title.Text = "BAIXANDO SEQUÊNCIA..."
+        title.Text = "LENDO DADOS..."
         local success, seq = pcall(function() 
             return KeyframeSequenceProvider:GetKeyframeSequenceAsync("rbxassetid://"..currentAnimID) 
         end)
@@ -62,9 +57,11 @@ local function saveToClipboard()
         if success then
             local data = {Keyframes = {}}
             local keyframes = seq:GetKeyframes()
-            local total = #keyframes
             
             for i, kf in ipairs(keyframes) do
+                -- Pula frames desnecessários (Otimização de 50% no peso do arquivo)
+                if i % 2 == 0 then continue end 
+                
                 local ps = {}
                 local function scan(obj)
                     for _, v in ipairs(obj:GetChildren()) do
@@ -80,75 +77,57 @@ local function saveToClipboard()
                 scan(kf)
                 table.insert(data.Keyframes, {Time = kf.Time, Poses = ps})
                 
-                -- A cada 5 frames, ele pausa para não travar o celular
-                if i % 5 == 0 then
-                    title.Text = "PROCESSANDO: " .. math.floor((i/total)*100) .. "%"
-                    task.wait() 
+                -- Pausa forçada para o celular não fritar
+                if i % 3 == 0 then 
+                    title.Text = "LIMPANDO RAM: " .. i .. "/" .. #keyframes
+                    task.wait(0.05) 
                 end
             end
             
-            title.Text = "CONVERTENDO PARA TEXTO..."
-            task.wait()
+            title.Text = "GERANDO TEXTO..."
+            task.wait(0.1)
+            
             local json = HttpService:JSONEncode(data)
+            data = nil -- DESTRÓI A TABELA PARA LIBERAR RAM
             
             if setclipboard then
                 setclipboard(json)
-                title.Text = "COPIADO COM SUCESSO!"
+                json = nil -- DESTRÓI O TEXTO
+                title.Text = "SUCESSO! COPIADO."
                 task.wait(1)
                 isWaiting = false
-                main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+                main:TweenPosition(UDim2.new(0.5, -150, 0, -100), "In", "Quad", 0.3)
             end
-            
-            -- Limpa da memória
-            data = nil
-            json = nil
         else
-            title.Text = "ERRO: ID INVÁLIDO"
+            title.Text = "ERRO NO ID"
         end
     end)
 end
 
-createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
-    if currentAnimID then
-        if currentTrack then currentTrack:Stop() end
-        local a = Instance.new("Animation")
-        a.AnimationId = "rbxassetid://" .. currentAnimID
-        currentTrack = player.Character.Humanoid:LoadAnimation(a)
-        currentTrack:Play()
-    end
-end)
-
-createBtn("STOP", Color3.fromRGB(150, 0, 0), function()
-    if currentTrack then currentTrack:Stop() end
-end)
-
-createBtn("SAVE", Color3.fromRGB(0, 150, 0), saveToClipboard)
-
-createBtn("SKIP", Color3.fromRGB(150, 100, 0), function()
+createBtn("SALVAR", Color3.fromRGB(0, 120, 0), saveToClipboard)
+createBtn("PULAR", Color3.fromRGB(120, 0, 0), function()
     if currentAnimID then sessionSkip[currentAnimID] = true end
     isWaiting = false
-    main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+    main:TweenPosition(UDim2.new(0.5, -150, 0, -100), "In", "Quad", 0.3)
 end)
 
 -- [[ MONITOR ]] --
-local function setupMonitor(char)
+local function monitor(char)
     local hum = char:WaitForChild("Humanoid")
     hum.AnimationPlayed:Connect(function(track)
         if isWaiting then return end
         local id = track.Animation.AnimationId:match("%d+")
         if id and not sessionSkip[id] then
-            local n = track.Name:lower()
-            if n:find("walk") or n:find("idle") or n:find("run") then return end
+            if track.Name:lower():find("walk") or track.Name:lower():find("run") then return end
             
             isWaiting = true
             track.Stopped:Wait()
-            
             currentAnimID = id
-            title.Text = "ANIM: " .. id .. " | SALVAR?"
-            main:TweenPosition(UDim2.new(0.5, -190, 0, 20), "Out", "Back", 0.4)
+            title.Text = "ID: " .. id .. " (CAPTURADO)"
+            main:TweenPosition(UDim2.new(0.5, -150, 0, 20), "Out", "Back", 0.4)
         end
     end)
 end
 
-player.CharacterAdded:Connect(setupMonitor)
-setupMonitor(character)
+player.CharacterAdded:Connect(monitor)
+monitor(character)
