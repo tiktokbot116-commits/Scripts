@@ -1,114 +1,168 @@
 local HttpService = game:GetService("HttpService")
-local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local currentAnimID = nil
 local sessionSkip = {}
+local currentTrack = nil
 local isWaiting = false
 
--- [[ GUI COMPACTA ]] --
+-- Variáveis de Gravação
+local recording = false
+local buffer = {}
+local startTick = 0
+
+-- [[ INTERFACE ]] --
 local sg = Instance.new("ScreenGui", CoreGui)
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 300, 0, 70)
-main.Position = UDim2.new(0.5, -150, 0, 10)
-main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+main.Size = UDim2.new(0, 380, 0, 100)
+main.Position = UDim2.new(0.5, -190, 0, -120)
+main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Instance.new("UICorner", main)
+local stroke = Instance.new("UIStroke", main)
+stroke.Color = Color3.fromRGB(0, 150, 255)
 
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "AGUARDANDO..."
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Text = "AGUARDANDO ANIMAÇÃO..."
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
+title.Font = Enum.Font.GothamBold
 
-local btn = Instance.new("TextButton", main)
-btn.Size = UDim2.new(0.9, 0, 0.4, 0)
-btn.Position = UDim2.new(0.05, 0, 0.5, 0)
-btn.Text = "SALVAR (COMPACTO)"
-btn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
-btn.TextColor3 = Color3.new(1, 1, 1)
-btn.TextScaled = true
-Instance.new("UICorner", btn)
+local btnContainer = Instance.new("Frame", main)
+btnContainer.Size = UDim2.new(1, 0, 0.4, 0)
+btnContainer.Position = UDim2.new(0, 0, 0.5, 0)
+btnContainer.BackgroundTransparency = 1
+local layout = Instance.new("UIListLayout", btnContainer)
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.Padding = UDim.new(0, 8)
 
--- [[ LÓGICA DE COMPRESSÃO ]] --
-local function saveToClipboard()
-    if not currentAnimID then return end
-    btn.Visible = false
-    title.Text = "COMPRIMINDO..."
-    
-    task.spawn(function()
-        local success, seq = pcall(function() 
-            return KeyframeSequenceProvider:GetKeyframeSequenceAsync("rbxassetid://"..currentAnimID) 
-        end)
-        
-        if success then
-            local data = {Keyframes = {}}
-            local keyframes = seq:GetKeyframes()
-            
-            for i, kf in ipairs(keyframes) do
-                -- Redução de frames (Grava 1 a cada 3) - Essencial para 20s+
-                if i % 3 ~= 0 then continue end 
-                
-                local ps = {}
-                local function scan(obj)
-                    for _, v in ipairs(obj:GetChildren()) do
-                        if v:IsA("Pose") then 
-                            -- Arredonda os números para diminuir o texto
-                            local c = {v.CFrame:GetComponents()}
-                            for k, val in ipairs(c) do c[k] = math.floor(val * 1000) / 1000 end
-                            
-                            table.insert(ps, {
-                                Name = v.Name, 
-                                CFrame = c 
-                            }) 
-                            scan(v) 
-                        end
-                    end
-                end
-                scan(kf)
-                table.insert(data.Keyframes, {Time = math.floor(kf.Time * 100) / 100, Poses = ps})
-                
-                if i % 10 == 0 then task.wait() end
-            end
-            
-            -- JSONEncode sem espaços (Minificado)
-            local json = HttpService:JSONEncode(data)
-            
-            if setclipboard then
-                setclipboard(json)
-                title.Text = "COPIADO! TAMANHO REDUZIDO."
-                task.wait(2)
-                isWaiting = false
-                main:TweenPosition(UDim2.new(0.5, -150, 0, -100), "In", "Quad", 0.3)
-            end
-            json = nil
-            data = nil
-        end
-        btn.Visible = true
-    end)
+local function createBtn(text, color, cb)
+    local b = Instance.new("TextButton", btnContainer)
+    b.Size = UDim2.new(0.22, 0, 0.9, 0)
+    b.Text = text
+    b.BackgroundColor3 = color
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextScaled = true
+    Instance.new("UICorner", b)
+    b.MouseButton1Click:Connect(cb)
 end
 
-btn.MouseButton1Click:Connect(saveToClipboard)
+-- [[ LÓGICA DE CAPTURA DE FRAME (BUFFER) ]] --
+local function captureFrame()
+    if not recording or not character then return end
+    
+    local currentTime = tick() - startTick
+    local ps = {}
+    
+    -- Varre o personagem para pegar as transformações das juntas
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("Motor6D") and v.Part1 then
+            -- Converte CFrame para componentes numéricos para o seu UNPACK
+            local cf = {v.Transform:GetComponents()}
+            -- Encurta os números para economizar memória e evitar crash na cópia
+            for k, val in ipairs(cf) do cf[k] = math.floor(val * 1000) / 1000 end
+            
+            table.insert(ps, {
+                Name = v.Part1.Name, 
+                CFrame = cf          
+            })
+        end
+    end
+    
+    table.insert(buffer, {
+        Time = math.floor(currentTime * 100) / 100,
+        Poses = ps
+    })
+end
 
--- [[ MONITOR ]] --
-local function monitor(char)
+-- [[ BOTÕES FUNCIONAIS ]] --
+
+createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
+    if currentAnimID then
+        if currentTrack then currentTrack:Stop() end
+        local a = Instance.new("Animation")
+        a.AnimationId = "rbxassetid://" .. currentAnimID
+        currentTrack = player.Character.Humanoid:LoadAnimation(a)
+        currentTrack:Play()
+    end
+end)
+
+createBtn("STOP", Color3.fromRGB(150, 0, 0), function()
+    if currentTrack then currentTrack:Stop() end
+end)
+
+createBtn("SAVE", Color3.fromRGB(0, 150, 0), function()
+    if #buffer == 0 then title.Text = "NADA GRAVADO!" return end
+    
+    title.Text = "COMPRIMINDO JSON..."
+    task.wait(0.1)
+    
+    local data = {Keyframes = buffer}
+    local json = HttpService:JSONEncode(data)
+    
+    if setclipboard then
+        setclipboard(json)
+        title.Text = "COPIADO (ESTRUTURA OK)!"
+        task.wait(1)
+        isWaiting = false
+        main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+    end
+end)
+
+createBtn("SKIP", Color3.fromRGB(150, 100, 0), function()
+    if currentAnimID then sessionSkip[currentAnimID] = true end
+    isWaiting = false
+    buffer = {}
+    main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+end)
+
+-- [[ MONITORAMENTO E GRAVAÇÃO ]] --
+
+local function setupMonitor(char)
     local hum = char:WaitForChild("Humanoid")
+    
     hum.AnimationPlayed:Connect(function(track)
         if isWaiting then return end
         local id = track.Animation.AnimationId:match("%d+")
+        
         if id and not sessionSkip[id] then
-            if track.Name:lower():find("walk") then return end
-            isWaiting = true
-            track.Stopped:Wait()
+            local n = track.Name:lower()
+            if n:find("walk") or n:find("idle") or n:find("run") then return end
+            
+            -- Inicia a gravação em tempo real
             currentAnimID = id
-            title.Text = "ID: " .. id
-            main:TweenPosition(UDim2.new(0.5, -150, 0, 10), "Out", "Back", 0.4)
+            buffer = {}
+            startTick = tick()
+            recording = true
+            isWaiting = true
+            title.Text = "GRAVANDO: " .. id
+            
+            main:TweenPosition(UDim2.new(0.5, -190, 0, 20), "Out", "Back", 0.4)
+            
+            track.Stopped:Connect(function()
+                recording = false
+                title.Text = "ID: " .. id .. " | SALVAR?"
+            end)
         end
     end)
 end
 
-player.CharacterAdded:Connect(monitor)
-monitor(character)
+-- Loop de gravação (30 FPS para ser leve no G53)
+RunService.Heartbeat:Connect(function()
+    if recording then
+        captureFrame()
+    end
+end)
+
+player.CharacterAdded:Connect(function(c)
+    character = c
+    setupMonitor(c)
+end)
+setupMonitor(character)
