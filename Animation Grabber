@@ -22,7 +22,7 @@ stroke.Color = Color3.fromRGB(0, 150, 255)
 
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "MODO ULTRA-COMPRESS (ANTI-LIMIT)"
+title.Text = "ESTRUTURA ORIGINAL (12 NUM)"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
@@ -47,23 +47,20 @@ local function createBtn(text, color, cb)
     b.MouseButton1Click:Connect(cb)
 end
 
--- [[ LÓGICA DE COMPRESSÃO (7 COMPONENTES) ]] --
+-- [[ CAPTURA COM 12 COMPONENTES (IGUAL À FOTO) ]] --
 local function captureFrame()
     if not recording or not character then return end
     local ps = {}
     for _, v in ipairs(character:GetDescendants()) do
         if v:IsA("Motor6D") and v.Part1 then
-            -- Salva apenas X,Y,Z e Quaternion X,Y,Z,W (7 números em vez de 12)
-            local cf = v.Transform
-            local x,y,z = cf.X, cf.Y, cf.Z
-            local qx, qy, qz, qw = cf:ToQuaternion()
-            
-            local comp = {x,y,z,qx,qy,qz,qw}
-            for k, val in ipairs(comp) do comp[k] = math.floor(val * 100) / 100 end
+            -- Pega os 12 números originais para o seu unpack no PC
+            local cf = {v.Transform:GetComponents()}
+            -- Arredonda para 2 casas para o texto caber no Android
+            for k, val in ipairs(cf) do cf[k] = math.floor(val * 100) / 100 end
             
             table.insert(ps, {
-                Name = v.Part1.Name,
-                CFrame = comp 
+                Name = v.Part1.Name, 
+                CFrame = cf          
             })
         end
     end
@@ -91,8 +88,7 @@ end)
 createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
     if #buffer == 0 then return end
     replaying = true
-    title.Text = "▶️ REPLAY (FORÇADO)"
-    
+    title.Text = "▶️ REPLAY ATIVO"
     task.spawn(function()
         local start = tick()
         local idx = 1
@@ -102,14 +98,14 @@ createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
                 for _, p in ipairs(buffer[idx].Poses) do
                     for _, m in ipairs(character:GetDescendants()) do
                         if m:IsA("Motor6D") and m.Part1 and m.Part1.Name == p.Name then
-                            -- Reconstrói o CFrame a partir dos 7 componentes
-                            m.Transform = CFrame.new(p.CFrame[1], p.CFrame[2], p.CFrame[3]) * CFrame.fromQuaternion(p.CFrame[4], p.CFrame[5], p.CFrame[6], p.CFrame[7])
+                            -- Usa o unpack original
+                            m.Transform = CFrame.new(unpack(p.CFrame))
                         end
                     end
                 end
                 idx = idx + 1
             end
-            RunService.Stepped:Wait() -- Prioridade sobre animações do Roblox
+            RunService.Stepped:Wait()
         end
         replaying = false
         title.Text = "REPLAY FIM"
@@ -119,7 +115,7 @@ end)
 createBtn("SAVE", Color3.fromRGB(0, 150, 0), function()
     recording = false
     if #buffer == 0 then return end
-    title.Text = "COPIANDO (ECONOMIA ATIVA)..."
+    title.Text = "COPIANDO..."
     
     local data = { Keyframes = buffer }
     local json = HttpService:JSONEncode(data)
@@ -139,10 +135,10 @@ createBtn("STOP", Color3.fromRGB(150, 0, 0), function()
     title.Text = "LIMPO"
 end)
 
--- Loop de Gravação (15 FPS - Suficiente para movimentos e salva muito espaço)
+-- Loop de Gravação (12 FPS - Otimizado para Android/Clipboard)
 local lastCap = 0
 RunService.Heartbeat:Connect(function()
-    if recording and (tick() - lastCap) > (1/15) then
+    if recording and (tick() - lastCap) > (1/12) then
         lastCap = tick()
         captureFrame()
     end
