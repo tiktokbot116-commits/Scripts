@@ -22,11 +22,10 @@ stroke.Color = Color3.fromRGB(0, 150, 255)
 
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "PRONTO (REPLAY ATIVO)"
+title.Text = "MODO ULTRA-COMPRESS (ANTI-LIMIT)"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
-title.Font = Enum.Font.GothamBold
 
 local btnContainer = Instance.new("Frame", main)
 btnContainer.Size = UDim2.new(1, 0, 0.4, 0)
@@ -43,24 +42,28 @@ local function createBtn(text, color, cb)
     b.Text = text
     b.BackgroundColor3 = color
     b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold
     b.TextScaled = true
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(cb)
 end
 
--- [[ LÓGICA DE CAPTURA ]] --
+-- [[ LÓGICA DE COMPRESSÃO (7 COMPONENTES) ]] --
 local function captureFrame()
     if not recording or not character then return end
     local ps = {}
     for _, v in ipairs(character:GetDescendants()) do
         if v:IsA("Motor6D") and v.Part1 then
-            local cf = {v.Transform:GetComponents()}
-            -- Arredonda para 3 casas para o texto não ficar gigante
-            for k, val in ipairs(cf) do cf[k] = math.floor(val * 1000) / 1000 end
+            -- Salva apenas X,Y,Z e Quaternion X,Y,Z,W (7 números em vez de 12)
+            local cf = v.Transform
+            local x,y,z = cf.X, cf.Y, cf.Z
+            local qx, qy, qz, qw = cf:ToQuaternion()
+            
+            local comp = {x,y,z,qx,qy,qz,qw}
+            for k, val in ipairs(comp) do comp[k] = math.floor(val * 100) / 100 end
+            
             table.insert(ps, {
-                Name = v.Part1.Name, -- poseData.Name
-                CFrame = cf          -- poseData.CFrame
+                Name = v.Part1.Name,
+                CFrame = comp 
             })
         end
     end
@@ -81,50 +84,47 @@ createBtn("REC", Color3.fromRGB(200, 0, 0), function()
         title.Text = "🔴 GRAVANDO..."
     else
         recording = false
-        title.Text = "PARADO ("..#buffer.." frames)"
+        title.Text = "FIM: "..#buffer.." FRAMES"
     end
 end)
 
 createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
-    if #buffer == 0 then title.Text = "NADA GRAVADO!" return end
-    replaying = not replaying
-    if not replaying then title.Text = "REPLAY PARADO" return end
+    if #buffer == 0 then return end
+    replaying = true
+    title.Text = "▶️ REPLAY (FORÇADO)"
     
-    title.Text = "▶️ REPLAY DO BUFFER..."
     task.spawn(function()
-        local startTime = tick()
+        local start = tick()
         local idx = 1
         while replaying and idx <= #buffer do
-            local elapsed = tick() - startTime
+            local elapsed = tick() - start
             if elapsed >= buffer[idx].Time then
-                for _, pose in ipairs(buffer[idx].Poses) do
-                    -- Busca o Motor6D e força a Transform (Ignora Animações do Roblox)
+                for _, p in ipairs(buffer[idx].Poses) do
                     for _, m in ipairs(character:GetDescendants()) do
-                        if m:IsA("Motor6D") and m.Part1 and m.Part1.Name == pose.Name then
-                            m.Transform = CFrame.new(unpack(pose.CFrame))
+                        if m:IsA("Motor6D") and m.Part1 and m.Part1.Name == p.Name then
+                            -- Reconstrói o CFrame a partir dos 7 componentes
+                            m.Transform = CFrame.new(p.CFrame[1], p.CFrame[2], p.CFrame[3]) * CFrame.fromQuaternion(p.CFrame[4], p.CFrame[5], p.CFrame[6], p.CFrame[7])
                         end
                     end
                 end
                 idx = idx + 1
             end
-            RunService.Stepped:Wait()
+            RunService.Stepped:Wait() -- Prioridade sobre animações do Roblox
         end
         replaying = false
+        title.Text = "REPLAY FIM"
     end)
 end)
 
 createBtn("SAVE", Color3.fromRGB(0, 150, 0), function()
     recording = false
     if #buffer == 0 then return end
+    title.Text = "COPIANDO (ECONOMIA ATIVA)..."
     
-    title.Text = "COPIANDO JSON COMPLETO..."
-    task.wait(0.1)
-    
-    -- ESTRUTURA RÍGIDA: Garante que o final seja ]}]}]}
     local data = { Keyframes = buffer }
-    local success, json = pcall(function() return HttpService:JSONEncode(data) end)
+    local json = HttpService:JSONEncode(data)
     
-    if success and setclipboard then
+    if setclipboard then
         setclipboard(json)
         title.Text = "COPIADO! ]}]}]} OK"
         task.wait(1.5)
@@ -139,10 +139,10 @@ createBtn("STOP", Color3.fromRGB(150, 0, 0), function()
     title.Text = "LIMPO"
 end)
 
--- Loop de Gravação (20 FPS para evitar crash no G53)
+-- Loop de Gravação (15 FPS - Suficiente para movimentos e salva muito espaço)
 local lastCap = 0
 RunService.Heartbeat:Connect(function()
-    if recording and (tick() - lastCap) > (1/20) then
+    if recording and (tick() - lastCap) > (1/15) then
         lastCap = tick()
         captureFrame()
     end
