@@ -9,47 +9,37 @@ local currentAnimID = nil
 local sessionSkip = {}
 local isWaiting = false
 
--- [[ GUI SIMPLIFICADA ]] --
+-- [[ GUI COMPACTA ]] --
 local sg = Instance.new("ScreenGui", CoreGui)
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 300, 0, 80)
-main.Position = UDim2.new(0.5, -150, 0, -100)
+main.Size = UDim2.new(0, 300, 0, 70)
+main.Position = UDim2.new(0.5, -150, 0, 10)
 main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Instance.new("UICorner", main)
 
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "PRONTO PARA CAPTURAR"
+title.Text = "AGUARDANDO..."
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
 
-local btnContainer = Instance.new("Frame", main)
-btnContainer.Size = UDim2.new(1, 0, 0.5, 0)
-btnContainer.Position = UDim2.new(0, 0, 0.4, 0)
-btnContainer.BackgroundTransparency = 1
-local layout = Instance.new("UIListLayout", btnContainer)
-layout.FillDirection = Enum.FillDirection.Horizontal
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.Padding = UDim.new(0, 10)
+local btn = Instance.new("TextButton", main)
+btn.Size = UDim2.new(0.9, 0, 0.4, 0)
+btn.Position = UDim2.new(0.05, 0, 0.5, 0)
+btn.Text = "SALVAR (COMPACTO)"
+btn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.TextScaled = true
+Instance.new("UICorner", btn)
 
-local function createBtn(text, color, cb)
-    local b = Instance.new("TextButton", btnContainer)
-    b.Size = UDim2.new(0.4, 0, 0.8, 0)
-    b.Text = text
-    b.BackgroundColor3 = color
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.TextScaled = true
-    Instance.new("UICorner", b)
-    b.MouseButton1Click:Connect(cb)
-end
-
--- [[ LÓGICA ANTI-LAG ]] --
+-- [[ LÓGICA DE COMPRESSÃO ]] --
 local function saveToClipboard()
     if not currentAnimID then return end
+    btn.Visible = false
+    title.Text = "COMPRIMINDO..."
     
     task.spawn(function()
-        title.Text = "LENDO DADOS..."
         local success, seq = pcall(function() 
             return KeyframeSequenceProvider:GetKeyframeSequenceAsync("rbxassetid://"..currentAnimID) 
         end)
@@ -59,57 +49,49 @@ local function saveToClipboard()
             local keyframes = seq:GetKeyframes()
             
             for i, kf in ipairs(keyframes) do
-                -- Pula frames desnecessários (Otimização de 50% no peso do arquivo)
-                if i % 2 == 0 then continue end 
+                -- Redução de frames (Grava 1 a cada 3) - Essencial para 20s+
+                if i % 3 ~= 0 then continue end 
                 
                 local ps = {}
                 local function scan(obj)
                     for _, v in ipairs(obj:GetChildren()) do
                         if v:IsA("Pose") then 
+                            -- Arredonda os números para diminuir o texto
+                            local c = {v.CFrame:GetComponents()}
+                            for k, val in ipairs(c) do c[k] = math.floor(val * 1000) / 1000 end
+                            
                             table.insert(ps, {
                                 Name = v.Name, 
-                                CFrame = {v.CFrame:GetComponents()} 
+                                CFrame = c 
                             }) 
                             scan(v) 
                         end
                     end
                 end
                 scan(kf)
-                table.insert(data.Keyframes, {Time = kf.Time, Poses = ps})
+                table.insert(data.Keyframes, {Time = math.floor(kf.Time * 100) / 100, Poses = ps})
                 
-                -- Pausa forçada para o celular não fritar
-                if i % 3 == 0 then 
-                    title.Text = "LIMPANDO RAM: " .. i .. "/" .. #keyframes
-                    task.wait(0.05) 
-                end
+                if i % 10 == 0 then task.wait() end
             end
             
-            title.Text = "GERANDO TEXTO..."
-            task.wait(0.1)
-            
+            -- JSONEncode sem espaços (Minificado)
             local json = HttpService:JSONEncode(data)
-            data = nil -- DESTRÓI A TABELA PARA LIBERAR RAM
             
             if setclipboard then
                 setclipboard(json)
-                json = nil -- DESTRÓI O TEXTO
-                title.Text = "SUCESSO! COPIADO."
-                task.wait(1)
+                title.Text = "COPIADO! TAMANHO REDUZIDO."
+                task.wait(2)
                 isWaiting = false
                 main:TweenPosition(UDim2.new(0.5, -150, 0, -100), "In", "Quad", 0.3)
             end
-        else
-            title.Text = "ERRO NO ID"
+            json = nil
+            data = nil
         end
+        btn.Visible = true
     end)
 end
 
-createBtn("SALVAR", Color3.fromRGB(0, 120, 0), saveToClipboard)
-createBtn("PULAR", Color3.fromRGB(120, 0, 0), function()
-    if currentAnimID then sessionSkip[currentAnimID] = true end
-    isWaiting = false
-    main:TweenPosition(UDim2.new(0.5, -150, 0, -100), "In", "Quad", 0.3)
-end)
+btn.MouseButton1Click:Connect(saveToClipboard)
 
 -- [[ MONITOR ]] --
 local function monitor(char)
@@ -118,13 +100,12 @@ local function monitor(char)
         if isWaiting then return end
         local id = track.Animation.AnimationId:match("%d+")
         if id and not sessionSkip[id] then
-            if track.Name:lower():find("walk") or track.Name:lower():find("run") then return end
-            
+            if track.Name:lower():find("walk") then return end
             isWaiting = true
             track.Stopped:Wait()
             currentAnimID = id
-            title.Text = "ID: " .. id .. " (CAPTURADO)"
-            main:TweenPosition(UDim2.new(0.5, -150, 0, 20), "Out", "Back", 0.4)
+            title.Text = "ID: " .. id
+            main:TweenPosition(UDim2.new(0.5, -150, 0, 10), "Out", "Back", 0.4)
         end
     end)
 end
