@@ -5,21 +5,16 @@ local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local currentAnimID = nil
-local sessionSkip = {}
-local currentTrack = nil
-local isWaiting = false
-
--- Variáveis de Gravação
 local recording = false
+local replaying = false
 local buffer = {}
 local startTick = 0
 
 -- [[ INTERFACE ]] --
 local sg = Instance.new("ScreenGui", CoreGui)
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 380, 0, 100)
-main.Position = UDim2.new(0.5, -190, 0, -120)
+main.Size = UDim2.new(0, 400, 0, 110)
+main.Position = UDim2.new(0.5, -200, 0, 20)
 main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Instance.new("UICorner", main)
 local stroke = Instance.new("UIStroke", main)
@@ -27,7 +22,7 @@ stroke.Color = Color3.fromRGB(0, 150, 255)
 
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "AGUARDANDO ANIMAÇÃO..."
+title.Text = "PRONTO (GRAVA AO VIVO)"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
@@ -40,11 +35,11 @@ btnContainer.BackgroundTransparency = 1
 local layout = Instance.new("UIListLayout", btnContainer)
 layout.FillDirection = Enum.FillDirection.Horizontal
 layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.Padding = UDim.new(0, 8)
+layout.Padding = UDim.new(0, 5)
 
 local function createBtn(text, color, cb)
     local b = Instance.new("TextButton", btnContainer)
-    b.Size = UDim2.new(0.22, 0, 0.9, 0)
+    b.Size = UDim2.new(0.23, 0, 0.9, 0)
     b.Text = text
     b.BackgroundColor3 = color
     b.TextColor3 = Color3.new(1, 1, 1)
@@ -52,117 +47,111 @@ local function createBtn(text, color, cb)
     b.TextScaled = true
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(cb)
+    return b
 end
 
--- [[ LÓGICA DE CAPTURA DE FRAME (BUFFER) ]] --
+-- [[ CAPTURA ]] --
 local function captureFrame()
     if not recording or not character then return end
-    
-    local currentTime = tick() - startTick
     local ps = {}
-    
-    -- Varre o personagem para pegar as transformações das juntas
     for _, v in ipairs(character:GetDescendants()) do
         if v:IsA("Motor6D") and v.Part1 then
-            -- Converte CFrame para componentes numéricos para o seu UNPACK
             local cf = {v.Transform:GetComponents()}
-            -- Encurta os números para economizar memória e evitar crash na cópia
             for k, val in ipairs(cf) do cf[k] = math.floor(val * 1000) / 1000 end
-            
             table.insert(ps, {
-                Name = v.Part1.Name, 
-                CFrame = cf          
+                Name = v.Part1.Name,
+                CFrame = cf
             })
         end
     end
-    
     table.insert(buffer, {
-        Time = math.floor(currentTime * 100) / 100,
+        Time = math.floor((tick() - startTick) * 100) / 100,
         Poses = ps
     })
 end
 
--- [[ BOTÕES FUNCIONAIS ]] --
+-- [[ BOTÕES ]] --
 
-createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
-    if currentAnimID then
-        if currentTrack then currentTrack:Stop() end
-        local a = Instance.new("Animation")
-        a.AnimationId = "rbxassetid://" .. currentAnimID
-        currentTrack = player.Character.Humanoid:LoadAnimation(a)
-        currentTrack:Play()
+createBtn("REC", Color3.fromRGB(200, 0, 0), function()
+    if not recording then
+        buffer = {}
+        startTick = tick()
+        recording = true
+        replaying = false
+        title.Text = "🔴 GRAVANDO..."
+    else
+        recording = false
+        title.Text = "PARADO ("..#buffer.." frames)"
     end
 end)
 
-createBtn("STOP", Color3.fromRGB(150, 0, 0), function()
-    if currentTrack then currentTrack:Stop() end
+-- PLAY (REPLAY DO BUFFER)
+createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
+    if #buffer == 0 then title.Text = "NADA GRAVADO!" return end
+    if replaying then replaying = false task.wait(0.1) end
+    
+    replaying = true
+    title.Text = "▶️ REPRODUZINDO REPLAY..."
+    
+    task.spawn(function()
+        local startTime = tick()
+        local currentIndex = 1
+        
+        -- O segredo é usar o Stepped para o replay não ser cancelado pelo Idle do Roblox
+        while replaying and currentIndex <= #buffer do
+            local elapsed = tick() - startTime
+            local kf = buffer[currentIndex]
+            
+            if elapsed >= kf.Time then
+                for _, pose in ipairs(kf.Poses) do
+                    -- Procura a junta no personagem de forma eficiente
+                    for _, m in ipairs(character:GetDescendants()) do
+                        if m:IsA("Motor6D") and m.Part1 and m.Part1.Name == pose.Name then
+                            m.Transform = CFrame.new(unpack(pose.CFrame))
+                        end
+                    end
+                end
+                currentIndex = currentIndex + 1
+            end
+            RunService.Stepped:Wait()
+        end
+        replaying = false
+        title.Text = "REPLAY FINALIZADO"
+    end)
 end)
 
 createBtn("SAVE", Color3.fromRGB(0, 150, 0), function()
-    if #buffer == 0 then title.Text = "NADA GRAVADO!" return end
+    recording = false
+    replaying = false
+    if #buffer == 0 then return end
     
-    title.Text = "COMPRIMINDO JSON..."
-    task.wait(0.1)
-    
-    local data = {Keyframes = buffer}
+    title.Text = "FECHANDO JSON..."
+    local data = { Keyframes = buffer }
     local json = HttpService:JSONEncode(data)
     
     if setclipboard then
         setclipboard(json)
-        title.Text = "COPIADO (ESTRUTURA OK)!"
-        task.wait(1)
-        isWaiting = false
-        main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+        -- O JSONEncode garante o final ]}]}]} se a tabela estiver correta
+        title.Text = "COPIADO! ]}]}]} OK"
+        task.wait(1.5)
+        title.Text = "PRONTO"
     end
 end)
 
-createBtn("SKIP", Color3.fromRGB(150, 100, 0), function()
-    if currentAnimID then sessionSkip[currentAnimID] = true end
-    isWaiting = false
+createBtn("STOP", Color3.fromRGB(150, 0, 0), function()
+    recording = false
+    replaying = false
     buffer = {}
-    main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+    title.Text = "RESETADO"
 end)
 
--- [[ MONITORAMENTO E GRAVAÇÃO ]] --
-
-local function setupMonitor(char)
-    local hum = char:WaitForChild("Humanoid")
-    
-    hum.AnimationPlayed:Connect(function(track)
-        if isWaiting then return end
-        local id = track.Animation.AnimationId:match("%d+")
-        
-        if id and not sessionSkip[id] then
-            local n = track.Name:lower()
-            if n:find("walk") or n:find("idle") or n:find("run") then return end
-            
-            -- Inicia a gravação em tempo real
-            currentAnimID = id
-            buffer = {}
-            startTick = tick()
-            recording = true
-            isWaiting = true
-            title.Text = "GRAVANDO: " .. id
-            
-            main:TweenPosition(UDim2.new(0.5, -190, 0, 20), "Out", "Back", 0.4)
-            
-            track.Stopped:Connect(function()
-                recording = false
-                title.Text = "ID: " .. id .. " | SALVAR?"
-            end)
-        end
-    end)
-end
-
--- Loop de gravação (30 FPS para ser leve no G53)
+-- Loop de Gravação (24 FPS)
+local lastCap = 0
 RunService.Heartbeat:Connect(function()
-    if recording then
+    if recording and (tick() - lastCap) > (1/24) then
+        lastCap = tick()
         captureFrame()
     end
 end)
 
-player.CharacterAdded:Connect(function(c)
-    character = c
-    setupMonitor(c)
-end)
-setupMonitor(character)
+player.CharacterAdded:Connect(function(c) character = c end)
