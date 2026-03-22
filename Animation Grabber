@@ -10,7 +10,7 @@ local sessionSkip = {}
 local currentTrack = nil
 local isWaiting = false
 
--- [[ INTERFACE ]] --
+-- [[ GUI ]] --
 local sg = Instance.new("ScreenGui", CoreGui)
 local main = Instance.new("Frame", sg)
 main.Size = UDim2.new(0, 380, 0, 100)
@@ -22,7 +22,7 @@ stroke.Color = Color3.fromRGB(0, 150, 255)
 
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "AGUARDANDO ANIMAÇÃO..."
+title.Text = "AGUARDANDO..."
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
@@ -49,47 +49,63 @@ local function createBtn(text, color, cb)
     b.MouseButton1Click:Connect(cb)
 end
 
--- [[ LÓGICA DE SALVAMENTO PARA O SEU UNPACK ]] --
+-- [[ SALVAMENTO OTIMIZADO (ANTI-CRASH) ]] --
 local function saveToClipboard()
     if not currentAnimID then return end
-    title.Text = "LENDO COMPONENTES..."
     
-    local success, seq = pcall(function() 
-        return KeyframeSequenceProvider:GetKeyframeSequenceAsync("rbxassetid://"..currentAnimID) 
-    end)
-    
-    if success then
-        local data = {Keyframes = {}}
-        for _, kf in ipairs(seq:GetKeyframes()) do
-            local ps = {}
-            local function scan(obj)
-                for _, v in ipairs(obj:GetChildren()) do
-                    if v:IsA("Pose") then 
-                        -- IMPORTANTE: Transforma CFrame em uma lista de números para o UNPACK da sua foto
-                        local cf = v.CFrame
-                        local components = {cf:GetComponents()}
-                        
-                        table.insert(ps, {
-                            Name = v.Name, -- Sua foto usa poseData.Name
-                            CFrame = components 
-                        }) 
-                        scan(v) 
+    task.spawn(function()
+        title.Text = "BAIXANDO SEQUÊNCIA..."
+        local success, seq = pcall(function() 
+            return KeyframeSequenceProvider:GetKeyframeSequenceAsync("rbxassetid://"..currentAnimID) 
+        end)
+        
+        if success then
+            local data = {Keyframes = {}}
+            local keyframes = seq:GetKeyframes()
+            local total = #keyframes
+            
+            for i, kf in ipairs(keyframes) do
+                local ps = {}
+                local function scan(obj)
+                    for _, v in ipairs(obj:GetChildren()) do
+                        if v:IsA("Pose") then 
+                            table.insert(ps, {
+                                Name = v.Name, 
+                                CFrame = {v.CFrame:GetComponents()} 
+                            }) 
+                            scan(v) 
+                        end
                     end
                 end
+                scan(kf)
+                table.insert(data.Keyframes, {Time = kf.Time, Poses = ps})
+                
+                -- A cada 5 frames, ele pausa para não travar o celular
+                if i % 5 == 0 then
+                    title.Text = "PROCESSANDO: " .. math.floor((i/total)*100) .. "%"
+                    task.wait() 
+                end
             end
-            scan(kf)
-            table.insert(data.Keyframes, {Time = kf.Time, Poses = ps})
+            
+            title.Text = "CONVERTENDO PARA TEXTO..."
+            task.wait()
+            local json = HttpService:JSONEncode(data)
+            
+            if setclipboard then
+                setclipboard(json)
+                title.Text = "COPIADO COM SUCESSO!"
+                task.wait(1)
+                isWaiting = false
+                main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+            end
+            
+            -- Limpa da memória
+            data = nil
+            json = nil
+        else
+            title.Text = "ERRO: ID INVÁLIDO"
         end
-        
-        local json = HttpService:JSONEncode(data)
-        if setclipboard then
-            setclipboard(json)
-            title.Text = "COPIADO PARA O IMPORTADOR!"
-            task.wait(1)
-            isWaiting = false
-            main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
-        end
-    end
+    end)
 end
 
 createBtn("PLAY", Color3.fromRGB(0, 100, 200), function()
@@ -128,7 +144,7 @@ local function setupMonitor(char)
             track.Stopped:Wait()
             
             currentAnimID = id
-            title.Text = "ID: " .. id .. " | SALVAR?"
+            title.Text = "ANIM: " .. id .. " | SALVAR?"
             main:TweenPosition(UDim2.new(0.5, -190, 0, 20), "Out", "Back", 0.4)
         end
     end)
