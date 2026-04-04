@@ -1,0 +1,154 @@
+--[[ 
+    ACE MINI v5.0 - HYPER-FAST PARALLEL ROLLS
+    ESTILO AAA MINIMALISTA
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local Player = Players.LocalPlayer
+local FolderAuras = Player:WaitForChild("OwnedAuras")
+local FolderCodes = Player:WaitForChild("Codes")
+
+-- Remotes
+local CoreEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("RemoteEvents"):WaitForChild("CoreEvent")
+local RollRemote = ReplicatedStorage:WaitForChild("Events"):WaitForChild("RemoteEvents"):WaitForChild("RollRemote")
+
+-- Gui Principal
+local ScreenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
+ScreenGui.Name = "AceHyper_V5"
+ScreenGui.ResetOnSpawn = false
+
+-- JANELA
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 200, 0, 300)
+Main.Position = UDim2.new(0.5, -100, 0.5, -150)
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+Main.BorderSizePixel = 0
+Main.Visible = false
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 6)
+local Stroke = Instance.new("UIStroke", Main)
+Stroke.Color = Color3.fromRGB(0, 170, 255)
+Stroke.Thickness = 1
+
+-- SCROLL
+local Scroll = Instance.new("ScrollingFrame", Main)
+Scroll.Size = UDim2.new(1, -10, 1, -10)
+Scroll.Position = UDim2.new(0, 5, 0, 5)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 0
+
+local Layout = Instance.new("UIListLayout", Scroll)
+Layout.Padding = UDim.new(0, 5)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- FUNÇÃO INPUT (DESIGN AAA)
+local function AddInput(label, placeholder, func)
+    local L = Instance.new("TextLabel", Scroll)
+    L.Size = UDim2.new(0.9, 0, 0, 15)
+    L.Text = label
+    L.TextColor3 = Color3.fromRGB(100, 100, 100)
+    L.Font = Enum.Font.GothamBold
+    L.TextSize = 8
+    L.BackgroundTransparency = 1
+
+    local I = Instance.new("TextBox", Scroll)
+    I.Size = UDim2.new(0.9, 0, 0, 25)
+    I.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    I.PlaceholderText = placeholder
+    I.Text = ""
+    I.TextColor3 = Color3.fromRGB(255, 255, 255)
+    I.Font = Enum.Font.Gotham
+    I.TextSize = 10
+    Instance.new("UICorner", I).CornerRadius = UDim.new(0, 4)
+    
+    I.FocusLost:Connect(function(e) if e then func(I.Text) end end)
+end
+
+local function AddBtn(text, color, func)
+    local B = Instance.new("TextButton", Scroll)
+    B.Size = UDim2.new(0.9, 0, 0, 25)
+    B.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    B.Text = text
+    B.TextColor3 = color
+    B.Font = Enum.Font.GothamBold
+    B.TextSize = 9
+    Instance.new("UICorner", B).CornerRadius = UDim.new(0, 4)
+    B.MouseButton1Click:Connect(func)
+end
+
+-- --- COMANDOS ---
+
+-- MULTI-ROLL AUTOMÁTICO EM PARALELO (SIMULTÂNEO)
+AddInput("HYPER ROLL (SIMULTÂNEO)", "Qtd de Rolls...", function(val)
+    local amt = tonumber(val)
+    if amt then
+        for i = 1, amt do
+            -- task.spawn cria uma "thread" separada para cada roll
+            -- Assim eles rodam "ao mesmo tempo" sem um esperar o outro acabar
+            task.spawn(function()
+                RollRemote:FireServer({["Action"] = "AddRoll"})
+                -- O delay de 0.07s acontece dentro de cada thread individual
+                task.wait(0.07) 
+            end)
+        end
+        print("Disparado " .. amt .. " rolls simultaneamente!")
+    end
+end)
+
+AddBtn("REDEEM ALL AURAS", Color3.fromRGB(255, 80, 80), function()
+    for _, o in pairs(FolderAuras:GetChildren()) do
+        task.spawn(function()
+            RollRemote:FireServer({["Action"]="GetAura",["Rarity"]="Rare",["Aura"]=o.Name})
+        end)
+    end
+end)
+
+AddBtn("REDEEM ALL CODES", Color3.fromRGB(80, 255, 150), function()
+    for _, o in pairs(FolderCodes:GetChildren()) do
+        task.spawn(function()
+            CoreEvent:FireServer("UseCode", o.Name)
+        end)
+    end
+end)
+
+AddInput("SET LUCK", "Valor...", function(t) 
+    if tonumber(t) then Player.Data.Luck.Value = tonumber(t) end 
+end)
+
+AddBtn("MADE IN HEAVEN (TROLL)", Color3.fromRGB(180, 100, 255), function()
+    CoreEvent:FireServer("AuraFarm", {
+        ["MoneyPerSecond"] = 1e14,
+        ["Ability"] = {["Color"]=Color3.new(1,1,1),["IsSpecial"]=true,["Name"]="MADE IN HEAVEN",["Cooldown"]=0},
+        ["Description"] = "RESTART", ["DisplayName"] = "MADE IN HEAVEN"
+    }, "MADE IN HEAVEN")
+end)
+
+-- BOTÃO TOGGLE
+local T = Instance.new("TextButton", ScreenGui)
+T.Size = UDim2.new(0, 30, 0, 30)
+T.Position = UDim2.new(0, 5, 0.5, -15)
+T.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+T.Text = "ACE"
+T.TextColor3 = Color3.fromRGB(0, 170, 255)
+T.Font = Enum.Font.GothamBold
+T.TextSize = 8
+Instance.new("UICorner", T).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", T).Color = Color3.fromRGB(0, 170, 255)
+
+T.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
+
+-- Arrastar
+local d, ds, sp
+Main.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d=true ds=i.Position sp=Main.Position end end)
+UserInputService.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement and d then
+    local del = i.Position - ds Main.Position = UDim2.new(sp.X.Scale, sp.X.Offset+del.X, sp.Y.Scale, sp.Y.Offset+del.Y)
+end end)
+Main.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d=false end end)
+
+Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
+
