@@ -1,233 +1,227 @@
 --[[ 
-    ACE MINI v5.0 - HYPER-FAST PARALLEL ROLLS + MARKET/CRAFT
-    ESTILO AAA MINIMALISTA
+    ACE HUB V11.0 - UNIFIED ITENS SYSTEM
+    MARKET + CRAFT SIMULTÂNEO (DROPDOWN REAL)
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- Remotes e Pastas
+local RemoteEvents = ReplicatedStorage:WaitForChild("Events"):WaitForChild("RemoteEvents")
+local CoreEvent = RemoteEvents:WaitForChild("CoreEvent")
+local RollRemote = RemoteEvents:WaitForChild("RollRemote")
+local FolderItens = Player:WaitForChild("Itens")
 local FolderAuras = Player:WaitForChild("OwnedAuras")
 local FolderCodes = Player:WaitForChild("Codes")
-local FolderItens = Player:WaitForChild("Itens")
 
--- Remotes
-local CoreEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("RemoteEvents"):WaitForChild("CoreEvent")
-local RollRemote = ReplicatedStorage:WaitForChild("Events"):WaitForChild("RemoteEvents"):RollRemote
+-- Variáveis de Controle
+local SelectedItem = "All"
+local ExecutionAmount = 1
 
--- Variáveis de Estado
-local SelectedMarketItem = "All"
-local SelectedCraftItem = "All"
-local MarketAmount = 1
-local CraftAmount = 1
+-- Limpeza de Versões Antigas
+if PlayerGui:FindFirstChild("AceHub_V11") then PlayerGui.AceHub_V11:Destroy() end
 
--- Gui Principal
-local ScreenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
-ScreenGui.Name = "AceHyper_V5"
+local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+ScreenGui.Name = "AceHub_V11"
 ScreenGui.ResetOnSpawn = false
 
--- JANELA
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 220, 0, 400)
-Main.Position = UDim2.new(0.5, -110, 0.5, -200)
+Main.Size = UDim2.new(0, 500, 0, 380)
+Main.Position = UDim2.new(0.5, -250, 0.5, -190)
 Main.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
 Main.BorderSizePixel = 0
-Main.Visible = false
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 local Stroke = Instance.new("UIStroke", Main)
 Stroke.Color = Color3.fromRGB(0, 170, 255)
-Stroke.Thickness = 1
+Stroke.Thickness = 2
 
--- SCROLL
-local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Size = UDim2.new(1, -10, 1, -10)
-Scroll.Position = UDim2.new(0, 5, 0, 5)
-Scroll.BackgroundTransparency = 1
-Scroll.BorderSizePixel = 0
-Scroll.ScrollBarThickness = 2
-Scroll.ScrollBarImageColor3 = Color3.fromRGB(0, 170, 255)
+-- ABAS (SIMPLIFICADAS)
+local TabHolder = Instance.new("Frame", Main)
+TabHolder.Size = UDim2.new(1, 0, 0, 45)
+TabHolder.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+TabHolder.BorderSizePixel = 0
 
-local Layout = Instance.new("UIListLayout", Scroll)
-Layout.Padding = UDim.new(0, 5)
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local TabLayout = Instance.new("UIListLayout", TabHolder)
+TabLayout.FillDirection = "Horizontal"
+TabLayout.HorizontalAlignment = "Center"
+TabLayout.VerticalAlignment = "Center"
+TabLayout.Padding = UDim.new(0, 20)
 
--- --- COMPONENTES ---
+local Pages = Instance.new("Frame", Main)
+Pages.Size = UDim2.new(1, -20, 1, -75)
+Pages.Position = UDim2.new(0, 10, 0, 60)
+Pages.BackgroundTransparency = 1
 
-local function AddLabel(text)
-    local L = Instance.new("TextLabel", Scroll)
-    L.Size = UDim2.new(0.9, 0, 0, 20)
-    L.Text = text:upper()
-    L.TextColor3 = Color3.fromRGB(0, 170, 255)
-    L.Font = Enum.Font.GothamBold
-    L.TextSize = 9
-    L.BackgroundTransparency = 1
+local function CreatePage(name)
+    local Page = Instance.new("ScrollingFrame", Pages)
+    Page.Name = name
+    Page.Size = UDim2.new(1, 0, 1, 0)
+    Page.BackgroundTransparency = 1
+    Page.Visible = false
+    Page.ScrollBarThickness = 2
+    local L = Instance.new("UIListLayout", Page)
+    L.Padding = UDim.new(0, 10)
+    L.HorizontalAlignment = "Center"
+    return Page
 end
 
-local function AddInput(label, placeholder, func)
-    local L = Instance.new("TextLabel", Scroll)
-    L.Size = UDim2.new(0.9, 0, 0, 12)
-    L.Text = label
-    L.TextColor3 = Color3.fromRGB(100, 100, 100)
-    L.Font = Enum.Font.GothamBold
-    L.TextSize = 7
-    L.BackgroundTransparency = 1
+local MainPage = CreatePage("Main")
+local ItensPage = CreatePage("Itens")
 
-    local I = Instance.new("TextBox", Scroll)
-    I.Size = UDim2.new(0.9, 0, 0, 22)
-    I.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    I.PlaceholderText = placeholder
-    I.Text = ""
-    I.TextColor3 = Color3.fromRGB(255, 255, 255)
-    I.Font = Enum.Font.Gotham
-    I.TextSize = 10
-    Instance.new("UICorner", I).CornerRadius = UDim.new(0, 4)
-    I.FocusLost:Connect(function(e) if e then func(I.Text) end end)
-    return I
+local function ShowPage(name)
+    for _, p in pairs(Pages:GetChildren()) do p.Visible = (p.Name == name) end
 end
 
-local function AddBtn(text, color, func)
-    local B = Instance.new("TextButton", Scroll)
-    B.Size = UDim2.new(0.9, 0, 0, 25)
+local function AddTab(name)
+    local B = Instance.new("TextButton", TabHolder)
+    B.Size = UDim2.new(0, 120, 0, 30)
     B.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    B.Text = text
-    B.TextColor3 = color
-    B.Font = Enum.Font.GothamBold
-    B.TextSize = 9
-    Instance.new("UICorner", B).CornerRadius = UDim.new(0, 4)
-    B.MouseButton1Click:Connect(func)
-    return B
+    B.Text = name:upper()
+    B.TextColor3 = Color3.new(1,1,1)
+    B.Font = "GothamBold"
+    Instance.new("UICorner", B)
+    B.MouseButton1Click:Connect(function() ShowPage(name) end)
 end
 
--- --- LÓGICA DE NEGÓCIO ---
+AddTab("Main"); AddTab("Itens")
+ShowPage("Main")
 
-local function FireMarket(itemName)
-    for i = 1, MarketAmount do
+-- --- LÓGICA UNIFICADA (MARKET + CRAFT) ---
+local function ExecuteUnified(name, amount)
+    for i = 1, amount do
         task.spawn(function()
-            local args = {
-                [1] = "Market",
-                [2] = {
-                    ["DisplayName"] = itemName,
-                    ["Name"] = itemName,
-                    ["Rarity"] = "Mythic",
-                    ["Price"] = 0,
-                    ["Ingredients"] = {["Auras"] = {}, ["Itens"] = {["LuckPotionFifteen"] = 0, ["LuckPotionFiveMinutes"] = 0, ["LuckPotionThirty"] = 0}},
-                    ["Data"] = {
-                        ["Type"] = "Iten", ["Name"] = itemName, ["Percentual"] = 1, ["RarityName"] = "Mythic",
-                        ["Data"] = {["CannotUse"] = false, ["Description"] = "???", ["DisplayName"] = itemName},
-                        ["CoreData"] = {["Color"] = Color3.new(1,1,1), ["Itens"] = {[itemName] = {}}, ["Percent"] = 1, ["Weight"] = 5}
-                    },
-                    ["Rank"] = 5
-                },
-                [3] = itemName
-            }
-            args[2].Data.CoreData.Itens[itemName] = args[2].Data.Data
-            CoreEvent:FireServer(unpack(args))
+            -- Código do Market
+            local marketArgs = {[1]="Market",[2]={["DisplayName"]=name,["Name"]=name,["Rarity"]="Mythic",["Price"]=0,["Ingredients"]={["Auras"]={},["Itens"]={["LuckPotionFifteen"]=0}},["Data"]={["Type"]="Iten",["Name"]=name,["RarityName"]="Mythic",["Data"]={["DisplayName"]=name},["CoreData"]={["Itens"]={[name]={}},["Percent"]=1}},["Rank"]=5},[3]=name}
+            CoreEvent:FireServer(unpack(marketArgs))
+            
+            -- Código do Craft (Dispara junto)
+            local craftArgs = {[1]="Craft",[2]={["Price"]=0,["Ingredient"]={["Itens"]={},["Auras"]={["Worm"]=0}},["Rolls"]=0},[3]=1, [4]=name}
+            CoreEvent:FireServer(unpack(craftArgs))
         end)
     end
 end
 
-local function FireCraft(itemName)
-    task.spawn(function()
-        local args = {
-            [1] = "Craft",
-            [2] = {
-                ["Price"] = 0,
-                ["Ingredient"] = {
-                    ["Itens"] = {},
-                    ["Auras"] = {["Worm"] = 0, ["Worm"] = 0, ["Worm"] = 0, ["Worm"] = 0, ["Worm"] = 0}
-                },
-                ["EquippedAura"] = "", ["Rolls"] = 0
-            },
-            [3] = CraftAmount,
-            [4] = itemName
-        }
-        CoreEvent:FireServer(unpack(args))
+-- --- DROPDOWN REAL ---
+local function CreateItemDropdown(parent, callback)
+    local IsOpen = false
+    local Drop = Instance.new("Frame", parent)
+    Drop.Size = UDim2.new(0.9, 0, 0, 40)
+    Drop.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    Instance.new("UICorner", Drop)
+
+    local Display = Instance.new("TextButton", Drop)
+    Display.Size = UDim2.new(1, 0, 1, 0)
+    Display.BackgroundTransparency = 1
+    Display.Text = "SELECIONAR ITEM: All"
+    Display.TextColor3 = Color3.fromRGB(0, 170, 255)
+    Display.Font = "GothamBold"
+
+    local List = Instance.new("ScrollingFrame", Drop)
+    List.Size = UDim2.new(1, 0, 0, 150)
+    List.Position = UDim2.new(0, 0, 1, 5)
+    List.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+    List.Visible = false
+    List.ZIndex = 10
+    Instance.new("UIListLayout", List)
+    Instance.new("UICorner", List)
+
+    local function Populate()
+        for _, c in pairs(List:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        local options = {"All"}
+        for _, v in pairs(FolderItens:GetChildren()) do table.insert(options, v.Name) end
+        for _, opt in pairs(options) do
+            local b = Instance.new("TextButton", List)
+            b.Size = UDim2.new(1, 0, 0, 30)
+            b.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+            b.Text = opt
+            b.TextColor3 = Color3.new(1,1,1)
+            b.ZIndex = 11
+            b.MouseButton1Click:Connect(function()
+                SelectedItem = opt
+                Display.Text = "ITEM: " .. opt
+                List.Visible = false
+                IsOpen = false
+                callback(opt)
+            end)
+        end
+        List.CanvasSize = UDim2.new(0,0,0, #options * 30)
+    end
+
+    Display.MouseButton1Click:Connect(function()
+        IsOpen = not IsOpen
+        if IsOpen then Populate() end
+        List.Visible = IsOpen
     end)
 end
 
--- --- CONSTRUÇÃO DA UI ---
+-- --- COMPONENTES ---
+local function CreateInput(parent, label, callback)
+    local I = Instance.new("TextBox", parent)
+    I.Size = UDim2.new(0.9, 0, 0, 35)
+    I.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    I.PlaceholderText = label
+    I.Text = ""
+    I.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", I)
+    I.FocusLost:Connect(function() callback(I.Text) end)
+end
 
-AddLabel("Main Rolls")
-AddInput("HYPER ROLL", "Qtd...", function(val)
-    local amt = tonumber(val)
-    if amt then
-        for i = 1, amt do
-            task.spawn(function() RollRemote:FireServer({["Action"] = "AddRoll"}) end)
-        end
-    end
+local function CreateBtn(parent, text, color, callback)
+    local B = Instance.new("TextButton", parent)
+    B.Size = UDim2.new(0.9, 0, 0, 40)
+    B.BackgroundColor3 = color
+    B.Text = text:upper()
+    B.TextColor3 = Color3.new(1,1,1)
+    B.Font = "GothamBold"
+    Instance.new("UICorner", B)
+    B.MouseButton1Click:Connect(callback)
+end
+
+-- ABA MAIN
+CreateInput(MainPage, "QUANTIDADE DE ROLLS", function(t)
+    local amt = tonumber(t)
+    if amt then for i=1, amt do task.spawn(function() RollRemote:FireServer({["Action"] = "AddRoll"}) end) end end
+end)
+CreateBtn(MainPage, "Redeem All Codes", Color3.fromRGB(0, 150, 255), function()
+    for _, c in pairs(FolderCodes:GetChildren()) do CoreEvent:FireServer("UseCode", c.Name) end
+end)
+CreateBtn(MainPage, "Redeem All Auras", Color3.fromRGB(200, 50, 50), function()
+    for _, o in pairs(FolderAuras:GetChildren()) do RollRemote:FireServer({["Action"]="GetAura",["Aura"]=o.Name}) end
 end)
 
---- MARKET SECTION ---
-AddLabel("Market System")
-AddInput("MARKET ITEM (NOME)", "Item name ou All...", function(val) SelectedMarketItem = val end)
-AddInput("MARKET QTD", "Quantidade...", function(val) MarketAmount = tonumber(val) or 1 end)
-AddBtn("EXECUTE MARKET", Color3.fromRGB(0, 255, 150), function()
-    if SelectedMarketItem:lower() == "all" then
-        for _, item in pairs(FolderItens:GetChildren()) do FireMarket(item.Name) end
+-- ABA ITENS (UNIFICADA)
+CreateItemDropdown(ItensPage, function(val) SelectedItem = val end)
+CreateInput(ItensPage, "QUANTIDADE PARA EXECUTAR", function(t) ExecutionAmount = tonumber(t) or 1 end)
+CreateBtn(ItensPage, "EXECUTAR (MARKET + CRAFT)", Color3.fromRGB(0, 180, 120), function()
+    if SelectedItem == "All" then
+        for _, v in pairs(FolderItens:GetChildren()) do ExecuteUnified(v.Name, ExecutionAmount) end
     else
-        FireMarket(SelectedMarketItem)
+        ExecuteUnified(SelectedItem, ExecutionAmount)
     end
 end)
 
---- CRAFT SECTION ---
-AddLabel("Craft System")
-AddInput("CRAFT ITEM (NOME)", "Item name ou All...", function(val) SelectedCraftItem = val end)
-AddInput("CRAFT QTD (VALOR)", "Quantidade...", function(val) CraftAmount = tonumber(val) or 1 end)
-AddBtn("EXECUTE CRAFT", Color3.fromRGB(255, 200, 0), function()
-    if SelectedCraftItem:lower() == "all" then
-        for _, item in pairs(FolderItens:GetChildren()) do FireCraft(item.Name) end
-    else
-        FireCraft(SelectedCraftItem)
-    end
-end)
+-- CONTROLES DE JANELA
+local OpenBtn = Instance.new("TextButton", ScreenGui)
+OpenBtn.Size = UDim2.new(0, 45, 0, 45)
+OpenBtn.Position = UDim2.new(0, 10, 0.5, -22)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+OpenBtn.Text = "ACE"
+OpenBtn.TextColor3 = Color3.fromRGB(0, 170, 255)
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", OpenBtn).Color = Color3.fromRGB(0, 170, 255)
+OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
 
---- UTILS ---
-AddLabel("Quick Actions")
-AddBtn("REDEEM ALL AURAS", Color3.fromRGB(255, 80, 80), function()
-    for _, o in pairs(FolderAuras:GetChildren()) do
-        task.spawn(function() RollRemote:FireServer({["Action"]="GetAura",["Rarity"]="Rare",["Aura"]=o.Name}) end)
-    end
-end)
+UserInputService.InputBegan:Connect(function(i, g) if not g and i.KeyCode == Enum.KeyCode.L then Main.Visible = not Main.Visible end end)
 
-AddBtn("REDEEM ALL CODES", Color3.fromRGB(80, 255, 150), function()
-    for _, o in pairs(FolderCodes:GetChildren()) do
-        task.spawn(function() CoreEvent:FireServer("UseCode", o.Name) end)
-    end
-end)
-
-AddBtn("MADE IN HEAVEN (TROLL)", Color3.fromRGB(180, 100, 255), function()
-    CoreEvent:FireServer("AuraFarm", {
-        ["MoneyPerSecond"] = 1e14,
-        ["Ability"] = {["Color"]=Color3.new(1,1,1),["IsSpecial"]=true,["Name"]="MADE IN HEAVEN",["Cooldown"]=0},
-        ["Description"] = "RESTART", ["DisplayName"] = "MADE IN HEAVEN"
-    }, "MADE IN HEAVEN")
-end)
-
--- TOGGLE E DRAG (MANTIDO DO ORIGINAL)
-local T = Instance.new("TextButton", ScreenGui)
-T.Size = UDim2.new(0, 30, 0, 30)
-T.Position = UDim2.new(0, 5, 0.5, -15)
-T.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-T.Text = "ACE"
-T.TextColor3 = Color3.fromRGB(0, 170, 255)
-T.Font = Enum.Font.GothamBold
-T.TextSize = 8
-Instance.new("UICorner", T).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", T).Color = Color3.fromRGB(0, 170, 255)
-
-T.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
-
+-- Arrastar
 local d, ds, sp
 Main.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d=true ds=i.Position sp=Main.Position end end)
 UserInputService.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement and d then
     local del = i.Position - ds Main.Position = UDim2.new(sp.X.Scale, sp.X.Offset+del.X, sp.Y.Scale, sp.Y.Offset+del.Y)
 end end)
 Main.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d=false end end)
-
--- Ajuste automático do Canvas
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 20)
-end)
