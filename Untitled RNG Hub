@@ -1,6 +1,6 @@
 --[[ 
-    ACE HUB V11.0 - UNIFIED ITENS SYSTEM
-    MARKET + CRAFT SIMULTÂNEO (DROPDOWN REAL)
+    UNTITLED RNG HUB V11.0 - UNIFIED ITEMS SYSTEM
+    MARKET + CRAFT SIMULTANEOUS (REAL DROPDOWN)
 ]]
 
 local Players = game:GetService("Players")
@@ -10,7 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
--- Remotes e Pastas
+-- Remotes and Folders
 local RemoteEvents = ReplicatedStorage:WaitForChild("Events"):WaitForChild("RemoteEvents")
 local CoreEvent = RemoteEvents:WaitForChild("CoreEvent")
 local RollRemote = RemoteEvents:WaitForChild("RollRemote")
@@ -18,29 +18,72 @@ local FolderItens = Player:WaitForChild("Itens")
 local FolderAuras = Player:WaitForChild("OwnedAuras")
 local FolderCodes = Player:WaitForChild("Codes")
 
--- Variáveis de Controle
+-- Control Variables
 local SelectedItem = "All"
 local ExecutionAmount = 1
 
--- Limpeza de Versões Antigas
-if PlayerGui:FindFirstChild("AceHub_V11") then PlayerGui.AceHub_V11:Destroy() end
+-- Cleanup Old Versions
+if PlayerGui:FindFirstChild("UntitledRNG_V11") then PlayerGui.UntitledRNG_V11:Destroy() end
 
 local ScreenGui = Instance.new("ScreenGui", PlayerGui)
-ScreenGui.Name = "AceHub_V11"
+ScreenGui.Name = "UntitledRNG_V11"
 ScreenGui.ResetOnSpawn = false
 
+-- --- MAIN FRAME ---
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 500, 0, 380)
 Main.Position = UDim2.new(0.5, -250, 0.5, -190)
 Main.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
 Main.BorderSizePixel = 0
+Main.Visible = false -- Hidden until tutorial finishes
 
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 local Stroke = Instance.new("UIStroke", Main)
 Stroke.Color = Color3.fromRGB(0, 170, 255)
 Stroke.Thickness = 2
 
--- ABAS (SIMPLIFICADAS)
+-- --- TUTORIAL SYSTEM (SIMPLIFIED) ---
+local TutorialFrame = Instance.new("Frame", ScreenGui)
+TutorialFrame.Size = UDim2.new(0, 400, 0, 300)
+TutorialFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+TutorialFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+Instance.new("UICorner", TutorialFrame)
+Instance.new("UIStroke", TutorialFrame).Color = Color3.fromRGB(0, 170, 255)
+
+local TutTitle = Instance.new("TextLabel", TutorialFrame)
+TutTitle.Size = UDim2.new(1, 0, 0, 40)
+TutTitle.Text = "UNTITLED RNG HUB - QUICK TUTORIAL"
+TutTitle.TextColor3 = Color3.fromRGB(0, 170, 255)
+TutTitle.Font = "GothamBold"
+TutTitle.BackgroundTransparency = 1
+
+local TutDesc = Instance.new("TextLabel", TutorialFrame)
+TutDesc.Size = UDim2.new(1, -20, 1, -100)
+TutDesc.Position = UDim2.new(0, 10, 0, 45)
+TutDesc.Text = "MAIN TAB:\n- Add Rolls: Instantly adds rolls to your account.\n- Redeem Codes: Automates all available promo codes.\n- Claim Auras: Collects all auras currently in the game.\n\nITEMS TAB:\n- Integrated System: Simultaneously triggers Market and Craft logic for specific items or ALL items at once."
+TutDesc.TextColor3 = Color3.new(1,1,1)
+TutDesc.TextWrapped = true
+TutDesc.Font = "Gotham"
+TutDesc.TextSize = 14
+TutDesc.BackgroundTransparency = 1
+
+local TutProceed = Instance.new("TextButton", TutorialFrame)
+TutProceed.Size = UDim2.new(0.9, 0, 0, 40)
+TutProceed.Position = UDim2.new(0.05, 0, 0.82, 0)
+TutProceed.BackgroundColor3 = Color3.fromRGB(0, 180, 120)
+TutProceed.Text = "PROCEED"
+TutProceed.TextColor3 = Color3.new(1,1,1)
+TutProceed.Font = "GothamBold"
+Instance.new("UICorner", TutProceed)
+
+TutProceed.MouseButton1Click:Connect(function() 
+    TutorialFrame:Destroy() 
+    Main.Visible = true 
+end)
+
+-- --- MAIN SCRIPT LOGIC ---
+
+-- TABS
 local TabHolder = Instance.new("Frame", Main)
 TabHolder.Size = UDim2.new(1, 0, 0, 45)
 TabHolder.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
@@ -71,7 +114,7 @@ local function CreatePage(name)
 end
 
 local MainPage = CreatePage("Main")
-local ItensPage = CreatePage("Itens")
+local ItensPage = CreatePage("Items")
 
 local function ShowPage(name)
     for _, p in pairs(Pages:GetChildren()) do p.Visible = (p.Name == name) end
@@ -88,25 +131,22 @@ local function AddTab(name)
     B.MouseButton1Click:Connect(function() ShowPage(name) end)
 end
 
-AddTab("Main"); AddTab("Itens")
+AddTab("Main"); AddTab("Items")
 ShowPage("Main")
 
--- --- LÓGICA UNIFICADA (MARKET + CRAFT) ---
+-- --- UNIFIED LOGIC ---
 local function ExecuteUnified(name, amount)
     for i = 1, amount do
         task.spawn(function()
-            -- Código do Market
             local marketArgs = {[1]="Market",[2]={["DisplayName"]=name,["Name"]=name,["Rarity"]="Mythic",["Price"]=0,["Ingredients"]={["Auras"]={},["Itens"]={["LuckPotionFifteen"]=0}},["Data"]={["Type"]="Iten",["Name"]=name,["RarityName"]="Mythic",["Data"]={["DisplayName"]=name},["CoreData"]={["Itens"]={[name]={}},["Percent"]=1}},["Rank"]=5},[3]=name}
             CoreEvent:FireServer(unpack(marketArgs))
-            
-            -- Código do Craft (Dispara junto)
             local craftArgs = {[1]="Craft",[2]={["Price"]=0,["Ingredient"]={["Itens"]={},["Auras"]={["Worm"]=0}},["Rolls"]=0},[3]=1, [4]=name}
             CoreEvent:FireServer(unpack(craftArgs))
         end)
     end
 end
 
--- --- DROPDOWN REAL ---
+-- --- DROPDOWN ---
 local function CreateItemDropdown(parent, callback)
     local IsOpen = false
     local Drop = Instance.new("Frame", parent)
@@ -117,7 +157,7 @@ local function CreateItemDropdown(parent, callback)
     local Display = Instance.new("TextButton", Drop)
     Display.Size = UDim2.new(1, 0, 1, 0)
     Display.BackgroundTransparency = 1
-    Display.Text = "SELECIONAR ITEM: All"
+    Display.Text = "SELECT ITEM: All"
     Display.TextColor3 = Color3.fromRGB(0, 170, 255)
     Display.Font = "GothamBold"
 
@@ -126,7 +166,7 @@ local function CreateItemDropdown(parent, callback)
     List.Position = UDim2.new(0, 0, 1, 5)
     List.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
     List.Visible = false
-    List.ZIndex = 10
+    List.ZIndex = 20
     Instance.new("UIListLayout", List)
     Instance.new("UICorner", List)
 
@@ -140,7 +180,7 @@ local function CreateItemDropdown(parent, callback)
             b.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
             b.Text = opt
             b.TextColor3 = Color3.new(1,1,1)
-            b.ZIndex = 11
+            b.ZIndex = 21
             b.MouseButton1Click:Connect(function()
                 SelectedItem = opt
                 Display.Text = "ITEM: " .. opt
@@ -159,7 +199,7 @@ local function CreateItemDropdown(parent, callback)
     end)
 end
 
--- --- COMPONENTES ---
+-- --- COMPONENTS ---
 local function CreateInput(parent, label, callback)
     local I = Instance.new("TextBox", parent)
     I.Size = UDim2.new(0.9, 0, 0, 35)
@@ -182,22 +222,22 @@ local function CreateBtn(parent, text, color, callback)
     B.MouseButton1Click:Connect(callback)
 end
 
--- ABA MAIN
-CreateInput(MainPage, "QUANTIDADE DE ROLLS", function(t)
+-- MAIN TAB
+CreateInput(MainPage, "ROLLS QUANTITY", function(t)
     local amt = tonumber(t)
     if amt then for i=1, amt do task.spawn(function() RollRemote:FireServer({["Action"] = "AddRoll"}) end) end end
 end)
 CreateBtn(MainPage, "Redeem All Codes", Color3.fromRGB(0, 150, 255), function()
     for _, c in pairs(FolderCodes:GetChildren()) do CoreEvent:FireServer("UseCode", c.Name) end
 end)
-CreateBtn(MainPage, "Redeem All Auras", Color3.fromRGB(200, 50, 50), function()
+CreateBtn(MainPage, "Redeem all auras currently in the game", Color3.fromRGB(200, 50, 50), function()
     for _, o in pairs(FolderAuras:GetChildren()) do RollRemote:FireServer({["Action"]="GetAura",["Aura"]=o.Name}) end
 end)
 
--- ABA ITENS (UNIFICADA)
+-- ITEMS TAB
 CreateItemDropdown(ItensPage, function(val) SelectedItem = val end)
-CreateInput(ItensPage, "QUANTIDADE PARA EXECUTAR", function(t) ExecutionAmount = tonumber(t) or 1 end)
-CreateBtn(ItensPage, "EXECUTAR (MARKET + CRAFT)", Color3.fromRGB(0, 180, 120), function()
+CreateInput(ItensPage, "EXECUTION AMOUNT", function(t) ExecutionAmount = tonumber(t) or 1 end)
+CreateBtn(ItensPage, "EXECUTE (MARKET + CRAFT)", Color3.fromRGB(0, 180, 120), function()
     if SelectedItem == "All" then
         for _, v in pairs(FolderItens:GetChildren()) do ExecuteUnified(v.Name, ExecutionAmount) end
     else
@@ -205,12 +245,12 @@ CreateBtn(ItensPage, "EXECUTAR (MARKET + CRAFT)", Color3.fromRGB(0, 180, 120), f
     end
 end)
 
--- CONTROLES DE JANELA
+-- TOGGLE CONTROLS
 local OpenBtn = Instance.new("TextButton", ScreenGui)
 OpenBtn.Size = UDim2.new(0, 45, 0, 45)
 OpenBtn.Position = UDim2.new(0, 10, 0.5, -22)
 OpenBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-OpenBtn.Text = "ACE"
+OpenBtn.Text = "URH"
 OpenBtn.TextColor3 = Color3.fromRGB(0, 170, 255)
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
 Instance.new("UIStroke", OpenBtn).Color = Color3.fromRGB(0, 170, 255)
@@ -218,7 +258,7 @@ OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end
 
 UserInputService.InputBegan:Connect(function(i, g) if not g and i.KeyCode == Enum.KeyCode.L then Main.Visible = not Main.Visible end end)
 
--- Arrastar
+-- DRAG LOGIC
 local d, ds, sp
 Main.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d=true ds=i.Position sp=Main.Position end end)
 UserInputService.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement and d then
