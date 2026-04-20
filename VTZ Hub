@@ -173,22 +173,34 @@ function HubLib:AddToggle(page, text, callback)
     end
 end
 
--- ==========================================
--- EXECUÇÃO COM LOADSTRING INTEGRADO
--- ==========================================
+-- [[ CONFIGURAÇÃO DO HUB COM LOOP DE CARREGAMENTO ]]
 
 local MyHub = HubLib:Init("KING LEGACY", "VTZ Hub")
 local FarmTab = MyHub:CreateTab("Farming")
 
 MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
-    -- Define a variável global necessária para o script de farm
     _G.FruitFarm = state 
     
     if state then
-        -- Carrega o script externo apenas se estiver ativado
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))()
+        task.spawn(function()
+            -- Enquanto o botão estiver ativado (state), ele vai ficar tentando rodar o script
+            while _G.FruitFarm do
+                -- Carrega o script do seu GitHub
+                local success, err = pcall(function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))()
+                end)
+                
+                if not success then 
+                    warn("Erro ao carregar script externo: ", err) 
+                end
+                
+                -- Espera 3 segundos antes de tentar procurar fruta de novo
+                task.wait(3) 
+            end
+            print("Loop de Farm encerrado.")
+        end)
     else
-        -- Opcional: Feedback no console quando desligar
+        _G.FruitFarm = false
         print("Farm Desativado.")
     end
 end)
