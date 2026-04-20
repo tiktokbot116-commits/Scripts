@@ -1,64 +1,40 @@
--- King Legacy Ultra Collector (Guaranteed Selection System - Anti-Fail)
+-- [[ KING LEGACY COLLECTOR - ENGINE APENAS ]]
 local Players = game:GetService("Players")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local GuiService = game:GetService("GuiService")
-local CoreGui = game:GetService("CoreGui")
 local VirtualUser = game:GetService("VirtualUser")
 local task = task
-
--- [TRAVA DE SEGURANÇA]
-local TARGET_ID = 4520749081
-if game.PlaceId ~= TARGET_ID then return end
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- [ANTI-AFK MOBILE]
-player.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
+-- [TRAVA DE SEGURANÇA]
+local TARGET_IDS = {4520749081, 6381829480}
+local isCorrectGame = false
+for _, id in ipairs(TARGET_IDS) do if game.PlaceId == id then isCorrectGame = true break end end
+if not isCorrectGame then return end
 
--- --- INTERFACE EM CORE GUI ---
-local parent = (pcall(function() return CoreGui.Name end) and CoreGui) or playerGui
-if parent:FindFirstChild("FruitCollector_Overlay") then parent.FruitCollector_Overlay:Destroy() end
+-- [ANTI-AFK]
+if not _G.AntiAFKConnected then
+    player.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+    _G.AntiAFKConnected = true
+end
 
-local ScreenGui = Instance.new("ScreenGui", parent)
-ScreenGui.Name = "FruitCollector_Overlay"
-ScreenGui.IgnoreGuiInset = true 
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 260, 0, 80)
-MainFrame.Position = UDim2.new(0.5, 0, 0.1, 0)
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) 
-MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-Instance.new("UICorner", MainFrame)
-local status = Instance.new("TextLabel", MainFrame)
-status.Size = UDim2.new(1, -20, 1, -20)
-status.Position = UDim2.new(0.5, 0, 0.5, 0)
-status.AnchorPoint = Vector2.new(0.5, 0.5)
-status.Text = "INICIANDO..."
-status.TextColor3 = Color3.fromRGB(0, 255, 150)
-status.BackgroundTransparency = 1
-status.Font = Enum.Font.GothamBold
-status.TextSize = 14
-status.TextWrapped = true
-
--- [FUNÇÃO DE SELEÇÃO E ATIVAÇÃO (RETÂNGULO AZUL)]
+-- [FUNÇÃO DE SELEÇÃO E ATIVAÇÃO]
 local function SafeActivate(button)
     if button and button.Visible then
-        local success = pcall(function()
-            GuiService.SelectedObject = button -- Cria o retângulo azul no botão
+        pcall(function()
+            GuiService.SelectedObject = button
             task.wait(0.1)
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game) -- Simula o "Enter/A"
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
             VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
             task.wait(0.1)
-            GuiService.SelectedObject = nil -- Limpa a seleção
+            GuiService.SelectedObject = nil
         end)
-        return success
     end
-    return false
 end
 
 -- [VERIFICAÇÃO DE ARMAZENAMENTO]
@@ -69,69 +45,46 @@ local function IsStored(fName)
     if stats and stats:FindFirstChild("DFName") and stats.DFName.Value == clean then return true end
     
     local mainGui = playerGui:FindFirstChild("MainGui")
-    if mainGui then
-        local invFrame = mainGui:FindFirstChild("StarterFrame") and mainGui.StarterFrame:FindFirstChild("Inventory_Frame")
-        local scrolling = invFrame and invFrame:FindFirstChild("ScrollingFrameFruits")
-        if scrolling then
-            for _, item in ipairs(scrolling:GetChildren()) do
-                if string.find(item.Name, clean) or (item:IsA("TextLabel") and string.find(item.Text, clean)) then
-                    return true
-                end
+    local invFrame = mainGui and mainGui:FindFirstChild("StarterFrame") and mainGui.StarterFrame:FindFirstChild("Inventory_Frame")
+    local scrolling = invFrame and invFrame:FindFirstChild("ScrollingFrameFruits")
+    
+    if scrolling then
+        for _, item in ipairs(scrolling:GetChildren()) do
+            if string.find(item.Name, clean) or (item:IsA("TextLabel") and string.find(item.Text, clean)) then
+                return true
             end
         end
     end
     return false
 end
 
--- [SERVER HOP]
-local function ServerHop()
-    status.Text = "BUSCANDO SERVIDOR..."
-    local sf, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100"))
-    end)
-    if sf and result and result.data then
-        for _, s in ipairs(result.data) do
-            if s.playing >= 8 and s.playing < s.maxPlayers and s.id ~= game.JobId then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, player)
-                task.wait(2)
-            end
-        end
-    end
-end
-
 -- [AÇÃO DE GUARDAR]
 local function ForceStore(tool)
     local startTick = tick()
     while tool.Parent == player.Character or tool.Parent == player.Backpack do
-        if tick() - startTick > 15 then break end 
+        if not _G.FruitCollectorEnabled or tick() - startTick > 15 then break end 
         
-        status.Text = "GUARDANDO: " .. tool.Name:upper()
         player.Character.Humanoid:EquipTool(tool)
         task.wait(0.5)
         
-        -- Clique central para abrir menu (Usa VirtualUser para garantir ativação da ferramenta)
         local vp = workspace.CurrentCamera.ViewportSize
         VirtualInputManager:SendMouseButtonEvent(vp.X/2, (vp.Y/2) + 58, 0, true, game, 0)
         VirtualInputManager:SendMouseButtonEvent(vp.X/2, (vp.Y/2) + 58, 0, false, game, 0)
         task.wait(0.8)
 
-        -- Clique no botão de Collect usando SELEÇÃO AZUL
         local menu = playerGui:FindFirstChild("EatFruitBecky")
         if menu and menu.Enabled then
             local btn = menu.Dialogue:FindFirstChild("Collect")
-            if btn and btn.Visible then
-                SafeActivate(btn) -- Ativa via Seleção Azul
-            end
+            if btn and btn.Visible then SafeActivate(btn) end
         end
         task.wait(1)
-        
         if IsStored(tool.Name) then break end
     end
 end
 
--- [LOOP PRINCIPAL]
-task.spawn(function()
-    while true do
+-- [INICIADOR DO LOOP]
+local function StartFruitLoop()
+    while _G.FruitCollectorEnabled do
         local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit")
         local mapFruits = {}
         if f1 then for _, f in ipairs(f1:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
@@ -141,11 +94,10 @@ task.spawn(function()
             local loading = playerGui:FindFirstChild("LoadingGUI")
             if loading and loading.Enabled then
                 local b = loading:FindFirstChild("Play")
-                if b and b.Visible then
-                    SafeActivate(b) -- Ativa Play via Seleção Azul
-                end
+                if b then SafeActivate(b) end
             elseif player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                 for _, fruit in ipairs(mapFruits) do
+                    if not _G.FruitCollectorEnabled then break end
                     if fruit.Parent then
                         player.Character.HumanoidRootPart.CFrame = (fruit.PrimaryPart or fruit:FindFirstChildWhichIsA("BasePart")).CFrame
                         task.wait(0.5)
@@ -163,12 +115,16 @@ task.spawn(function()
 
             if #pending > 0 then
                 for _, f in ipairs(pending) do ForceStore(f) end
-            else
-                status.Text = "LIMPO. HOP EM 3s..."
-                task.wait(3)
-                ServerHop()
             end
         end
-        task.wait(0.5)
+        task.wait(2)
     end
-end)
+end
+
+-- [[ EXEMPLO DE COMO USAR NO SEU HUB ]]
+-- MyHub:AddToggle(FarmTab, "Auto Collect Fruits", function(state)
+--     _G.FruitCollectorEnabled = state
+--     if state then
+--         task.spawn(StartFruitLoop)
+--     end
+-- end)
