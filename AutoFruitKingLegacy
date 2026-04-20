@@ -120,11 +120,3 @@ local function StartFruitLoop()
         task.wait(2)
     end
 end
-
--- [[ EXEMPLO DE COMO USAR NO SEU HUB ]]
--- MyHub:AddToggle(FarmTab, "Auto Collect Fruits", function(state)
---     _G.FruitCollectorEnabled = state
---     if state then
---         task.spawn(StartFruitLoop)
---     end
--- end)
