@@ -1,4 +1,4 @@
--- [[ VXEZE-STYLE HUB ENGINE - FULL VERSION FIXED TOGGLE ]]
+-- [[ VXEZE-STYLE HUB ENGINE - ULTRA COMPATIBLE VERSION ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -40,17 +40,27 @@ end
 
 function HubLib:Init(hubTitle, subTitle)
     local player = Players.LocalPlayer
-    local parent = (pcall(function() return CoreGui.Name end) and CoreGui) or player:WaitForChild("PlayerGui")
+    
+    -- Tenta CoreGui primeiro, se falhar vai para PlayerGui
+    local parent = nil
+    local success, _ = pcall(function() 
+        parent = CoreGui
+    end)
+    if not success or not parent then 
+        parent = player:WaitForChild("PlayerGui")
+    end
     
     if parent:FindFirstChild("VxezeHub") then parent.VxezeHub:Destroy() end
 
-    local ScreenGui = Instance.new("ScreenGui", parent)
+    local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "VxezeHub"
     ScreenGui.IgnoreGuiInset = true
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.Parent = parent
 
-    local MainFrame = Instance.new("Frame", ScreenGui)
+    local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
     MainFrame.Size = UDim2.new(0, 480, 0, 320)
     MainFrame.Position = UDim2.new(0.5, -240, 0.5, -160)
     MainFrame.BackgroundColor3 = self.MainColor
@@ -87,7 +97,7 @@ function HubLib:Init(hubTitle, subTitle)
     self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
     self.PagesFolder.BackgroundTransparency = 1
 
-    -- [[ BOTÃO DE ON/OFF - CORRIGIDO ]]
+    -- [[ BOTÃO VX - DEFINIDO APÓS O MAINFRAME ]]
     local ToggleBtn = Instance.new("TextButton")
     ToggleBtn.Name = "VxezeToggle"
     ToggleBtn.Parent = ScreenGui
@@ -99,11 +109,9 @@ function HubLib:Init(hubTitle, subTitle)
     ToggleBtn.Font = Enum.Font.GothamBold
     ToggleBtn.TextSize = 14
     ToggleBtn.AutoButtonColor = false
-    ToggleBtn.ZIndex = 10 -- Garante que fica por cima de tudo
+    ToggleBtn.ZIndex = 10
     
-    local Corner = Instance.new("UICorner", ToggleBtn)
-    Corner.CornerRadius = UDim.new(0, 10)
-    
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
     local Stroke = Instance.new("UIStroke", ToggleBtn)
     Stroke.Color = Color3.fromRGB(255, 255, 255)
     Stroke.Transparency = 0.5
@@ -113,9 +121,9 @@ function HubLib:Init(hubTitle, subTitle)
         MainFrame.Visible = not MainFrame.Visible
     end)
 
-    -- Torna o botão VX arrastável
     makeDraggable(ToggleBtn, ToggleBtn)
 
+    print("VTZ Hub: Inicializado com sucesso!")
     self.Sidebar = Sidebar
     return self
 end
