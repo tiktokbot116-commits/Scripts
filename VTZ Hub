@@ -1,4 +1,4 @@
--- [[ VXEZE-STYLE HUB ENGINE - FULL VERSION WITH TOGGLE ]]
+-- [[ VXEZE-STYLE HUB ENGINE - FULL VERSION FIXED TOGGLE ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -47,8 +47,10 @@ function HubLib:Init(hubTitle, subTitle)
     local ScreenGui = Instance.new("ScreenGui", parent)
     ScreenGui.Name = "VxezeHub"
     ScreenGui.IgnoreGuiInset = true
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local MainFrame = Instance.new("Frame", ScreenGui)
+    MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 480, 0, 320)
     MainFrame.Position = UDim2.new(0.5, -240, 0.5, -160)
     MainFrame.BackgroundColor3 = self.MainColor
@@ -85,9 +87,10 @@ function HubLib:Init(hubTitle, subTitle)
     self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
     self.PagesFolder.BackgroundTransparency = 1
 
-    -- [[ BOTÃO DE ON/OFF INTEGRADO ]]
-    local ToggleBtn = Instance.new("TextButton", ScreenGui)
+    -- [[ BOTÃO DE ON/OFF - CORRIGIDO ]]
+    local ToggleBtn = Instance.new("TextButton")
     ToggleBtn.Name = "VxezeToggle"
+    ToggleBtn.Parent = ScreenGui
     ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
     ToggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
     ToggleBtn.BackgroundColor3 = self.AccentColor
@@ -96,17 +99,21 @@ function HubLib:Init(hubTitle, subTitle)
     ToggleBtn.Font = Enum.Font.GothamBold
     ToggleBtn.TextSize = 14
     ToggleBtn.AutoButtonColor = false
+    ToggleBtn.ZIndex = 10 -- Garante que fica por cima de tudo
     
-    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
+    local Corner = Instance.new("UICorner", ToggleBtn)
+    Corner.CornerRadius = UDim.new(0, 10)
+    
     local Stroke = Instance.new("UIStroke", ToggleBtn)
     Stroke.Color = Color3.fromRGB(255, 255, 255)
-    Stroke.Transparency = 0.8
-    Stroke.Thickness = 2
+    Stroke.Transparency = 0.5
+    Stroke.Thickness = 1.5
 
     ToggleBtn.MouseButton1Click:Connect(function()
         MainFrame.Visible = not MainFrame.Visible
     end)
 
+    -- Torna o botão VX arrastável
     makeDraggable(ToggleBtn, ToggleBtn)
 
     self.Sidebar = Sidebar
