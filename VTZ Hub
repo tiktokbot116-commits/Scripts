@@ -1,4 +1,4 @@
--- [[ VTZ HUB - REORGANIZED EDITION ]]
+-- [[ VTZ HUB - FRUIT ENGINE INTEGRATED ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -71,9 +71,7 @@ function HubLib:Init(hubTitle, subTitle)
     Sidebar.Size = UDim2.new(0, 120, 1, -35)
     Sidebar.Position = UDim2.new(0, 0, 0, 35)
     Sidebar.BackgroundColor3 = self.SidebarColor
-    local sideLayout = Instance.new("UIListLayout", Sidebar)
-    sideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    sideLayout.Padding = UDim.new(0, 2)
+    Instance.new("UIListLayout", Sidebar).HorizontalAlignment = Enum.HorizontalAlignment.Center
     Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
 
     self.PagesFolder = Instance.new("Frame", MainFrame)
@@ -246,7 +244,110 @@ function HubLib:AddGridSelector(page, title, options, callback)
 end
 
 -- ==========================================
--- 2. INICIALIZAÇÃO E ABAS
+-- 2. ENGINE DE FRUTAS INTEGRADA
+-- ==========================================
+_G.FruitCollectorEnabled = false
+
+local function LoadFruitEngine()
+    -- Coloque aqui o script da Engine que você mandou
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local GuiService = game:GetService("GuiService")
+    local VirtualUser = game:GetService("VirtualUser")
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+
+    if not _G.AntiAFKConnected then
+        player.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+        _G.AntiAFKConnected = true
+    end
+
+    local function SafeActivate(button)
+        if button and button.Visible then
+            pcall(function()
+                GuiService.SelectedObject = button
+                task.wait(0.1)
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                task.wait(0.1)
+                GuiService.SelectedObject = nil
+            end)
+        end
+    end
+
+    local function IsStored(fName)
+        if not fName then return true end
+        local clean = string.gsub(fName, "Fruit", "")
+        local stats = player:FindFirstChild("PlayerStats")
+        if stats and stats:FindFirstChild("DFName") and stats.DFName.Value == clean then return true end
+        local mainGui = playerGui:FindFirstChild("MainGui")
+        local invFrame = mainGui and mainGui:FindFirstChild("StarterFrame") and mainGui.StarterFrame:FindFirstChild("Inventory_Frame")
+        local scrolling = invFrame and invFrame:FindFirstChild("ScrollingFrameFruits")
+        if scrolling then
+            for _, item in ipairs(scrolling:GetChildren()) do
+                if string.find(item.Name, clean) or (item:IsA("TextLabel") and string.find(item.Text, clean)) then return true end
+            end
+        end
+        return false
+    end
+
+    local function ForceStore(tool)
+        local startTick = tick()
+        while tool.Parent == player.Character or tool.Parent == player.Backpack do
+            if not _G.FruitCollectorEnabled or tick() - startTick > 15 then break end 
+            if player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid:EquipTool(tool) end
+            task.wait(0.5)
+            local vp = workspace.CurrentCamera.ViewportSize
+            VirtualInputManager:SendMouseButtonEvent(vp.X/2, (vp.Y/2) + 58, 0, true, game, 0)
+            VirtualInputManager:SendMouseButtonEvent(vp.X/2, (vp.Y/2) + 58, 0, false, game, 0)
+            task.wait(0.8)
+            local menu = playerGui:FindFirstChild("EatFruitBecky")
+            if menu and menu.Enabled then
+                local btn = menu.Dialogue:FindFirstChild("Collect")
+                if btn and btn.Visible then SafeActivate(btn) end
+            end
+            task.wait(1)
+            if IsStored(tool.Name) then break end
+        end
+    end
+
+    task.spawn(function()
+        while _G.FruitCollectorEnabled do
+            local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit")
+            local mapFruits = {}
+            if f1 then for _, f in ipairs(f1:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
+            if f2 then for _, f in ipairs(f2:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
+
+            if #mapFruits > 0 then
+                local loading = playerGui:FindFirstChild("LoadingGUI")
+                if loading and loading.Enabled then
+                    local b = loading:FindFirstChild("Play")
+                    if b then SafeActivate(b) end
+                elseif player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    for _, fruit in ipairs(mapFruits) do
+                        if not _G.FruitCollectorEnabled then break end
+                        local part = fruit.PrimaryPart or fruit:FindFirstChildWhichIsA("BasePart")
+                        if fruit.Parent and part then
+                            player.Character.HumanoidRootPart.CFrame = part.CFrame
+                            task.wait(0.5)
+                        end
+                    end
+                end
+            else
+                local pending = {}
+                for _, t in ipairs(player.Backpack:GetChildren()) do if string.find(t.Name, "Fruit") and not IsStored(t.Name) then table.insert(pending, t) end end
+                for _, t in ipairs(player.Character:GetChildren()) do if t:IsA("Tool") and string.find(t.Name, "Fruit") and not IsStored(t.Name) then table.insert(pending, t) end end
+                if #pending > 0 then for _, f in ipairs(pending) do ForceStore(f) end end
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+-- ==========================================
+-- 3. INTERFACE E ABAS
 -- ==========================================
 local MyHub = HubLib:Init("KING LEGACY", "VTZ HUB")
 local FruitTab = MyHub:CreateTab("Fruits")
@@ -254,26 +355,21 @@ local GachaTab = MyHub:CreateTab("Gacha")
 
 local sBuyKey, bAmt, sUseKey, uType = "Copper Key", 10, "Copper Key", "Open1"
 
--- [ ABA FRUITS - TP E MONITOR ]
+-- [ ABA FRUITS ]
 MyHub:AddToggle(FruitTab, "Auto Collect Fruit Map", function(state)
-    _G.AutoFruit = state
-    if state then
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Collect%20Fruit%20Map"))()
-    end
+    _G.FruitCollectorEnabled = state
+    if state then LoadFruitEngine() end
 end)
 
 MyHub:AddToggle(FruitTab, "Auto Collect All Chests", function(state)
     _G.AutoChest = state
-    if state then
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Farm%20Chest"))()
-    end
+    if state then loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Farm%20Chest"))() end
 end)
 
 local Monitor = Instance.new("Frame", FruitTab)
 Monitor.Size = UDim2.new(0.95, 0, 0, 60)
 Monitor.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Instance.new("UICorner", Monitor)
-
 local MTitle = Instance.new("TextLabel", Monitor)
 MTitle.Size = UDim2.new(1, 0, 0, 20)
 MTitle.Text = "MONITOR DE FRUTAS"
@@ -281,7 +377,6 @@ MTitle.TextColor3 = HubLib.AccentColor
 MTitle.Font = Enum.Font.GothamBold
 MTitle.TextSize = 10
 MTitle.BackgroundTransparency = 1
-
 local FruitList = Instance.new("TextLabel", Monitor)
 FruitList.Size = UDim2.new(1, -20, 0, 30)
 FruitList.Position = UDim2.new(0, 10, 0, 22)
@@ -295,8 +390,7 @@ FruitList.TextYAlignment = Enum.TextYAlignment.Top
 task.spawn(function()
     while true do
         local lines = {}
-        local f1 = workspace:FindFirstChild("AllspawnDF")
-        local f2 = workspace:FindFirstChild("AllDroppedFruit")
+        local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit")
         if f1 then for _, f in ipairs(f1:GetChildren()) do table.insert(lines, "[MAPA] "..f.Name) end end
         if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] "..f.Name) end end
         FruitList.Text = #lines > 0 and table.concat(lines, " | ") or "NENHUMA FRUTA NO MAPA"
@@ -304,7 +398,7 @@ task.spawn(function()
     end
 end)
 
--- [ ABA GACHA - COMPRA E USO DE CHAVES ]
+-- [ ABA GACHA ]
 MyHub:AddToggle(GachaTab, "Auto Gacha (Fruta Beli)", function(state)
     _G.AutoGacha = state
     task.spawn(function()
@@ -317,10 +411,7 @@ end)
 
 MyHub:AddGridSelector(GachaTab, "Buy Keys (Escolher qual)", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sBuyKey = v end)
 MyHub:AddTextBox(GachaTab, "Quantidade Keys", "10", function(v) bAmt = tonumber(v) or 10 end)
-MyHub:AddButton(GachaTab, "EXECUTAR COMPRA DE KEY", function()
-    ReplicatedStorage.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyKey, bAmt)
-end)
-
+MyHub:AddButton(GachaTab, "EXECUTAR COMPRA DE KEY", function() ReplicatedStorage.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyKey, bAmt) end)
 MyHub:AddGridSelector(GachaTab, "Use Keys (Escolher qual)", {"Copper Key", "Iron Key", "Gold Key", "Platinum Key", "Diamond Key"}, function(v) sUseKey = v end)
 MyHub:AddGridSelector(GachaTab, "Modo de Uso", {"Open1", "Open10"}, function(v) uType = v end)
 MyHub:AddButton(GachaTab, "EXECUTAR USO DE KEY", function()
