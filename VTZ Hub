@@ -51,6 +51,60 @@ function HubLib:Init(hubTitle, subTitle)
     local ToggleBtn = Instance.new("TextButton", ScreenGui)
     ToggleBtn.Name = "VxezeToggle"
     ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+-- [[ VTZ HUB - FULL INTEGRATED VERSION ]]
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- ==========================================
+-- 1. ENGINE DA INTERFACE (BIBLIOTECA ORIGINAL)
+-- ==========================================
+local HubLib = {}
+HubLib.MainColor = Color3.fromRGB(20, 20, 20)
+HubLib.SidebarColor = Color3.fromRGB(15, 15, 15)
+HubLib.AccentColor = Color3.fromRGB(81, 74, 255) 
+HubLib.ToggleOffColor = Color3.fromRGB(45, 45, 45)
+HubLib.TextColor = Color3.fromRGB(255, 255, 255)
+
+local function makeDraggable(frame, parentFrame)
+    local dragging, dragInput, mousePos, framePos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            mousePos = input.Position
+            framePos = parentFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - mousePos
+            parentFrame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+function HubLib:Init(hubTitle, subTitle)
+    local player = Players.LocalPlayer
+    local targetParent = nil
+    pcall(function() targetParent = CoreGui end)
+    if not targetParent then targetParent = player:WaitForChild("PlayerGui") end
+
+    if targetParent:FindFirstChild("VxezeHub") then targetParent.VxezeHub:Destroy() end
+
+    local ScreenGui = Instance.new("ScreenGui", targetParent)
+    ScreenGui.Name = "VxezeHub"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.IgnoreGuiInset = true
+
+    local ToggleBtn = Instance.new("TextButton", ScreenGui)
+    ToggleBtn.Name = "VxezeToggle"
+    ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
     ToggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
     ToggleBtn.BackgroundColor3 = self.AccentColor
     ToggleBtn.Text = "VX"
@@ -180,13 +234,89 @@ function HubLib:AddToggle(page, text, callback)
     end)
 end
 
+function HubLib:AddButton(page, text, callback)
+    local Btn = Instance.new("TextButton", page)
+    Btn.Size = UDim2.new(0.95, 0, 0, 38)
+    Btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    Btn.Text = text
+    Btn.TextColor3 = self.TextColor
+    Btn.Font = Enum.Font.GothamSemibold
+    Btn.TextSize = 12
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 5)
+    Btn.MouseButton1Click:Connect(callback)
+end
+
+function HubLib:AddEquipDropdown(page)
+    local DropFrame = Instance.new("Frame", page)
+    DropFrame.Size = UDim2.new(0.95, 0, 0, 38)
+    DropFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Instance.new("UICorner", DropFrame).CornerRadius = UDim.new(0, 5)
+    
+    local Label = Instance.new("TextLabel", DropFrame)
+    Label.Size = UDim2.new(1, -40, 1, 0)
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.Text = "AUTO EQUIP (SÓ ITENS)"
+    Label.TextColor3 = self.TextColor
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 11
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Btn = Instance.new("TextButton", DropFrame)
+    Btn.Size = UDim2.new(0, 30, 0, 30)
+    Btn.Position = UDim2.new(1, -35, 0, 4)
+    Btn.Text = "▼"
+    Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Btn.TextColor3 = self.TextColor
+    Btn.BorderSizePixel = 0
+    Instance.new("UICorner", Btn)
+
+    local List = Instance.new("Frame", page)
+    List.Size = UDim2.new(0.95, 0, 0, 0)
+    List.Visible = false
+    List.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Instance.new("UIListLayout", List)
+    Instance.new("UICorner", List)
+
+    Btn.MouseButton1Click:Connect(function()
+        List.Visible = not List.Visible
+        if List.Visible then
+            for _, v in pairs(List:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+            for _, item in pairs(Players.LocalPlayer.Backpack:GetChildren()) do
+                if not item.Name:lower():find("fruit") then
+                    local iBtn = Instance.new("TextButton", List)
+                    iBtn.Size = UDim2.new(1, 0, 0, 30)
+                    iBtn.Text = item.Name
+                    iBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                    iBtn.TextColor3 = Color3.new(1,1,1)
+                    iBtn.Font = Enum.Font.Gotham
+                    iBtn.TextSize = 11
+                    iBtn.MouseButton1Click:Connect(function()
+                        Players.LocalPlayer.Character.Humanoid:EquipTool(item)
+                        List.Visible = false
+                    end)
+                end
+            end
+            List.Size = UDim2.new(0.95, 0, 0, #List:GetChildren() * 30)
+        end
+    end)
+end
+
 -- ==========================================
--- 2. CONFIGURAÇÃO DA ABA FARMING (ATUALIZADA)
+-- 3. INICIALIZAÇÃO E ABAS DO VTZ HUB
 -- ==========================================
 local MyHub = HubLib:Init("KING LEGACY", "VTZ HUB")
+
+-- ABA 1: FARMING (SUAS FUNÇÕES ORIGINAIS + NOVAS)
 local FarmTab = MyHub:CreateTab("Farming")
 
--- [ 1. BOTÃO DE FRUTAS ]
+MyHub:AddToggle(FarmTab, "Auto Farm Intelligence (Leveling)", function(state)
+    _G.AutoFarmIntell = state
+    if state then
+        -- loadstring(game:HttpGet("SEU_LINK_AQUI"))()
+    end
+end)
+
 MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
     _G.FruitCollectorEnabled = state
     if state then
@@ -195,7 +325,14 @@ MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
     end
 end)
 
--- [ 2. MONITOR DE FRUTAS ]
+MyHub:AddToggle(FarmTab, "Auto Collect All Chests", function(state)
+    _G.AutoCollectAll = state
+    if state then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Farm%20Chest"))()
+    end
+end)
+
+-- MONITORES ORIGINAIS (FRUTAS E EVENTOS)
 local Monitor = Instance.new("Frame", FarmTab)
 Monitor.Size = UDim2.new(0.95, 0, 0, 70)
 Monitor.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
@@ -222,7 +359,6 @@ FruitList.BackgroundTransparency = 1
 FruitList.TextYAlignment = Enum.TextYAlignment.Top
 FruitList.TextXAlignment = Enum.TextXAlignment.Left
 
--- [ 3. MONITOR DE EVENTOS (TEXTO & TEMPO) ]
 local EventFrame = Instance.new("Frame", FarmTab)
 EventFrame.Size = UDim2.new(0.95, 0, 0, 60)
 EventFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
@@ -246,24 +382,61 @@ EventTimer.Font = Enum.Font.GothamSemibold
 EventTimer.TextSize = 12
 EventTimer.BackgroundTransparency = 1
 
--- [ 4. BOTÃO DE CHEST ]
-MyHub:AddToggle(FarmTab, "Auto Collect All Chests", function(state)
-    _G.AutoCollectAll = state
-    if state then
-        -- Substitua pelo link onde você hospedou o código acima
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Farm%20Chest"))()
-    else
-        -- Garante que o loop pare imediatamente ao desligar
-        _G.AutoCollectAll = false
-    end
+-- ABA 2: COMBAT
+local CombatTab = MyHub:CreateTab("Combat")
+MyHub:AddToggle(CombatTab, "Auto Buso Haki", function(state)
+    _G.AutoBuso = state
+    task.spawn(function()
+        while _G.AutoBuso do
+            if not Players.LocalPlayer.Character:FindFirstChild("Buso") then
+                -- Remote ou tecla de ativação aqui
+            end
+            task.wait(1)
+        end
+    end)
 end)
 
--- LÓGICA DE ATUALIZAÇÃO EM TEMPO REAL
+-- ABA 3: ITEMS & GACHA
+local ItemTab = MyHub:CreateTab("Items")
+MyHub:AddToggle(ItemTab, "Auto Gacha (Beli)", function(state)
+    _G.AutoGacha = state
+    if state then
+        task.spawn(function()
+            while _G.AutoGacha do
+                local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("CheckBuy")
+                remote:InvokeServer("GachaBeli")
+                task.wait(5)
+            end
+        end)
+    end
+end)
+MyHub:AddToggle(ItemTab, "Material Farmer (Item Search)", function(state) _G.ItemSearch = state end)
+MyHub:AddToggle(ItemTab, "Shop Sniper (Rare Fruits)", function(state) _G.ShopSniper = state end)
+
+-- ABA 4: UTILS & CODES
+local UtilTab = MyHub:CreateTab("Utils")
+MyHub:AddToggle(UtilTab, "Anti-AFK", function(state)
+    local virtualUser = game:GetService("VirtualUser")
+    Players.LocalPlayer.Idled:Connect(function()
+        if _G.AntiAFK then
+            virtualUser:CaptureController()
+            virtualUser:ClickButton2(Vector2.new())
+        end
+    end)
+end)
+MyHub:AddButton(UtilTab, "Auto Redeem All Codes", function() print("Redeeming Codes...") end)
+MyHub:AddButton(UtilTab, "Server Hop", function() 
+    -- Lógica de Server Hop aqui
+end)
+
+-- ABA 5: EQUIPAMENTO (SUA IDEIA 95)
+local EquipTab = MyHub:CreateTab("Equip")
+HubLib:AddEquipDropdown(EquipTab)
+
+-- LÓGICA DE ATUALIZAÇÃO DOS MONITORES
 task.spawn(function()
-    local player = game:GetService("Players").LocalPlayer
-    
     while true do
-        -- Atualiza Frutas
+        -- Atualiza Frutas no Mapa
         local lines = {}
         local f1 = workspace:FindFirstChild("AllspawnDF")
         local f2 = workspace:FindFirstChild("AllDroppedFruit")
@@ -271,21 +444,14 @@ task.spawn(function()
         if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] " .. f.Name:upper()) end end
         FruitList.Text = #lines > 0 and table.concat(lines, "\n") or "NENHUMA FRUTA NO MAPA"
 
-        -- Atualiza Tempo do Evento (Puxando da MainGui)
+        -- Atualiza Tempo do Evento
         pcall(function()
-            local skLabel = player.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea.SKTimeLabel
+            local skLabel = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea.SKTimeLabel
             if skLabel then
                 EventTimer.Text = skLabel.Text
-                
-                -- Se o texto do jogo mudar para Hydra, o hub acompanha
-                if string.find(string.lower(skLabel.Text), "hydra") then
-                    EventTitle.Text = "HYDRA EVENT"
-                else
-                    EventTitle.Text = "SEA KING EVENT"
-                end
+                EventTitle.Text = string.find(string.lower(skLabel.Text), "hydra") and "HYDRA EVENT" or "SEA KING EVENT"
             end
         end)
-
         task.wait(1)
     end
 end)
