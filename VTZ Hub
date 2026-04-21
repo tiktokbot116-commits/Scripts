@@ -181,7 +181,7 @@ function HubLib:AddToggle(page, text, callback)
 end
 
 -- ==========================================
--- 2. CONFIGURAÇÃO DA ABA FARMING
+-- 2. CONFIGURAÇÃO DA ABA FARMING (ATUALIZADA)
 -- ==========================================
 local MyHub = HubLib:Init("KING LEGACY", "VTZ HUB")
 local FarmTab = MyHub:CreateTab("Farming")
@@ -195,9 +195,9 @@ MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
     end
 end)
 
--- [ 2. QUADRADO DE MONITORAMENTO ]
+-- [ 2. MONITOR DE FRUTAS ]
 local Monitor = Instance.new("Frame", FarmTab)
-Monitor.Size = UDim2.new(0.95, 0, 0, 110)
+Monitor.Size = UDim2.new(0.95, 0, 0, 70)
 Monitor.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Instance.new("UICorner", Monitor).CornerRadius = UDim.new(0, 6)
 
@@ -212,9 +212,9 @@ MTitle.BackgroundTransparency = 1
 MTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 local FruitList = Instance.new("TextLabel", Monitor)
-FruitList.Size = UDim2.new(1, -24, 1, -40)
-FruitList.Position = UDim2.new(0, 12, 0, 35)
-FruitList.Text = "AGUARDANDO SCAN..."
+FruitList.Size = UDim2.new(1, -24, 1, -30)
+FruitList.Position = UDim2.new(0, 12, 0, 30)
+FruitList.Text = "SCANNING..."
 FruitList.TextColor3 = Color3.fromRGB(150, 150, 150)
 FruitList.Font = Enum.Font.GothamSemibold
 FruitList.TextSize = 10
@@ -222,31 +222,66 @@ FruitList.BackgroundTransparency = 1
 FruitList.TextYAlignment = Enum.TextYAlignment.Top
 FruitList.TextXAlignment = Enum.TextXAlignment.Left
 
--- [ 3. BOTÃO DE CHEST VIA LOADSTRING ]
+-- [ 3. MONITOR DE EVENTOS (TEXTO & TEMPO) ]
+local EventFrame = Instance.new("Frame", FarmTab)
+EventFrame.Size = UDim2.new(0.95, 0, 0, 60)
+EventFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", EventFrame).CornerRadius = UDim.new(0, 6)
+
+local EventTitle = Instance.new("TextLabel", EventFrame)
+EventTitle.Size = UDim2.new(1, 0, 0, 25)
+EventTitle.Position = UDim2.new(0, 0, 0, 10)
+EventTitle.Text = "SEA KING / HYDRA"
+EventTitle.TextColor3 = HubLib.AccentColor
+EventTitle.Font = Enum.Font.GothamBold
+EventTitle.TextSize = 11
+EventTitle.BackgroundTransparency = 1
+
+local EventTimer = Instance.new("TextLabel", EventFrame)
+EventTimer.Size = UDim2.new(1, 0, 0, 20)
+EventTimer.Position = UDim2.new(0, 0, 0, 30)
+EventTimer.Text = "CONTANDO: --:--"
+EventTimer.TextColor3 = Color3.fromRGB(255, 255, 255)
+EventTimer.Font = Enum.Font.GothamSemibold
+EventTimer.TextSize = 12
+EventTimer.BackgroundTransparency = 1
+
+-- [ 4. BOTÃO DE CHEST ]
 MyHub:AddToggle(FarmTab, "Auto Collect All Chests", function(state)
     _G.AutoCollectAll = state
     if state then
-        -- COLOQUE O LINK DO SEU LOADSTRING DE CHEST ABAIXO
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Farm%20Chest"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))() -- Substitua pelo link do script de chest se for diferente
     end
 end)
 
--- Lógica do monitor de frutas
+-- LÓGICA DE ATUALIZAÇÃO EM TEMPO REAL
 task.spawn(function()
+    local player = game:GetService("Players").LocalPlayer
+    
     while true do
+        -- Atualiza Frutas
         local lines = {}
         local f1 = workspace:FindFirstChild("AllspawnDF")
         local f2 = workspace:FindFirstChild("AllDroppedFruit")
         if f1 then for _, f in ipairs(f1:GetChildren()) do table.insert(lines, "[SPAWN] " .. f.Name:upper()) end end
         if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] " .. f.Name:upper()) end end
-        
-        if #lines > 0 then
-            FruitList.Text = table.concat(lines, "\n")
-            FruitList.TextColor3 = Color3.new(1,1,1)
-        else
-            FruitList.Text = "NENHUMA FRUTA NO MAPA"
-            FruitList.TextColor3 = Color3.fromRGB(100,100,100)
-        end
-        task.wait(2)
+        FruitList.Text = #lines > 0 and table.concat(lines, "\n") or "NENHUMA FRUTA NO MAPA"
+
+        -- Atualiza Tempo do Evento (Puxando da MainGui)
+        pcall(function()
+            local skLabel = player.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea.SKTimeLabel
+            if skLabel then
+                EventTimer.Text = skLabel.Text
+                
+                -- Se o texto do jogo mudar para Hydra, o hub acompanha
+                if string.find(string.lower(skLabel.Text), "hydra") then
+                    EventTitle.Text = "HYDRA EVENT"
+                else
+                    EventTitle.Text = "SEA KING EVENT"
+                end
+            end
+        end)
+
+        task.wait(1)
     end
 end)
