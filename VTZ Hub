@@ -1,4 +1,4 @@
--- [[ VTZ HUB - FRUITS & TELEPORTS ]]
+-- [[ VTZ HUB - LOADSTRING EDITION ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -238,15 +238,12 @@ local FruitTab = MyHub:CreateTab("Fruits")
 
 local sBuyKey, bAmt, sUseKey, uType = "Copper Key", 10, "Copper Key", "Open1"
 
--- [ FUNÇÃO TELEPORT ]
-local function tpTo(targetPos)
-    local char = Players.LocalPlayer.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        char.HumanoidRootPart.CFrame = targetPos
-    end
-end
+-- [ BOTÃO TELEPORT PARA FRUTAS (VIA LOADSTRING) ]
+MyHub:AddButton(FruitTab, "AUTO TELEPORT FRUTAS", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Collect%20Fruit%20Map"))()
+end)
 
--- [ GACHA & FRUIT Toggles ]
+-- [ GACHA & CHEST Toggles ]
 MyHub:AddToggle(FruitTab, "Auto Gacha (Fruta Beli)", function(state)
     _G.AutoGacha = state
     task.spawn(function()
@@ -257,21 +254,7 @@ MyHub:AddToggle(FruitTab, "Auto Gacha (Fruta Beli)", function(state)
     end)
 end)
 
--- [ TELEPORTS ]
-MyHub:AddButton(FruitTab, "TP PARA FRUTA NO MAPA", function()
-    local f1 = workspace:FindFirstChild("AllspawnDF")
-    if f1 and #f1:GetChildren() > 0 then
-        tpTo(f1:GetChildren()[1].Handle.CFrame)
-    end
-end)
-
-MyHub:AddButton(FruitTab, "TP PARA FRUTA DROPADA", function()
-    local f2 = workspace:FindFirstChild("AllDroppedFruit")
-    if f2 and #f2:GetChildren() > 0 then
-        tpTo(f2:GetChildren()[1]:FindFirstChildWhichIsA("BasePart").CFrame)
-    end
-end)
-
+-- [ AUTO CHEST (VIA LOADSTRING) ]
 MyHub:AddToggle(FruitTab, "Auto Collect All Chests", function(state)
     _G.AutoChest = state
     if state then
@@ -333,7 +316,7 @@ task.spawn(function()
         local f2 = workspace:FindFirstChild("AllDroppedFruit")
         if f1 then for _, f in ipairs(f1:GetChildren()) do table.insert(lines, "[MAPA] "..f.Name) end end
         if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] "..f.Name) end end
-        FruitList.Text = #lines > 0 and table.concat(lines, " | ") or "NENHUMA FRUTA"
+        FruitList.Text = #lines > 0 and table.concat(lines, " | ") or "NENHUMA FRUTA NO MAPA"
         task.wait(2)
     end
 end)
