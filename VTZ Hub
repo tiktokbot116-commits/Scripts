@@ -1,4 +1,4 @@
--- [[ VXEZE-STYLE HUB ENGINE - FIXED VERSION ]]
+-- [[ VXEZE-STYLE HUB ENGINE - FULL VERSION WITH TOGGLE ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -84,6 +84,30 @@ function HubLib:Init(hubTitle, subTitle)
     self.PagesFolder.Size = UDim2.new(1, -130, 1, -45)
     self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
     self.PagesFolder.BackgroundTransparency = 1
+
+    -- [[ BOTÃO DE ON/OFF INTEGRADO ]]
+    local ToggleBtn = Instance.new("TextButton", ScreenGui)
+    ToggleBtn.Name = "VxezeToggle"
+    ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+    ToggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
+    ToggleBtn.BackgroundColor3 = self.AccentColor
+    ToggleBtn.Text = "VX"
+    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleBtn.Font = Enum.Font.GothamBold
+    ToggleBtn.TextSize = 14
+    ToggleBtn.AutoButtonColor = false
+    
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
+    local Stroke = Instance.new("UIStroke", ToggleBtn)
+    Stroke.Color = Color3.fromRGB(255, 255, 255)
+    Stroke.Transparency = 0.8
+    Stroke.Thickness = 2
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        MainFrame.Visible = not MainFrame.Visible
+    end)
+
+    makeDraggable(ToggleBtn, ToggleBtn)
 
     self.Sidebar = Sidebar
     return self
@@ -173,128 +197,4 @@ function HubLib:AddToggle(page, text, callback)
     end
 end
 
--- [[ CONFIGURAÇÃO DO HUB COM LOOP DE CARREGAMENTO ]]
-
-local MyHub = HubLib:Init("KING LEGACY", "VTZ Hub")
-
--- [[ BOTÃO DE ABRIR/FECHAR GUI ]]
-local ToggleButton = Instance.new("TextButton")
-local UICorner = Instance.new("UICorner")
-
--- Configuração do Botão (Fica fixo na tela)
-ToggleButton.Name = "HubToggleButton"
-ToggleButton.Parent = ScreenGui -- ScreenGui é a variável criada no seu HubLib:Init
-ToggleButton.Size = UDim2.new(0, 50, 0, 50)
-ToggleButton.Position = UDim2.new(0, 10, 0.5, -25) -- Lado esquerdo centralizado
-ToggleButton.BackgroundColor3 = HubLib.AccentColor -- Usa a cor de destaque do seu Hub
-ToggleButton.Text = "VX"
-ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.Font = Enum.Font.GothamBold
-ToggleButton.TextSize = 14
-ToggleButton.Draggable = true -- Você pode arrastar o botão para onde quiser
-
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = ToggleButton
-
--- Lógica de Ocultar/Mostrar
-ToggleButton.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
-
-
-local FarmTab = MyHub:CreateTab("Fruit")
-
--- [[ TOGGLE DE AUTO COLLECT + QUADRADO DE MONITORAMENTO ]]
-
-MyHub:AddToggle(FarmTab, "Auto Collect Fruits", function(state)
-    _G.FruitCollectorEnabled = state 
-    
-    if state then
-        -- Carrega a Engine se necessário
-        if not _G.StartFruitLoop then
-            pcall(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))()
-            end)
-        end
-        task.spawn(pcall, _G.StartFruitLoop)
-    end
-end)
-
--- [ QUADRADO DE MONITORAMENTO - FIXO ]
-local MonitorFrame = Instance.new("Frame", FarmTab)
-MonitorFrame.Name = "FruitMonitor"
-MonitorFrame.Size = UDim2.new(0.95, 0, 0, 110)
-MonitorFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MonitorFrame.BorderSizePixel = 0
-Instance.new("UICorner", MonitorFrame).CornerRadius = UDim.new(0, 6)
-
--- Borda sutil
-local Stroke = Instance.new("UIStroke", MonitorFrame)
-Stroke.Color = Color3.fromRGB(45, 45, 45)
-Stroke.Thickness = 1
-
-local Title = Instance.new("TextLabel", MonitorFrame)
-Title.Size = UDim2.new(1, 0, 0, 25)
-Title.Position = UDim2.new(0, 12, 0, 5)
-Title.Text = "MONITORAMENTO DE FRUTAS"
-Title.TextColor3 = HubLib.AccentColor
-Title.TextSize = 10
-Title.Font = Enum.Font.GothamBold
-Title.BackgroundTransparency = 1
-Title.TextXAlignment = Enum.TextXAlignment.Left
-
-local Separator = Instance.new("Frame", MonitorFrame)
-Separator.Size = UDim2.new(0.9, 0, 0, 1)
-Separator.Position = UDim2.new(0.05, 0, 0, 30)
-Separator.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-Separator.BorderSizePixel = 0
-
-local FruitList = Instance.new("TextLabel", MonitorFrame)
-FruitList.Size = UDim2.new(1, -24, 1, -40)
-FruitList.Position = UDim2.new(0, 12, 0, 35)
-FruitList.BackgroundTransparency = 1
-FruitList.Text = "AGUARDANDO SCAN..."
-FruitList.TextColor3 = Color3.fromRGB(200, 200, 200)
-FruitList.TextSize = 10
-FruitList.Font = Enum.Font.GothamSemibold
-FruitList.TextWrapped = true
-FruitList.TextYAlignment = Enum.TextYAlignment.Top
-FruitList.TextXAlignment = Enum.TextXAlignment.Left
-
--- [ LÓGICA DE ATUALIZAÇÃO DO QUADRADO ]
-task.spawn(function()
-    while true do
-        local f1 = workspace:FindFirstChild("AllspawnDF")
-        local f2 = workspace:FindFirstChild("AllDroppedFruit")
-        local lines = {}
-
-        -- Verifica Frutas de Spawn
-        if f1 then
-            for _, f in ipairs(f1:GetChildren()) do
-                if f:IsA("Model") then
-                    table.insert(lines, "[SPAWN] " .. f.Name:upper())
-                end
-            end
-        end
-        
-        -- Verifica Frutas Dropadas
-        if f2 then
-            for _, f in ipairs(f2:GetChildren()) do
-                if f:IsA("Model") then
-                    table.insert(lines, "[DROP] " .. f.Name:upper())
-                end
-            end
-        end
-
-        -- Atualiza o texto do Quadrado
-        if #lines > 0 then
-            FruitList.Text = table.concat(lines, "\n")
-            FruitList.TextColor3 = Color3.fromRGB(255, 255, 255)
-        else
-            FruitList.Text = "NENHUMA FRUTA DETECTADA"
-            FruitList.TextColor3 = Color3.fromRGB(100, 100, 100)
-        end
-        
-        task.wait(1.5)
-    end
-end)
+return HubLib
