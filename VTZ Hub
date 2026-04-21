@@ -1,4 +1,4 @@
--- [[ VXEZE-STYLE HUB ENGINE - EMERGENCY UI FIX ]]
+-- [[ VXEZE-STYLE HUB ENGINE - INTEGRATED VERSION ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -38,28 +38,21 @@ end
 
 function HubLib:Init(hubTitle, subTitle)
     local player = Players.LocalPlayer
-    
-    -- Tenta encontrar o melhor lugar para injetar a GUI
     local targetParent = nil
-    local s, e = pcall(function()
-        targetParent = CoreGui
-    end)
-    if not s or not targetParent then
-        targetParent = player:WaitForChild("PlayerGui")
-    end
+    pcall(function() targetParent = CoreGui end)
+    if not targetParent then targetParent = player:WaitForChild("PlayerGui") end
 
-    -- Limpa versões antigas
     if targetParent:FindFirstChild("VxezeHub") then targetParent.VxezeHub:Destroy() end
 
-    -- Criação da ScreenGui com prioridade máxima
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "VxezeHub"
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
     ScreenGui.IgnoreGuiInset = true
     ScreenGui.DisplayOrder = 999
+    ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = targetParent
 
-    -- [[ O BOTÃO VX - CRIADO IMEDIATAMENTE ]]
+    -- [[ O BOTÃO VX ]]
     local ToggleBtn = Instance.new("TextButton")
     ToggleBtn.Name = "VxezeToggle"
     ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
@@ -70,8 +63,7 @@ function HubLib:Init(hubTitle, subTitle)
     ToggleBtn.Font = Enum.Font.GothamBold
     ToggleBtn.TextSize = 16
     ToggleBtn.ZIndex = 100
-    ToggleBtn.Visible = true
-    ToggleBtn.Parent = ScreenGui -- Parent imediato aqui
+    ToggleBtn.Parent = ScreenGui
     
     Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 12)
     local Stroke = Instance.new("UIStroke", ToggleBtn)
@@ -86,23 +78,18 @@ function HubLib:Init(hubTitle, subTitle)
     MainFrame.Position = UDim2.new(0.5, -240, 0.5, -160)
     MainFrame.BackgroundColor3 = self.MainColor
     MainFrame.BorderSizePixel = 0
-    MainFrame.Visible = true -- Começa visível para teste
     MainFrame.Parent = ScreenGui
-    
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
-    -- Lógica do Clique
     ToggleBtn.MouseButton1Click:Connect(function()
         MainFrame.Visible = not MainFrame.Visible
-        print("Botão VX clicado! Visibilidade:", MainFrame.Visible)
     end)
 
-    -- Restante da Estrutura (TopBar, Sidebar, etc)
     local TopBar = Instance.new("Frame", MainFrame)
     TopBar.Size = UDim2.new(1, 0, 0, 35)
     TopBar.BackgroundTransparency = 1
     makeDraggable(TopBar, MainFrame)
-    makeDraggable(ToggleBtn, ToggleBtn) -- Torna o botão VX arrastável também
+    makeDraggable(ToggleBtn, ToggleBtn)
 
     local Title = Instance.new("TextLabel", TopBar)
     Title.Size = UDim2.new(1, -20, 1, 0)
@@ -129,7 +116,6 @@ function HubLib:Init(hubTitle, subTitle)
     self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
     self.PagesFolder.BackgroundTransparency = 1
 
-    warn("VXEZE HUB: Injetado no " .. targetParent.Name)
     self.Sidebar = Sidebar
     return self
 end
@@ -217,5 +203,74 @@ function HubLib:AddToggle(page, text, callback)
         page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
     end
 end
+
+-- ==========================================
+-- EXECUÇÃO DA GUI E LÓGICA DE FARM
+-- ==========================================
+local MyHub = HubLib:Init("KING LEGACY", "VTZ HUB")
+local MainTab = MyHub:CreateTab("Main Farm")
+
+_G.AutoCollectAll = false
+
+local function GlobalChestCollector()
+    task.spawn(function()
+        while _G.AutoCollectAll do
+            local IslandFolder = workspace:FindFirstChild("Island")
+            if IslandFolder then
+                for _, island in ipairs(IslandFolder:GetChildren()) do
+                    if island.Name ~= "Gacha" then
+                        for _, obj in ipairs(island:GetDescendants()) do
+                            if obj:IsA("BasePart") and string.find(obj.Name, "Chest") then
+                                local char = Players.LocalPlayer.Character
+                                if char and char:FindFirstChild("HumanoidRootPart") then
+                                    char.HumanoidRootPart.CFrame = obj.CFrame
+                                    task.wait(0.25)
+                                end
+                            end
+                            if not _G.AutoCollectAll then break end
+                        end
+                    end
+                    if not _G.AutoCollectAll then break end
+                end
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+MyHub:AddToggle(MainTab, "Auto Collect All Chests", function(state)
+    _G.AutoCollectAll = state
+    if state then
+        GlobalChestCollector()
+    end
+end)
+
+local StatusFrame = Instance.new("Frame", MainTab)
+StatusFrame.Size = UDim2.new(0.95, 0, 0, 40)
+StatusFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", StatusFrame).CornerRadius = UDim.new(0, 5)
+
+local StatusLabel = Instance.new("TextLabel", StatusFrame)
+StatusLabel.Size = UDim2.new(1, -20, 1, 0)
+StatusLabel.Position = UDim2.new(0, 10, 0, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Font = Enum.Font.GothamSemibold
+StatusLabel.TextSize = 10
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Text = "STATUS: AGUARDANDO"
+StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+
+task.spawn(function()
+    while true do
+        if _G.AutoCollectAll then
+            StatusLabel.Text = "BUSCANDO BAÚS EM ISLAND (SEM GACHA)..."
+            StatusLabel.TextColor3 = HubLib.AccentColor
+        else
+            StatusLabel.Text = "SISTEMA DE COLETA PAUSADO"
+            StatusLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+        end
+        task.wait(1)
+    end
+end)
 
 return HubLib
