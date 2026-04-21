@@ -1,32 +1,40 @@
--- [[ VTZ HUB - LEGACY ISLAND CHEST ENGINE ]]
+-- [[ VTZ HUB - LEGACY ISLAND CHEST ENGINE (MODEL INSIDE PART) ]]
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
-_G.AutoCollectAll = true -- Controle global
+_G.AutoCollectAll = true
 
 local function collectLegacyChests()
     while _G.AutoCollectAll do
         local IslandFolder = workspace:FindFirstChild("Island")
         
         if IslandFolder then
-            -- Procura por todas as pastas dentro de Island
-            for _, folder in ipairs(IslandFolder:GetChildren()) do
-                -- Filtro: Procura o padrão "Legacy Island" (independente do número aleatório)
-                if string.find(folder.Name, "Legacy Island") then
+            -- 1. Procura as pastas "Legacy Island"
+            for _, island in ipairs(IslandFolder:GetChildren()) do
+                if string.find(island.Name, "Legacy Island") then
                     
-                    -- Tenta encontrar o ChestSpawner dentro dessa ilha específica
-                    local spawner = folder:FindFirstChild("ChestSpawner")
-                    if spawner then
-                        for _, chest in ipairs(spawner:GetChildren()) do
-                            if _G.AutoCollectAll == false then break end
-                            
-                            -- Verifica se é um baú coletável
-                            if chest:IsA("BasePart") or chest:FindFirstChild("TouchInterest") then
-                                local char = LocalPlayer.Character
-                                if char and char:FindFirstChild("HumanoidRootPart") then
-                                    -- Teleporte para o CFrame do baú
-                                    char.HumanoidRootPart.CFrame = chest.CFrame
-                                    task.wait(0.25) -- Delay de segurança para coleta
+                    -- 2. Procura a Parte chamada ChestSpawner (ou similar)
+                    for _, spawner in ipairs(island:GetChildren()) do
+                        local sName = string.lower(spawner.Name)
+                        
+                        if sName:find("chest") and sName:find("spawn") then
+                            -- 3. Entra na Parte e procura os Modelos de Chest lá dentro
+                            for _, chestModel in ipairs(spawner:GetChildren()) do
+                                if not _G.AutoCollectAll then break end
+                                
+                                -- Verifica se o nome termina com "Chest" (ex: Tier1Chest)
+                                if chestModel:IsA("Model") and string.find(chestModel.Name, "Chest") then
+                                    local char = LocalPlayer.Character
+                                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                                    
+                                    if root then
+                                        -- Teleporte para a posição do Modelo
+                                        local cf, size = chestModel:GetBoundingBox()
+                                        root.CFrame = cf
+                                        
+                                        -- Espera pequena para o script do jogo detectar a coleta
+                                        task.wait(0.3)
+                                    end
                                 end
                             end
                         end
@@ -35,9 +43,8 @@ local function collectLegacyChests()
                 if not _G.AutoCollectAll then break end
             end
         end
-        task.wait(1) -- Aguarda 1 segundo antes de escanear novamente
+        task.wait(0.5) -- Ciclo de busca
     end
 end
 
--- Inicia o processo em uma thread separada
 task.spawn(collectLegacyChests)
