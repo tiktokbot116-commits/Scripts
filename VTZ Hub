@@ -176,11 +176,11 @@ end
 -- [[ CONFIGURAÇÃO DO HUB COM LOOP DE CARREGAMENTO ]]
 
 local MyHub = HubLib:Init("KING LEGACY", "VTZ Hub")
-local FarmTab = MyHub:CreateTab("Farming")
+local FarmTab = MyHub:CreateTab("Fruit")
 
 -- [[ TOGGLE DE AUTO COLLECT + QUADRADO DE MONITORAMENTO ]]
 
-MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
+MyHub:AddToggle(FarmTab, "Auto Collect Fruits", function(state)
     _G.FruitCollectorEnabled = state 
     
     if state then
