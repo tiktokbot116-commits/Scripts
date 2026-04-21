@@ -1,12 +1,14 @@
--- [[ VXEZE-STYLE HUB ENGINE - INTEGRATED VERSION ]]
+-- [[ VTZ HUB - INTEGRATED LOADSTRING VERSION ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
+-- ==========================================
+-- 1. ENGINE DA INTERFACE (BIBLIOTECA)
+-- ==========================================
 local HubLib = {}
-
 HubLib.MainColor = Color3.fromRGB(20, 20, 20)
 HubLib.SidebarColor = Color3.fromRGB(15, 15, 15)
 HubLib.AccentColor = Color3.fromRGB(81, 74, 255) 
@@ -25,11 +27,8 @@ local function makeDraggable(frame, parentFrame)
             end)
         end
     end)
-    frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-    end)
     UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - mousePos
             parentFrame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
         end
@@ -44,41 +43,30 @@ function HubLib:Init(hubTitle, subTitle)
 
     if targetParent:FindFirstChild("VxezeHub") then targetParent.VxezeHub:Destroy() end
 
-    local ScreenGui = Instance.new("ScreenGui")
+    local ScreenGui = Instance.new("ScreenGui", targetParent)
     ScreenGui.Name = "VxezeHub"
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    ScreenGui.IgnoreGuiInset = true
-    ScreenGui.DisplayOrder = 999
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = targetParent
+    ScreenGui.IgnoreGuiInset = true
 
-    -- [[ O BOTÃO VX ]]
-    local ToggleBtn = Instance.new("TextButton")
+    local ToggleBtn = Instance.new("TextButton", ScreenGui)
     ToggleBtn.Name = "VxezeToggle"
-    ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
-    ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
+    ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+    ToggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
     ToggleBtn.BackgroundColor3 = self.AccentColor
     ToggleBtn.Text = "VX"
     ToggleBtn.TextColor3 = Color3.new(1,1,1)
     ToggleBtn.Font = Enum.Font.GothamBold
-    ToggleBtn.TextSize = 16
-    ToggleBtn.ZIndex = 100
-    ToggleBtn.Parent = ScreenGui
-    
-    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 12)
-    local Stroke = Instance.new("UIStroke", ToggleBtn)
-    Stroke.Color = Color3.new(1,1,1)
-    Stroke.Thickness = 2
-    Stroke.Transparency = 0.5
+    ToggleBtn.TextSize = 14
+    ToggleBtn.ZIndex = 500
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
+    makeDraggable(ToggleBtn, ToggleBtn)
 
-    -- [[ FRAME PRINCIPAL ]]
-    local MainFrame = Instance.new("Frame")
+    local MainFrame = Instance.new("Frame", ScreenGui)
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 480, 0, 320)
     MainFrame.Position = UDim2.new(0.5, -240, 0.5, -160)
     MainFrame.BackgroundColor3 = self.MainColor
     MainFrame.BorderSizePixel = 0
-    MainFrame.Parent = ScreenGui
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
     ToggleBtn.MouseButton1Click:Connect(function()
@@ -89,26 +77,23 @@ function HubLib:Init(hubTitle, subTitle)
     TopBar.Size = UDim2.new(1, 0, 0, 35)
     TopBar.BackgroundTransparency = 1
     makeDraggable(TopBar, MainFrame)
-    makeDraggable(ToggleBtn, ToggleBtn)
 
     local Title = Instance.new("TextLabel", TopBar)
     Title.Size = UDim2.new(1, -20, 1, 0)
     Title.Position = UDim2.new(0, 15, 0, 0)
-    Title.Text = string.upper(hubTitle or "HUB") .. " | " .. (subTitle or "SCRIPT")
+    Title.Text = string.upper(hubTitle) .. " | " .. subTitle
     Title.TextColor3 = self.TextColor
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 13
-    Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.BackgroundTransparency = 1
+    Title.TextXAlignment = Enum.TextXAlignment.Left
 
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 120, 1, -35)
     Sidebar.Position = UDim2.new(0, 0, 0, 35)
     Sidebar.BackgroundColor3 = self.SidebarColor
     Sidebar.BorderSizePixel = 0
-    local SidebarLayout = Instance.new("UIListLayout", Sidebar)
-    SidebarLayout.Padding = UDim.new(0, 5)
-    SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    Instance.new("UIListLayout", Sidebar).HorizontalAlignment = Enum.HorizontalAlignment.Center
     Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
 
     self.PagesFolder = Instance.new("Frame", MainFrame)
@@ -139,21 +124,19 @@ function HubLib:CreateTab(name)
     local layout = Instance.new("UIListLayout", Page)
     layout.Padding = UDim.new(0, 6)
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+    end)
 
     TabBtn.MouseButton1Click:Connect(function()
         for _, p in pairs(self.PagesFolder:GetChildren()) do p.Visible = false end
-        for _, b in pairs(self.Sidebar:GetChildren()) do 
-            if b:IsA("TextButton") then b.TextColor3 = Color3.fromRGB(150, 150, 150) end 
-        end
+        for _, b in pairs(self.Sidebar:GetChildren()) do if b:IsA("TextButton") then b.TextColor3 = Color3.fromRGB(150, 150, 150) end end
         Page.Visible = true
         TabBtn.TextColor3 = self.AccentColor
     end)
 
-    if #self.Sidebar:GetChildren() <= 2 then 
-        Page.Visible = true 
-        TabBtn.TextColor3 = self.AccentColor 
-    end
-
+    if #self.Sidebar:GetChildren() <= 2 then Page.Visible = true TabBtn.TextColor3 = self.AccentColor end
     return Page
 end
 
@@ -161,7 +144,6 @@ function HubLib:AddToggle(page, text, callback)
     local ToggleFrame = Instance.new("Frame", page)
     ToggleFrame.Size = UDim2.new(0.95, 0, 0, 38)
     ToggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    ToggleFrame.BorderSizePixel = 0
     Instance.new("UICorner", ToggleFrame).CornerRadius = UDim.new(0, 5)
 
     local Label = Instance.new("TextLabel", ToggleFrame)
@@ -179,7 +161,6 @@ function HubLib:AddToggle(page, text, callback)
     Outer.Position = UDim2.new(1, -48, 0.5, -9)
     Outer.BackgroundColor3 = self.ToggleOffColor
     Outer.Text = ""
-    Outer.AutoButtonColor = false
     Instance.new("UICorner", Outer).CornerRadius = UDim.new(1, 0)
 
     local Inner = Instance.new("Frame", Outer)
@@ -197,80 +178,75 @@ function HubLib:AddToggle(page, text, callback)
         TweenService:Create(Outer, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
         TweenService:Create(Inner, TweenInfo.new(0.2), {Position = targetPos}):Play()
     end)
-
-    local layout = page:FindFirstChildWhichIsA("UIListLayout")
-    if layout then
-        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
-    end
 end
 
 -- ==========================================
--- EXECUÇÃO DA GUI E LÓGICA DE FARM
+-- 2. CONFIGURAÇÃO DA ABA FARMING
 -- ==========================================
 local MyHub = HubLib:Init("KING LEGACY", "VTZ HUB")
-local MainTab = MyHub:CreateTab("Main Farm")
+local FarmTab = MyHub:CreateTab("Farming")
 
-_G.AutoCollectAll = false
+-- [ 1. BOTÃO DE FRUTAS ]
+MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
+    _G.FruitCollectorEnabled = state
+    if state then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))()
+        task.spawn(function() pcall(_G.StartFruitLoop) end)
+    end
+end)
 
-local function GlobalChestCollector()
-    task.spawn(function()
-        while _G.AutoCollectAll do
-            local IslandFolder = workspace:FindFirstChild("Island")
-            if IslandFolder then
-                for _, island in ipairs(IslandFolder:GetChildren()) do
-                    if island.Name ~= "Gacha" then
-                        for _, obj in ipairs(island:GetDescendants()) do
-                            if obj:IsA("BasePart") and string.find(obj.Name, "Chest") then
-                                local char = Players.LocalPlayer.Character
-                                if char and char:FindFirstChild("HumanoidRootPart") then
-                                    char.HumanoidRootPart.CFrame = obj.CFrame
-                                    task.wait(0.25)
-                                end
-                            end
-                            if not _G.AutoCollectAll then break end
-                        end
-                    end
-                    if not _G.AutoCollectAll then break end
-                end
-            end
-            task.wait(1)
-        end
-    end)
-end
+-- [ 2. QUADRADO DE MONITORAMENTO ]
+local Monitor = Instance.new("Frame", FarmTab)
+Monitor.Size = UDim2.new(0.95, 0, 0, 110)
+Monitor.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", Monitor).CornerRadius = UDim.new(0, 6)
 
-MyHub:AddToggle(MainTab, "Auto Collect All Chests", function(state)
+local MTitle = Instance.new("TextLabel", Monitor)
+MTitle.Size = UDim2.new(1, 0, 0, 25)
+MTitle.Position = UDim2.new(0, 12, 0, 5)
+MTitle.Text = "MONITORAMENTO DE FRUTAS"
+MTitle.TextColor3 = HubLib.AccentColor
+MTitle.Font = Enum.Font.GothamBold
+MTitle.TextSize = 10
+MTitle.BackgroundTransparency = 1
+MTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local FruitList = Instance.new("TextLabel", Monitor)
+FruitList.Size = UDim2.new(1, -24, 1, -40)
+FruitList.Position = UDim2.new(0, 12, 0, 35)
+FruitList.Text = "AGUARDANDO SCAN..."
+FruitList.TextColor3 = Color3.fromRGB(150, 150, 150)
+FruitList.Font = Enum.Font.GothamSemibold
+FruitList.TextSize = 10
+FruitList.BackgroundTransparency = 1
+FruitList.TextYAlignment = Enum.TextYAlignment.Top
+FruitList.TextXAlignment = Enum.TextXAlignment.Left
+
+-- [ 3. BOTÃO DE CHEST VIA LOADSTRING ]
+MyHub:AddToggle(FarmTab, "Auto Collect All Chests", function(state)
     _G.AutoCollectAll = state
     if state then
-        GlobalChestCollector()
+        -- COLOQUE O LINK DO SEU LOADSTRING DE CHEST ABAIXO
+        loadstring(game:HttpGet("LINK_DO_SEU_SCRIPT_DE_CHEST_AQUI"))()
     end
 end)
 
-local StatusFrame = Instance.new("Frame", MainTab)
-StatusFrame.Size = UDim2.new(0.95, 0, 0, 40)
-StatusFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", StatusFrame).CornerRadius = UDim.new(0, 5)
-
-local StatusLabel = Instance.new("TextLabel", StatusFrame)
-StatusLabel.Size = UDim2.new(1, -20, 1, 0)
-StatusLabel.Position = UDim2.new(0, 10, 0, 0)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Font = Enum.Font.GothamSemibold
-StatusLabel.TextSize = 10
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-StatusLabel.Text = "STATUS: AGUARDANDO"
-StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-
+-- Lógica do monitor de frutas
 task.spawn(function()
     while true do
-        if _G.AutoCollectAll then
-            StatusLabel.Text = "BUSCANDO BAÚS EM ISLAND (SEM GACHA)..."
-            StatusLabel.TextColor3 = HubLib.AccentColor
+        local lines = {}
+        local f1 = workspace:FindFirstChild("AllspawnDF")
+        local f2 = workspace:FindFirstChild("AllDroppedFruit")
+        if f1 then for _, f in ipairs(f1:GetChildren()) do table.insert(lines, "[SPAWN] " .. f.Name:upper()) end end
+        if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] " .. f.Name:upper()) end end
+        
+        if #lines > 0 then
+            FruitList.Text = table.concat(lines, "\n")
+            FruitList.TextColor3 = Color3.new(1,1,1)
         else
-            StatusLabel.Text = "SISTEMA DE COLETA PAUSADO"
-            StatusLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+            FruitList.Text = "NENHUMA FRUTA NO MAPA"
+            FruitList.TextColor3 = Color3.fromRGB(100,100,100)
         end
-        task.wait(1)
+        task.wait(2)
     end
 end)
-
-return HubLib
