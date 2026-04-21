@@ -1,4 +1,4 @@
--- [[ VTZ HUB - LOADSTRING EDITION ]]
+-- [[ VTZ HUB - FRUIT COLLECTOR EDITION ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -238,23 +238,15 @@ local FruitTab = MyHub:CreateTab("Fruits")
 
 local sBuyKey, bAmt, sUseKey, uType = "Copper Key", 10, "Copper Key", "Open1"
 
--- [ BOTÃO TELEPORT PARA FRUTAS (VIA LOADSTRING) ]
-MyHub:AddButton(FruitTab, "AUTO TELEPORT FRUTAS", function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Collect%20Fruit%20Map"))()
+-- [ AUTO FRUIT TOGGLE (VIA LOADSTRING) ]
+MyHub:AddToggle(FruitTab, "Auto Collect Fruit Map", function(state)
+    _G.AutoFruit = state
+    if state then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Collect%20Fruit%20Map"))()
+    end
 end)
 
--- [ GACHA & CHEST Toggles ]
-MyHub:AddToggle(FruitTab, "Auto Gacha (Fruta Beli)", function(state)
-    _G.AutoGacha = state
-    task.spawn(function()
-        while _G.AutoGacha do
-            pcall(function() ReplicatedStorage.Remotes.Functions.CheckBuy:InvokeServer("GachaBeli") end)
-            task.wait(5)
-        end
-    end)
-end)
-
--- [ AUTO CHEST (VIA LOADSTRING) ]
+-- [ AUTO CHEST TOGGLE (VIA LOADSTRING) ]
 MyHub:AddToggle(FruitTab, "Auto Collect All Chests", function(state)
     _G.AutoChest = state
     if state then
