@@ -251,7 +251,7 @@ MyHub:AddToggle(FarmTab, "Auto Collect All Chests", function(state)
     _G.AutoCollectAll = state
     if state then
         -- Substitua pelo link onde você hospedou o código acima
-        loadstring(game:HttpGet(""))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Farm%20Chest"))()
     else
         -- Garante que o loop pare imediatamente ao desligar
         _G.AutoCollectAll = false
