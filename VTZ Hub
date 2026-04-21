@@ -227,7 +227,7 @@ MyHub:AddToggle(FarmTab, "Auto Collect All Chests", function(state)
     _G.AutoCollectAll = state
     if state then
         -- COLOQUE O LINK DO SEU LOADSTRING DE CHEST ABAIXO
-        loadstring(game:HttpGet("LINK_DO_SEU_SCRIPT_DE_CHEST_AQUI"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Farm%20Chest"))()
     end
 end)
 
