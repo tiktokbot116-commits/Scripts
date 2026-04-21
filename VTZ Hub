@@ -178,28 +178,97 @@ end
 local MyHub = HubLib:Init("KING LEGACY", "VTZ Hub")
 local FarmTab = MyHub:CreateTab("Farming")
 
+-- [[ TOGGLE DE AUTO COLLECT + QUADRADO DE MONITORAMENTO ]]
+
 MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
-    -- 1. Sincroniza a variável de controle do script externo
     _G.FruitCollectorEnabled = state 
     
     if state then
-        -- 2. Verifica se o script já foi carregado. Se não, ele baixa uma vez.
+        -- Carrega a Engine se necessário
         if not _G.StartFruitLoop then
-            local success, err = pcall(function()
-                -- Certifique-se de que o link abaixo aponta para o script que arrumamos por último!
+            pcall(function()
                 loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))()
             end)
-            if not success then warn("Erro ao baixar engine: ", err) return end
+        end
+        task.spawn(pcall, _G.StartFruitLoop)
+    end
+end)
+
+-- [ QUADRADO DE MONITORAMENTO - FIXO ]
+local MonitorFrame = Instance.new("Frame", FarmTab)
+MonitorFrame.Name = "FruitMonitor"
+MonitorFrame.Size = UDim2.new(0.95, 0, 0, 110)
+MonitorFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MonitorFrame.BorderSizePixel = 0
+Instance.new("UICorner", MonitorFrame).CornerRadius = UDim.new(0, 6)
+
+-- Borda sutil
+local Stroke = Instance.new("UIStroke", MonitorFrame)
+Stroke.Color = Color3.fromRGB(45, 45, 45)
+Stroke.Thickness = 1
+
+local Title = Instance.new("TextLabel", MonitorFrame)
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.Position = UDim2.new(0, 12, 0, 5)
+Title.Text = "MONITORAMENTO DE FRUTAS"
+Title.TextColor3 = HubLib.AccentColor
+Title.TextSize = 10
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundTransparency = 1
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local Separator = Instance.new("Frame", MonitorFrame)
+Separator.Size = UDim2.new(0.9, 0, 0, 1)
+Separator.Position = UDim2.new(0.05, 0, 0, 30)
+Separator.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Separator.BorderSizePixel = 0
+
+local FruitList = Instance.new("TextLabel", MonitorFrame)
+FruitList.Size = UDim2.new(1, -24, 1, -40)
+FruitList.Position = UDim2.new(0, 12, 0, 35)
+FruitList.BackgroundTransparency = 1
+FruitList.Text = "AGUARDANDO SCAN..."
+FruitList.TextColor3 = Color3.fromRGB(200, 200, 200)
+FruitList.TextSize = 10
+FruitList.Font = Enum.Font.GothamSemibold
+FruitList.TextWrapped = true
+FruitList.TextYAlignment = Enum.TextYAlignment.Top
+FruitList.TextXAlignment = Enum.TextXAlignment.Left
+
+-- [ LÓGICA DE ATUALIZAÇÃO DO QUADRADO ]
+task.spawn(function()
+    while true do
+        local f1 = workspace:FindFirstChild("AllspawnDF")
+        local f2 = workspace:FindFirstChild("AllDroppedFruit")
+        local lines = {}
+
+        -- Verifica Frutas de Spawn
+        if f1 then
+            for _, f in ipairs(f1:GetChildren()) do
+                if f:IsA("Model") then
+                    table.insert(lines, "[SPAWN] " .. f.Name:upper())
+                end
+            end
         end
         
-        -- 3. Inicia a função global que definimos no script externo
-        task.spawn(function()
-            -- Um pcall aqui é bom pra evitar que o Hub quebre se houver erro no farm
-            pcall(_G.StartFruitLoop)
-        end)
-    else
-        -- Quando state é false, o _G.FruitCollectorEnabled = state lá em cima
-        -- já faz o loop 'while' do script externo parar no próximo ciclo.
-        print("Farm Desativado pelo Hub.")
+        -- Verifica Frutas Dropadas
+        if f2 then
+            for _, f in ipairs(f2:GetChildren()) do
+                if f:IsA("Model") then
+                    table.insert(lines, "[DROP] " .. f.Name:upper())
+                end
+            end
+        end
+
+        -- Atualiza o texto do Quadrado
+        if #lines > 0 then
+            FruitList.Text = table.concat(lines, "\n")
+            FruitList.TextColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            FruitList.Text = "NENHUMA FRUTA DETECTADA"
+            FruitList.TextColor3 = Color3.fromRGB(100, 100, 100)
+        end
+        
+        task.wait(1.5)
     end
 end)
