@@ -250,7 +250,11 @@ EventTimer.BackgroundTransparency = 1
 MyHub:AddToggle(FarmTab, "Auto Collect All Chests", function(state)
     _G.AutoCollectAll = state
     if state then
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))() -- Substitua pelo link do script de chest se for diferente
+        -- Substitua pelo link onde você hospedou o código acima
+        loadstring(game:HttpGet(""))()
+    else
+        -- Garante que o loop pare imediatamente ao desligar
+        _G.AutoCollectAll = false
     end
 end)
 
