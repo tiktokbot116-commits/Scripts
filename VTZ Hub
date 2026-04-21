@@ -1,4 +1,4 @@
--- [[ VTZ HUB - FULL INTEGRATED VERSION ]]
+-- [[ VTZ HUB - FRUITS & TELEPORTS ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- ==========================================
--- 1. ENGINE DA INTERFACE (BIBLIOTECA ORIGINAL)
+-- 1. ENGINE DA INTERFACE (BIBLIOTECA)
 -- ==========================================
 local HubLib = {}
 HubLib.MainColor = Color3.fromRGB(20, 20, 20)
@@ -17,7 +17,7 @@ HubLib.ToggleOffColor = Color3.fromRGB(45, 45, 45)
 HubLib.TextColor = Color3.fromRGB(255, 255, 255)
 
 local function makeDraggable(frame, parentFrame)
-    local dragging, dragInput, mousePos, framePos
+    local dragging, mousePos, framePos
     frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
@@ -37,17 +37,14 @@ local function makeDraggable(frame, parentFrame)
 end
 
 function HubLib:Init(hubTitle, subTitle)
-    local player = Players.LocalPlayer
     local targetParent = nil
     pcall(function() targetParent = CoreGui end)
-    if not targetParent then targetParent = player:WaitForChild("PlayerGui") end
-
+    if not targetParent then targetParent = Players.LocalPlayer:WaitForChild("PlayerGui") end
     if targetParent:FindFirstChild("VxezeHub") then targetParent.VxezeHub:Destroy() end
 
     local ScreenGui = Instance.new("ScreenGui", targetParent)
     ScreenGui.Name = "VxezeHub"
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.IgnoreGuiInset = true
 
     local ToggleBtn = Instance.new("TextButton", ScreenGui)
     ToggleBtn.Name = "VxezeToggle"
@@ -58,7 +55,6 @@ function HubLib:Init(hubTitle, subTitle)
     ToggleBtn.TextColor3 = Color3.new(1,1,1)
     ToggleBtn.Font = Enum.Font.GothamBold
     ToggleBtn.TextSize = 14
-    ToggleBtn.ZIndex = 500
     Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
     makeDraggable(ToggleBtn, ToggleBtn)
 
@@ -67,33 +63,14 @@ function HubLib:Init(hubTitle, subTitle)
     MainFrame.Size = UDim2.new(0, 480, 0, 320)
     MainFrame.Position = UDim2.new(0.5, -240, 0.5, -160)
     MainFrame.BackgroundColor3 = self.MainColor
-    MainFrame.BorderSizePixel = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
-    ToggleBtn.MouseButton1Click:Connect(function()
-        MainFrame.Visible = not MainFrame.Visible
-    end)
-
-    local TopBar = Instance.new("Frame", MainFrame)
-    TopBar.Size = UDim2.new(1, 0, 0, 35)
-    TopBar.BackgroundTransparency = 1
-    makeDraggable(TopBar, MainFrame)
-
-    local Title = Instance.new("TextLabel", TopBar)
-    Title.Size = UDim2.new(1, -20, 1, 0)
-    Title.Position = UDim2.new(0, 15, 0, 0)
-    Title.Text = string.upper(hubTitle) .. " | " .. subTitle
-    Title.TextColor3 = self.TextColor
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 13
-    Title.BackgroundTransparency = 1
-    Title.TextXAlignment = Enum.TextXAlignment.Left
+    ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 120, 1, -35)
     Sidebar.Position = UDim2.new(0, 0, 0, 35)
     Sidebar.BackgroundColor3 = self.SidebarColor
-    Sidebar.BorderSizePixel = 0
     Instance.new("UIListLayout", Sidebar).HorizontalAlignment = Enum.HorizontalAlignment.Center
     Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
 
@@ -111,33 +88,22 @@ function HubLib:CreateTab(name)
     TabBtn.Size = UDim2.new(0.9, 0, 0, 30)
     TabBtn.BackgroundTransparency = 1
     TabBtn.Text = name:upper()
-    TabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    TabBtn.TextColor3 = self.AccentColor
     TabBtn.Font = Enum.Font.GothamSemibold
     TabBtn.TextSize = 11
 
     local Page = Instance.new("ScrollingFrame", self.PagesFolder)
     Page.Size = UDim2.new(1, 0, 1, 0)
     Page.BackgroundTransparency = 1
-    Page.Visible = false
+    Page.Visible = true
     Page.ScrollBarThickness = 0
-    Page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    
     local layout = Instance.new("UIListLayout", Page)
     layout.Padding = UDim.new(0, 6)
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    
+
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         Page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
     end)
-
-    TabBtn.MouseButton1Click:Connect(function()
-        for _, p in pairs(self.PagesFolder:GetChildren()) do p.Visible = false end
-        for _, b in pairs(self.Sidebar:GetChildren()) do if b:IsA("TextButton") then b.TextColor3 = Color3.fromRGB(150, 150, 150) end end
-        Page.Visible = true
-        TabBtn.TextColor3 = self.AccentColor
-    end)
-
-    if #self.Sidebar:GetChildren() <= 2 then Page.Visible = true TabBtn.TextColor3 = self.AccentColor end
     return Page
 end
 
@@ -154,7 +120,7 @@ function HubLib:AddToggle(page, text, callback)
     Label.TextColor3 = self.TextColor
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.Gotham
-    Label.TextSize = 12
+    Label.TextSize = 11
     Label.TextXAlignment = Enum.TextXAlignment.Left
 
     local Outer = Instance.new("TextButton", ToggleFrame)
@@ -183,12 +149,12 @@ end
 
 function HubLib:AddButton(page, text, callback)
     local Btn = Instance.new("TextButton", page)
-    Btn.Size = UDim2.new(0.95, 0, 0, 38)
+    Btn.Size = UDim2.new(0.95, 0, 0, 35)
     Btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     Btn.Text = text
     Btn.TextColor3 = self.TextColor
     Btn.Font = Enum.Font.GothamSemibold
-    Btn.TextSize = 12
+    Btn.TextSize = 11
     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 5)
     Btn.MouseButton1Click:Connect(callback)
 end
@@ -198,234 +164,132 @@ function HubLib:AddTextBox(page, text, placeholder, callback)
     TFrame.Size = UDim2.new(0.95, 0, 0, 45)
     TFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     Instance.new("UICorner", TFrame)
+    
+    local Label = Instance.new("TextLabel", TFrame)
+    Label.Size = UDim2.new(1, 0, 0, 20)
+    Label.Position = UDim2.new(0, 10, 0, 2)
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 10
+    Label.BackgroundTransparency = 1
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
     local Box = Instance.new("TextBox", TFrame)
-    Box.Size = UDim2.new(1, -24, 0, 20)
-    Box.Position = UDim2.new(0, 12, 0, 18)
+    Box.Size = UDim2.new(1, -20, 0, 20)
+    Box.Position = UDim2.new(0, 10, 0, 20)
     Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     Box.PlaceholderText = placeholder
-    Box.Text = ""
+    Box.Text = "10"
     Box.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", Box)
     Box.FocusLost:Connect(function() callback(Box.Text) end)
 end
 
-function HubLib:AddDropdown(page, text, options, callback)
-    local DropFrame = Instance.new("Frame", page)
-    DropFrame.Size = UDim2.new(0.95, 0, 0, 38)
-    DropFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    Instance.new("UICorner", DropFrame)
-    local Btn = Instance.new("TextButton", DropFrame)
-    Btn.Size = UDim2.new(0, 120, 0, 28)
-    Btn.Position = UDim2.new(1, -125, 0, 5)
-    Btn.Text = "Selecionar..."
-    Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    Btn.TextColor3 = self.AccentColor
-    Instance.new("UICorner", Btn)
-    local List = Instance.new("Frame", page)
-    List.Size = UDim2.new(0.95, 0, 0, 0)
-    List.Visible = false
-    List.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    Instance.new("UIListLayout", List)
-    Instance.new("UICorner", List)
-    Btn.MouseButton1Click:Connect(function()
-        List.Visible = not List.Visible
-        if List.Visible then
-            for _, v in pairs(List:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-            for _, opt in pairs(options) do
-                local oBtn = Instance.new("TextButton", List)
-                oBtn.Size = UDim2.new(1, 0, 0, 30)
-                oBtn.Text = opt
-                oBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-                oBtn.TextColor3 = Color3.new(1,1,1)
-                oBtn.MouseButton1Click:Connect(function()
-                    Btn.Text = opt
-                    callback(opt)
-                    List.Visible = false
-                end)
-            end
-            List.Size = UDim2.new(0.95, 0, 0, #List:GetChildren() * 30)
-        end
-    end)
-end
+function HubLib:AddGridSelector(page, title, options, callback)
+    local Container = Instance.new("Frame", page)
+    Container.Size = UDim2.new(0.95, 0, 0, 65)
+    Container.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Instance.new("UICorner", Container)
 
-function HubLib:AddEquipDropdown(page)
-    local DropFrame = Instance.new("Frame", page)
-    DropFrame.Size = UDim2.new(0.95, 0, 0, 38)
-    DropFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    Instance.new("UICorner", DropFrame).CornerRadius = UDim.new(0, 5)
-    
-    local Label = Instance.new("TextLabel", DropFrame)
-    Label.Size = UDim2.new(1, -40, 1, 0)
-    Label.Position = UDim2.new(0, 12, 0, 0)
-    Label.Text = "AUTO EQUIP (SÓ ITENS)"
-    Label.TextColor3 = self.TextColor
+    local Label = Instance.new("TextLabel", Container)
+    Label.Size = UDim2.new(1, 0, 0, 20)
+    Label.Text = title:upper()
+    Label.TextColor3 = self.AccentColor
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 10
     Label.BackgroundTransparency = 1
-    Label.Font = Enum.Font.Gotham
-    Label.TextSize = 11
-    Label.TextXAlignment = Enum.TextXAlignment.Left
 
-    local Btn = Instance.new("TextButton", DropFrame)
-    Btn.Size = UDim2.new(0, 30, 0, 30)
-    Btn.Position = UDim2.new(1, -35, 0, 4)
-    Btn.Text = "▼"
-    Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    Btn.TextColor3 = self.TextColor
-    Btn.BorderSizePixel = 0
-    Instance.new("UICorner", Btn)
+    local Grid = Instance.new("Frame", Container)
+    Grid.Size = UDim2.new(1, -10, 0, 35)
+    Grid.Position = UDim2.new(0, 5, 0, 22)
+    Grid.BackgroundTransparency = 1
+    local layout = Instance.new("UIListLayout", Grid)
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, 4)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    local List = Instance.new("Frame", page)
-    List.Size = UDim2.new(0.95, 0, 0, 0)
-    List.Visible = false
-    List.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    Instance.new("UIListLayout", List)
-    Instance.new("UICorner", List)
-
-    Btn.MouseButton1Click:Connect(function()
-        List.Visible = not List.Visible
-        if List.Visible then
-            for _, v in pairs(List:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-            for _, item in pairs(Players.LocalPlayer.Backpack:GetChildren()) do
-                if not item.Name:lower():find("fruit") then
-                    local iBtn = Instance.new("TextButton", List)
-                    iBtn.Size = UDim2.new(1, 0, 0, 30)
-                    iBtn.Text = item.Name
-                    iBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-                    iBtn.TextColor3 = Color3.new(1,1,1)
-                    iBtn.Font = Enum.Font.Gotham
-                    iBtn.TextSize = 11
-                    iBtn.MouseButton1Click:Connect(function()
-                        Players.LocalPlayer.Character.Humanoid:EquipTool(item)
-                        List.Visible = false
-                    end)
-                end
-            end
-            List.Size = UDim2.new(0.95, 0, 0, #List:GetChildren() * 30)
-        end
-    end)
+    local btns = {}
+    for _, opt in pairs(options) do
+        local b = Instance.new("TextButton", Grid)
+        b.Size = UDim2.new(0, 60, 1, 0)
+        b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        b.Text = opt:gsub(" Key", "")
+        b.TextColor3 = Color3.new(0.7,0.7,0.7)
+        b.Font = Enum.Font.GothamSemibold
+        b.TextSize = 8
+        Instance.new("UICorner", b)
+        
+        b.MouseButton1Click:Connect(function()
+            for _, v in pairs(btns) do v.BackgroundColor3 = Color3.fromRGB(40, 40, 40) v.TextColor3 = Color3.new(0.7,0.7,0.7) end
+            b.BackgroundColor3 = self.AccentColor
+            b.TextColor3 = Color3.new(1,1,1)
+            callback(opt)
+        end)
+        table.insert(btns, b)
+    end
 end
 
 -- ==========================================
--- 3. INICIALIZAÇÃO E ABAS DO VTZ HUB
+-- 2. INICIALIZAÇÃO E ABA FRUITS
 -- ==========================================
 local MyHub = HubLib:Init("KING LEGACY", "VTZ HUB")
+local FruitTab = MyHub:CreateTab("Fruits")
 
--- ABA 1: FARMING (SUAS FUNÇÕES ORIGINAIS + NOVAS)
-local FarmTab = MyHub:CreateTab("Farming")
+local sBuyKey, bAmt, sUseKey, uType = "Copper Key", 10, "Copper Key", "Open1"
 
-MyHub:AddToggle(FarmTab, "Auto Farm Intelligence (Leveling)", function(state)
-    _G.AutoFarmIntell = state
-    if state then
-        -- loadstring(game:HttpGet("SEU_LINK_AQUI"))()
+-- [ FUNÇÃO TELEPORT ]
+local function tpTo(targetPos)
+    local char = Players.LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = targetPos
+    end
+end
+
+-- [ GACHA & FRUIT Toggles ]
+MyHub:AddToggle(FruitTab, "Auto Gacha (Fruta Beli)", function(state)
+    _G.AutoGacha = state
+    task.spawn(function()
+        while _G.AutoGacha do
+            pcall(function() ReplicatedStorage.Remotes.Functions.CheckBuy:InvokeServer("GachaBeli") end)
+            task.wait(5)
+        end
+    end)
+end)
+
+-- [ TELEPORTS ]
+MyHub:AddButton(FruitTab, "TP PARA FRUTA NO MAPA", function()
+    local f1 = workspace:FindFirstChild("AllspawnDF")
+    if f1 and #f1:GetChildren() > 0 then
+        tpTo(f1:GetChildren()[1].Handle.CFrame)
     end
 end)
 
-MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
-    _G.FruitCollectorEnabled = state
-    if state then
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))()
-        task.spawn(function() pcall(_G.StartFruitLoop) end)
+MyHub:AddButton(FruitTab, "TP PARA FRUTA DROPADA", function()
+    local f2 = workspace:FindFirstChild("AllDroppedFruit")
+    if f2 and #f2:GetChildren() > 0 then
+        tpTo(f2:GetChildren()[1]:FindFirstChildWhichIsA("BasePart").CFrame)
     end
 end)
 
-MyHub:AddToggle(FarmTab, "Auto Collect All Chests", function(state)
-    _G.AutoCollectAll = state
+MyHub:AddToggle(FruitTab, "Auto Collect All Chests", function(state)
+    _G.AutoChest = state
     if state then
         loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Auto%20Farm%20Chest"))()
     end
 end)
 
--- MONITORES ORIGINAIS (FRUTAS E EVENTOS)
-local Monitor = Instance.new("Frame", FarmTab)
-Monitor.Size = UDim2.new(0.95, 0, 0, 70)
-Monitor.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", Monitor).CornerRadius = UDim.new(0, 6)
-
-local MTitle = Instance.new("TextLabel", Monitor)
-MTitle.Size = UDim2.new(1, 0, 0, 25)
-MTitle.Position = UDim2.new(0, 12, 0, 5)
-MTitle.Text = "MONITORAMENTO DE FRUTAS"
-MTitle.TextColor3 = HubLib.AccentColor
-MTitle.Font = Enum.Font.GothamBold
-MTitle.TextSize = 10
-MTitle.BackgroundTransparency = 1
-MTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local FruitList = Instance.new("TextLabel", Monitor)
-FruitList.Size = UDim2.new(1, -24, 1, -30)
-FruitList.Position = UDim2.new(0, 12, 0, 30)
-FruitList.Text = "SCANNING..."
-FruitList.TextColor3 = Color3.fromRGB(150, 150, 150)
-FruitList.Font = Enum.Font.GothamSemibold
-FruitList.TextSize = 10
-FruitList.BackgroundTransparency = 1
-FruitList.TextYAlignment = Enum.TextYAlignment.Top
-FruitList.TextXAlignment = Enum.TextXAlignment.Left
-
-local EventFrame = Instance.new("Frame", FarmTab)
-EventFrame.Size = UDim2.new(0.95, 0, 0, 60)
-EventFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", EventFrame).CornerRadius = UDim.new(0, 6)
-
-local EventTitle = Instance.new("TextLabel", EventFrame)
-EventTitle.Size = UDim2.new(1, 0, 0, 25)
-EventTitle.Position = UDim2.new(0, 0, 0, 10)
-EventTitle.Text = "SEA KING / HYDRA"
-EventTitle.TextColor3 = HubLib.AccentColor
-EventTitle.Font = Enum.Font.GothamBold
-EventTitle.TextSize = 11
-EventTitle.BackgroundTransparency = 1
-
-local EventTimer = Instance.new("TextLabel", EventFrame)
-EventTimer.Size = UDim2.new(1, 0, 0, 20)
-EventTimer.Position = UDim2.new(0, 0, 0, 30)
-EventTimer.Text = "CONTANDO: --:--"
-EventTimer.TextColor3 = Color3.fromRGB(255, 255, 255)
-EventTimer.Font = Enum.Font.GothamSemibold
-EventTimer.TextSize = 12
-EventTimer.BackgroundTransparency = 1
-
--- ABA 2: COMBAT
-local CombatTab = MyHub:CreateTab("Combat")
-MyHub:AddToggle(CombatTab, "Auto Buso Haki", function(state)
-    _G.AutoBuso = state
-    task.spawn(function()
-        while _G.AutoBuso do
-            if not Players.LocalPlayer.Character:FindFirstChild("Buso") then
-                -- Remote ou tecla de ativação aqui
-            end
-            task.wait(1)
-        end
-    end)
-end)
-
--- ABA 3: ITEMS & FRUITS (UNIFICADA)
-local ItemTab = MyHub:CreateTab("Fruits")
-local sBuyKey, bAmt, sUseKey, uType = "Copper Key", 10, "Copper Key", "Open1"
-
--- SESSÃO FRUTAS BELI
-MyHub:AddToggle(ItemTab, "Auto Gacha (Fruta Beli)", function(state)
-    _G.AutoGacha = state
-    if state then
-        task.spawn(function()
-            while _G.AutoGacha do
-                local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("CheckBuy")
-                remote:InvokeServer("GachaBeli")
-                task.wait(5)
-            end
-        end)
-    end
-end)
-
--- SESSÃO CHAVES GACHA
-MyHub:AddDropdown(ItemTab, "Comprar Key", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sBuyKey = v end)
-MyHub:AddTextBox(ItemTab, "Quantidade Key (1-10)", "10", function(v) bAmt = tonumber(v) or 10 end)
-MyHub:AddButton(ItemTab, "BUY SELECTED KEYS", function()
+-- [ SEÇÃO: COMPRAR KEYS ]
+MyHub:AddGridSelector(FruitTab, "Buy Keys (Escolher qual)", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sBuyKey = v end)
+MyHub:AddTextBox(FruitTab, "Quantidade Keys", "10", function(v) bAmt = tonumber(v) or 10 end)
+MyHub:AddButton(FruitTab, "EXECUTAR COMPRA DE KEY", function()
     ReplicatedStorage.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyKey, bAmt)
 end)
 
-MyHub:AddDropdown(ItemTab, "Usar Key", {"Copper Key", "Iron Key", "Gold Key", "Platinum Key", "Diamond Key"}, function(v) sUseKey = v end)
-MyHub:AddDropdown(ItemTab, "Modo de Uso", {"Open1", "Open10"}, function(v) uType = v end)
-MyHub:AddButton(ItemTab, "USE SELECTED KEYS", function()
+-- [ SEÇÃO: USAR KEYS ]
+MyHub:AddGridSelector(FruitTab, "Use Keys (Escolher qual)", {"Copper Key", "Iron Key", "Gold Key", "Platinum Key", "Diamond Key"}, function(v) sUseKey = v end)
+MyHub:AddGridSelector(FruitTab, "Modo de Uso", {"Open1", "Open10"}, function(v) uType = v end)
+MyHub:AddButton(FruitTab, "EXECUTAR USO DE KEY", function()
     if uType == "Open10" then
         ReplicatedStorage.Chest.Remotes.Functions.UseKey:InvokeServer(sUseKey, "Open10")
     else
@@ -438,46 +302,38 @@ MyHub:AddButton(ItemTab, "USE SELECTED KEYS", function()
     end
 end)
 
-MyHub:AddToggle(ItemTab, "Material Farmer (Item Search)", function(state) _G.ItemSearch = state end)
-MyHub:AddToggle(ItemTab, "Shop Sniper (Rare Fruits)", function(state) _G.ShopSniper = state end)
+-- [ MONITOR DE FRUTAS ]
+local Monitor = Instance.new("Frame", FruitTab)
+Monitor.Size = UDim2.new(0.95, 0, 0, 60)
+Monitor.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", Monitor)
 
--- ABA 4: UTILS & CODES
-local UtilTab = MyHub:CreateTab("Utils")
-MyHub:AddToggle(UtilTab, "Anti-AFK", function(state)
-    local virtualUser = game:GetService("VirtualUser")
-    Players.LocalPlayer.Idled:Connect(function()
-        if _G.AntiAFK then
-            virtualUser:CaptureController()
-            virtualUser:ClickButton2(Vector2.new())
-        end
-    end)
-end)
-MyHub:AddButton(UtilTab, "Auto Redeem All Codes", function() print("Redeeming Codes...") end)
-MyHub:AddButton(UtilTab, "Server Hop", function() 
-    -- Lógica de Server Hop aqui
-end)
+local MTitle = Instance.new("TextLabel", Monitor)
+MTitle.Size = UDim2.new(1, 0, 0, 20)
+MTitle.Text = "MONITOR DE FRUTAS"
+MTitle.TextColor3 = HubLib.AccentColor
+MTitle.Font = Enum.Font.GothamBold
+MTitle.TextSize = 10
+MTitle.BackgroundTransparency = 1
 
--- ABA 5: EQUIPAMENTO
-local EquipTab = MyHub:CreateTab("Equip")
-HubLib:AddEquipDropdown(EquipTab)
+local FruitList = Instance.new("TextLabel", Monitor)
+FruitList.Size = UDim2.new(1, -20, 0, 30)
+FruitList.Position = UDim2.new(0, 10, 0, 22)
+FruitList.Text = "SCANNING..."
+FruitList.TextColor3 = Color3.fromRGB(200, 200, 200)
+FruitList.Font = Enum.Font.Gotham
+FruitList.TextSize = 9
+FruitList.BackgroundTransparency = 1
+FruitList.TextYAlignment = Enum.TextYAlignment.Top
 
--- LÓGICA DE ATUALIZAÇÃO DOS MONITORES
 task.spawn(function()
     while true do
         local lines = {}
         local f1 = workspace:FindFirstChild("AllspawnDF")
         local f2 = workspace:FindFirstChild("AllDroppedFruit")
-        if f1 then for _, f in ipairs(f1:GetChildren()) do table.insert(lines, "[SPAWN] " .. f.Name:upper()) end end
-        if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] " .. f.Name:upper()) end end
-        FruitList.Text = #lines > 0 and table.concat(lines, "\n") or "NENHUMA FRUTA NO MAPA"
-
-        pcall(function()
-            local skLabel = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea.SKTimeLabel
-            if skLabel then
-                EventTimer.Text = skLabel.Text
-                EventTitle.Text = string.find(string.lower(skLabel.Text), "hydra") and "HYDRA EVENT" or "SEA KING EVENT"
-            end
-        end)
-        task.wait(1)
+        if f1 then for _, f in ipairs(f1:GetChildren()) do table.insert(lines, "[MAPA] "..f.Name) end end
+        if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] "..f.Name) end end
+        FruitList.Text = #lines > 0 and table.concat(lines, " | ") or "NENHUMA FRUTA"
+        task.wait(2)
     end
 end)
