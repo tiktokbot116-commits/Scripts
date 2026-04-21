@@ -1,37 +1,43 @@
--- [[ VTZ HUB - AUTO CHEST ENGINE ]]
+-- [[ VTZ HUB - LEGACY ISLAND CHEST ENGINE ]]
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
-_G.AutoCollectAll = true -- Variável de controle
+_G.AutoCollectAll = true -- Controle global
 
-local function collectChests()
+local function collectLegacyChests()
     while _G.AutoCollectAll do
         local IslandFolder = workspace:FindFirstChild("Island")
         
         if IslandFolder then
-            -- Varre as subpastas da Island
+            -- Procura por todas as pastas dentro de Island
             for _, folder in ipairs(IslandFolder:GetChildren()) do
-                -- Regra: Ignorar pasta Gacha e procurar por Chest
-                if folder.Name ~= "Gacha" then
-                    for _, obj in ipairs(folder:GetDescendants()) do
-                        if obj:IsA("BasePart") and string.find(obj.Name, "Chest") then
-                            local char = LocalPlayer.Character
-                            if char and char:FindFirstChild("HumanoidRootPart") then
-                                -- Teleporte para o baú
-                                char.HumanoidRootPart.CFrame = obj.CFrame
-                                task.wait(0.25) -- Delay para o jogo processar a coleta
+                -- Filtro: Procura o padrão "Legacy Island" (independente do número aleatório)
+                if string.find(folder.Name, "Legacy Island") then
+                    
+                    -- Tenta encontrar o ChestSpawner dentro dessa ilha específica
+                    local spawner = folder:FindFirstChild("ChestSpawner")
+                    if spawner then
+                        for _, chest in ipairs(spawner:GetChildren()) do
+                            if _G.AutoCollectAll == false then break end
+                            
+                            -- Verifica se é um baú coletável
+                            if chest:IsA("BasePart") or chest:FindFirstChild("TouchInterest") then
+                                local char = LocalPlayer.Character
+                                if char and char:FindFirstChild("HumanoidRootPart") then
+                                    -- Teleporte para o CFrame do baú
+                                    char.HumanoidRootPart.CFrame = chest.CFrame
+                                    task.wait(0.25) -- Delay de segurança para coleta
+                                end
                             end
                         end
-                        if not _G.AutoCollectAll then break end
                     end
                 end
                 if not _G.AutoCollectAll then break end
             end
         end
-        task.wait(1) -- Espera um pouco antes de escanear o mapa de novo
+        task.wait(1) -- Aguarda 1 segundo antes de escanear novamente
     end
 end
 
--- Inicia o loop
-task.spawn(collectChests)
-
+-- Inicia o processo em uma thread separada
+task.spawn(collectLegacyChests)
