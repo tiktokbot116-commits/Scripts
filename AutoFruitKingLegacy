@@ -1,4 +1,6 @@
--- [[ KING LEGACY COLLECTOR - ENGINE APENAS ]]
+-- [[ KING LEGACY FRUIT ENGINE - VERSION 2.0 ]]
+-- Compatível com VXEZE-STYLE HUB
+
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local GuiService = game:GetService("GuiService")
@@ -23,7 +25,7 @@ if not _G.AntiAFKConnected then
     _G.AntiAFKConnected = true
 end
 
--- [FUNÇÃO DE SELEÇÃO E ATIVAÇÃO]
+-- [FUNÇÃO DE ATIVAÇÃO PELO HUB]
 local function SafeActivate(button)
     if button and button.Visible then
         pcall(function()
@@ -62,9 +64,12 @@ end
 local function ForceStore(tool)
     local startTick = tick()
     while tool.Parent == player.Character or tool.Parent == player.Backpack do
+        -- Se desligar no Hub, para na hora
         if not _G.FruitCollectorEnabled or tick() - startTick > 15 then break end 
         
-        player.Character.Humanoid:EquipTool(tool)
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid:EquipTool(tool)
+        end
         task.wait(0.5)
         
         local vp = workspace.CurrentCamera.ViewportSize
@@ -82,29 +87,34 @@ local function ForceStore(tool)
     end
 end
 
--- [INICIADOR DO LOOP]
-local function StartFruitLoop()
+-- [[ FUNÇÃO GLOBAL CHAMADA PELO HUB ]]
+_G.StartFruitLoop = function()
+    print("Engine de Frutas Iniciada")
     while _G.FruitCollectorEnabled do
         local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit")
         local mapFruits = {}
+        
         if f1 then for _, f in ipairs(f1:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
         if f2 then for _, f in ipairs(f2:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
 
         if #mapFruits > 0 then
+            -- Se estiver na tela de loading/play, clica automaticamente
             local loading = playerGui:FindFirstChild("LoadingGUI")
             if loading and loading.Enabled then
                 local b = loading:FindFirstChild("Play")
                 if b then SafeActivate(b) end
             elseif player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                -- Teleporta para as frutas do mapa
                 for _, fruit in ipairs(mapFruits) do
                     if not _G.FruitCollectorEnabled then break end
-                    if fruit.Parent then
+                    if fruit.Parent and (fruit.PrimaryPart or fruit:FindFirstChildWhichIsA("BasePart")) then
                         player.Character.HumanoidRootPart.CFrame = (fruit.PrimaryPart or fruit:FindFirstChildWhichIsA("BasePart")).CFrame
                         task.wait(0.5)
                     end
                 end
             end
         else
+            -- Se não tem fruta no chão, tenta guardar as que estão no inventário
             local pending = {}
             for _, t in ipairs(player.Backpack:GetChildren()) do
                 if string.find(t.Name, "Fruit") and not IsStored(t.Name) then table.insert(pending, t) end
@@ -117,6 +127,7 @@ local function StartFruitLoop()
                 for _, f in ipairs(pending) do ForceStore(f) end
             end
         end
-        task.wait(2)
+        task.wait(1)
     end
+    print("Engine de Frutas Parada")
 end
