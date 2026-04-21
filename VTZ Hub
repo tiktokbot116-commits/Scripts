@@ -176,6 +176,32 @@ end
 -- [[ CONFIGURAÇÃO DO HUB COM LOOP DE CARREGAMENTO ]]
 
 local MyHub = HubLib:Init("KING LEGACY", "VTZ Hub")
+
+-- [[ BOTÃO DE ABRIR/FECHAR GUI ]]
+local ToggleButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+-- Configuração do Botão (Fica fixo na tela)
+ToggleButton.Name = "HubToggleButton"
+ToggleButton.Parent = ScreenGui -- ScreenGui é a variável criada no seu HubLib:Init
+ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleButton.Position = UDim2.new(0, 10, 0.5, -25) -- Lado esquerdo centralizado
+ToggleButton.BackgroundColor3 = HubLib.AccentColor -- Usa a cor de destaque do seu Hub
+ToggleButton.Text = "VX"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.TextSize = 14
+ToggleButton.Draggable = true -- Você pode arrastar o botão para onde quiser
+
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = ToggleButton
+
+-- Lógica de Ocultar/Mostrar
+ToggleButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+
 local FarmTab = MyHub:CreateTab("Fruit")
 
 -- [[ TOGGLE DE AUTO COLLECT + QUADRADO DE MONITORAMENTO ]]
