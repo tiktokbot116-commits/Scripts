@@ -1,0 +1,37 @@
+-- [[ VTZ HUB - AUTO CHEST ENGINE ]]
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+_G.AutoCollectAll = true -- Variável de controle
+
+local function collectChests()
+    while _G.AutoCollectAll do
+        local IslandFolder = workspace:FindFirstChild("Island")
+        
+        if IslandFolder then
+            -- Varre as subpastas da Island
+            for _, folder in ipairs(IslandFolder:GetChildren()) do
+                -- Regra: Ignorar pasta Gacha e procurar por Chest
+                if folder.Name ~= "Gacha" then
+                    for _, obj in ipairs(folder:GetDescendants()) do
+                        if obj:IsA("BasePart") and string.find(obj.Name, "Chest") then
+                            local char = LocalPlayer.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                -- Teleporte para o baú
+                                char.HumanoidRootPart.CFrame = obj.CFrame
+                                task.wait(0.25) -- Delay para o jogo processar a coleta
+                            end
+                        end
+                        if not _G.AutoCollectAll then break end
+                    end
+                end
+                if not _G.AutoCollectAll then break end
+            end
+        end
+        task.wait(1) -- Espera um pouco antes de escanear o mapa de novo
+    end
+end
+
+-- Inicia o loop
+task.spawn(collectChests)
+
