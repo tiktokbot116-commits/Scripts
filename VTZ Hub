@@ -179,28 +179,27 @@ local MyHub = HubLib:Init("KING LEGACY", "VTZ Hub")
 local FarmTab = MyHub:CreateTab("Farming")
 
 MyHub:AddToggle(FarmTab, "Auto Collect Fruit", function(state)
-    _G.FruitFarm = state 
+    -- 1. Sincroniza a variável de controle do script externo
+    _G.FruitCollectorEnabled = state 
     
     if state then
+        -- 2. Verifica se o script já foi carregado. Se não, ele baixa uma vez.
+        if not _G.StartFruitLoop then
+            local success, err = pcall(function()
+                -- Certifique-se de que o link abaixo aponta para o script que arrumamos por último!
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))()
+            end)
+            if not success then warn("Erro ao baixar engine: ", err) return end
+        end
+        
+        -- 3. Inicia a função global que definimos no script externo
         task.spawn(function()
-            -- Enquanto o botão estiver ativado (state), ele vai ficar tentando rodar o script
-            while _G.FruitFarm do
-                -- Carrega o script do seu GitHub
-                local success, err = pcall(function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/AutoFruitKingLegacy"))()
-                end)
-                
-                if not success then 
-                    warn("Erro ao carregar script externo: ", err) 
-                end
-                
-                -- Espera 3 segundos antes de tentar procurar fruta de novo
-                task.wait(3) 
-            end
-            print("Loop de Farm encerrado.")
+            -- Um pcall aqui é bom pra evitar que o Hub quebre se houver erro no farm
+            pcall(_G.StartFruitLoop)
         end)
     else
-        _G.FruitFarm = false
-        print("Farm Desativado.")
+        -- Quando state é false, o _G.FruitCollectorEnabled = state lá em cima
+        -- já faz o loop 'while' do script externo parar no próximo ciclo.
+        print("Farm Desativado pelo Hub.")
     end
 end)
