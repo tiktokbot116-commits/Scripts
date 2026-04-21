@@ -1,50 +1,53 @@
--- [[ VTZ HUB - LEGACY ISLAND CHEST ENGINE (MODEL INSIDE PART) ]]
+-- [[ VTZ HUB - CHEST ENGINE: LEGACY & HYDRA ]]
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 _G.AutoCollectAll = true
 
-local function collectLegacyChests()
+local function collectChests()
     while _G.AutoCollectAll do
         local IslandFolder = workspace:FindFirstChild("Island")
         
         if IslandFolder then
-            -- 1. Procura as pastas "Legacy Island"
-            for _, island in ipairs(IslandFolder:GetChildren()) do
-                if string.find(island.Name, "Legacy Island") then
-                    
-                    -- 2. Procura a Parte chamada ChestSpawner (ou similar)
-                    for _, spawner in ipairs(island:GetChildren()) do
-                        local sName = string.lower(spawner.Name)
-                        
-                        if sName:find("chest") and sName:find("spawn") then
-                            -- 3. Entra na Parte e procura os Modelos de Chest lá dentro
-                            for _, chestModel in ipairs(spawner:GetChildren()) do
-                                if not _G.AutoCollectAll then break end
-                                
-                                -- Verifica se o nome termina com "Chest" (ex: Tier1Chest)
-                                if chestModel:IsA("Model") and string.find(chestModel.Name, "Chest") then
-                                    local char = LocalPlayer.Character
-                                    local root = char and char:FindFirstChild("HumanoidRootPart")
-                                    
-                                    if root then
-                                        -- Teleporte para a posição do Modelo
-                                        local cf, size = chestModel:GetBoundingBox()
-                                        root.CFrame = cf
-                                        
-                                        -- Espera pequena para o script do jogo detectar a coleta
-                                        task.wait(0.3)
-                                    end
+            for _, folder in ipairs(IslandFolder:GetChildren()) do
+                if not _G.AutoCollectAll then break end
+
+                -- [[ LÓGICA 1: SEA BEAST / LEGACY ISLAND ]]
+                -- Estrutura: Island -> Legacy Island(num) -> Spawner -> Chest
+                if string.find(folder.Name, "Legacy Island") then
+                    local spawner = folder:FindFirstChild("Spawner")
+                    if spawner then
+                        for _, chest in ipairs(spawner:GetChildren()) do
+                            if chest:IsA("Model") and string.find(chest.Name, "Chest") then
+                                local char = LocalPlayer.Character
+                                if char and char:FindFirstChild("HumanoidRootPart") then
+                                    local cf = chest:GetModelCFrame()
+                                    char.HumanoidRootPart.CFrame = cf
+                                    task.wait(0.3)
                                 end
                             end
                         end
                     end
+
+                -- [[ LÓGICA 2: HYDRA ]]
+                -- Estrutura: Island -> Sea King(Ice, Thunder, Lava, etc) -> Modelo solto (Thunder Chest, etc)
+                elseif string.find(folder.Name, "Sea King") then
+                    for _, model in ipairs(folder:GetChildren()) do
+                        -- Procura o modelo solto que tenha "Chest" no nome (ex: Thunder Chest, Lava Chest)
+                        if model:IsA("Model") and string.find(model.Name, "Chest") then
+                            local char = LocalPlayer.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                local cf = model:GetModelCFrame()
+                                char.HumanoidRootPart.CFrame = cf
+                                task.wait(0.4) -- Delay levemente maior para baús de evento
+                            end
+                        end
+                    end
                 end
-                if not _G.AutoCollectAll then break end
             end
         end
-        task.wait(0.5) -- Ciclo de busca
+        task.wait(0.5) -- Scan constante do mapa
     end
 end
 
-task.spawn(collectLegacyChests)
+task.spawn(collectChests)
