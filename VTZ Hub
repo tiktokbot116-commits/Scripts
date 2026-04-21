@@ -1,4 +1,4 @@
--- [[ VXEZE-STYLE HUB ENGINE - ULTRA COMPATIBLE VERSION ]]
+-- [[ VXEZE-STYLE HUB ENGINE - EMERGENCY UI FIX ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -7,14 +7,12 @@ local UserInputService = game:GetService("UserInputService")
 
 local HubLib = {}
 
--- Configurações de Cores
 HubLib.MainColor = Color3.fromRGB(20, 20, 20)
 HubLib.SidebarColor = Color3.fromRGB(15, 15, 15)
 HubLib.AccentColor = Color3.fromRGB(81, 74, 255) 
 HubLib.ToggleOffColor = Color3.fromRGB(45, 45, 45)
 HubLib.TextColor = Color3.fromRGB(255, 255, 255)
 
--- Função de Arraste
 local function makeDraggable(frame, parentFrame)
     local dragging, dragInput, mousePos, framePos
     frame.InputBegan:Connect(function(input)
@@ -41,36 +39,70 @@ end
 function HubLib:Init(hubTitle, subTitle)
     local player = Players.LocalPlayer
     
-    -- Tenta CoreGui primeiro, se falhar vai para PlayerGui
-    local parent = nil
-    local success, _ = pcall(function() 
-        parent = CoreGui
+    -- Tenta encontrar o melhor lugar para injetar a GUI
+    local targetParent = nil
+    local s, e = pcall(function()
+        targetParent = CoreGui
     end)
-    if not success or not parent then 
-        parent = player:WaitForChild("PlayerGui")
+    if not s or not targetParent then
+        targetParent = player:WaitForChild("PlayerGui")
     end
-    
-    if parent:FindFirstChild("VxezeHub") then parent.VxezeHub:Destroy() end
 
+    -- Limpa versões antigas
+    if targetParent:FindFirstChild("VxezeHub") then targetParent.VxezeHub:Destroy() end
+
+    -- Criação da ScreenGui com prioridade máxima
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "VxezeHub"
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
     ScreenGui.IgnoreGuiInset = true
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = parent
+    ScreenGui.DisplayOrder = 999
+    ScreenGui.Parent = targetParent
 
+    -- [[ O BOTÃO VX - CRIADO IMEDIATAMENTE ]]
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Name = "VxezeToggle"
+    ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+    ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
+    ToggleBtn.BackgroundColor3 = self.AccentColor
+    ToggleBtn.Text = "VX"
+    ToggleBtn.TextColor3 = Color3.new(1,1,1)
+    ToggleBtn.Font = Enum.Font.GothamBold
+    ToggleBtn.TextSize = 16
+    ToggleBtn.ZIndex = 100
+    ToggleBtn.Visible = true
+    ToggleBtn.Parent = ScreenGui -- Parent imediato aqui
+    
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 12)
+    local Stroke = Instance.new("UIStroke", ToggleBtn)
+    Stroke.Color = Color3.new(1,1,1)
+    Stroke.Thickness = 2
+    Stroke.Transparency = 0.5
+
+    -- [[ FRAME PRINCIPAL ]]
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Parent = ScreenGui
     MainFrame.Size = UDim2.new(0, 480, 0, 320)
     MainFrame.Position = UDim2.new(0.5, -240, 0.5, -160)
     MainFrame.BackgroundColor3 = self.MainColor
     MainFrame.BorderSizePixel = 0
+    MainFrame.Visible = true -- Começa visível para teste
+    MainFrame.Parent = ScreenGui
+    
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
+    -- Lógica do Clique
+    ToggleBtn.MouseButton1Click:Connect(function()
+        MainFrame.Visible = not MainFrame.Visible
+        print("Botão VX clicado! Visibilidade:", MainFrame.Visible)
+    end)
+
+    -- Restante da Estrutura (TopBar, Sidebar, etc)
     local TopBar = Instance.new("Frame", MainFrame)
     TopBar.Size = UDim2.new(1, 0, 0, 35)
     TopBar.BackgroundTransparency = 1
     makeDraggable(TopBar, MainFrame)
+    makeDraggable(ToggleBtn, ToggleBtn) -- Torna o botão VX arrastável também
 
     local Title = Instance.new("TextLabel", TopBar)
     Title.Size = UDim2.new(1, -20, 1, 0)
@@ -97,33 +129,7 @@ function HubLib:Init(hubTitle, subTitle)
     self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
     self.PagesFolder.BackgroundTransparency = 1
 
-    -- [[ BOTÃO VX - DEFINIDO APÓS O MAINFRAME ]]
-    local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Name = "VxezeToggle"
-    ToggleBtn.Parent = ScreenGui
-    ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
-    ToggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
-    ToggleBtn.BackgroundColor3 = self.AccentColor
-    ToggleBtn.Text = "VX"
-    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToggleBtn.Font = Enum.Font.GothamBold
-    ToggleBtn.TextSize = 14
-    ToggleBtn.AutoButtonColor = false
-    ToggleBtn.ZIndex = 10
-    
-    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
-    local Stroke = Instance.new("UIStroke", ToggleBtn)
-    Stroke.Color = Color3.fromRGB(255, 255, 255)
-    Stroke.Transparency = 0.5
-    Stroke.Thickness = 1.5
-
-    ToggleBtn.MouseButton1Click:Connect(function()
-        MainFrame.Visible = not MainFrame.Visible
-    end)
-
-    makeDraggable(ToggleBtn, ToggleBtn)
-
-    print("VTZ Hub: Inicializado com sucesso!")
+    warn("VXEZE HUB: Injetado no " .. targetParent.Name)
     self.Sidebar = Sidebar
     return self
 end
