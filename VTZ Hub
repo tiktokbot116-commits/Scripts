@@ -1,4 +1,4 @@
--- [[ VTZ HUB - SEA EVENTS & KEY STOCK UPDATE ]]
+-- [[ VTZ HUB - FINAL VERSION ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -6,6 +6,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
 -- ==========================================
 -- 1. ENGINE DA INTERFACE
@@ -80,6 +81,7 @@ function HubLib:Init()
     self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
     self.PagesFolder.BackgroundTransparency = 1
 
+    self.ScreenGui = ScreenGui
     self.Sidebar = Sidebar
     self.Tabs = {}
     return self
@@ -121,7 +123,7 @@ function HubLib:CreateTab(name)
     return Page
 end
 
-function HubLib:AddToggle(page, text, callback)
+function HubLib:AddToggle(page, text, callback, default)
     local ToggleFrame = Instance.new("Frame", page)
     ToggleFrame.Size = UDim2.new(0.95, 0, 0, 38)
     ToggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -140,17 +142,17 @@ function HubLib:AddToggle(page, text, callback)
     local Outer = Instance.new("TextButton", ToggleFrame)
     Outer.Size = UDim2.new(0, 38, 0, 18)
     Outer.Position = UDim2.new(1, -48, 0.5, -9)
-    Outer.BackgroundColor3 = self.ToggleOffColor
+    Outer.BackgroundColor3 = default and self.AccentColor or self.ToggleOffColor
     Outer.Text = ""
     Instance.new("UICorner", Outer).CornerRadius = UDim.new(1, 0)
 
     local Inner = Instance.new("Frame", Outer)
     Inner.Size = UDim2.new(0, 14, 0, 14)
-    Inner.Position = UDim2.new(0, 2, 0, 2)
+    Inner.Position = default and UDim2.new(1, -16, 0, 2) or UDim2.new(0, 2, 0, 2)
     Inner.BackgroundColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", Inner).CornerRadius = UDim.new(1, 0)
 
-    local state = false
+    local state = default or false
     Outer.MouseButton1Click:Connect(function()
         state = not state
         pcall(callback, state)
@@ -245,7 +247,45 @@ function HubLib:AddGridSelector(page, title, options, callback)
 end
 
 -- ==========================================
--- 2. LÓGICA DE FRUTAS (ENGINE INTEGRADA)
+-- 2. GUI DE STATUS (FPS/PING)
+-- ==========================================
+local function CreateStatusGui(parent)
+    local StatusFrame = Instance.new("Frame", parent)
+    StatusFrame.Name = "StatusFrame"
+    StatusFrame.Size = UDim2.new(0, 120, 0, 45)
+    StatusFrame.Position = UDim2.new(1, -130, 1, -55)
+    StatusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    StatusFrame.BackgroundTransparency = 0.2
+    Instance.new("UICorner", StatusFrame)
+    Instance.new("UIStroke", StatusFrame).Color = HubLib.AccentColor
+
+    local FPSLabel = Instance.new("TextLabel", StatusFrame)
+    FPSLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    FPSLabel.Text = "FPS: 60"
+    FPSLabel.TextColor3 = Color3.new(1,1,1)
+    FPSLabel.Font = Enum.Font.GothamBold
+    FPSLabel.TextSize = 12
+    FPSLabel.BackgroundTransparency = 1
+
+    local PingLabel = Instance.new("TextLabel", StatusFrame)
+    PingLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    PingLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    PingLabel.Text = "Ping: 0 ms"
+    PingLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    PingLabel.Font = Enum.Font.Gotham
+    PingLabel.TextSize = 11
+    PingLabel.BackgroundTransparency = 1
+
+    RunService.RenderStepped:Connect(function(dt)
+        FPSLabel.Text = "FPS: " .. math.floor(1/dt)
+        local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+        PingLabel.Text = "Ping: " .. ping .. " ms"
+    end)
+    return StatusFrame
+end
+
+-- ==========================================
+-- 3. LÓGICA DE FRUTAS
 -- ==========================================
 _G.FruitCollectorEnabled = false
 local function LoadFruitEngine()
@@ -253,34 +293,6 @@ local function LoadFruitEngine()
     local GuiService = game:GetService("GuiService")
     local player = Players.LocalPlayer
     local playerGui = player:WaitForChild("PlayerGui")
-
-    local function SafeActivate(button)
-        if button and button.Visible then
-            pcall(function()
-                GuiService.SelectedObject = button
-                task.wait(0.1)
-                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-                task.wait(0.1)
-                GuiService.SelectedObject = nil
-            end)
-        end
-    end
-
-    local function IsStored(fName)
-        if not fName then return true end
-        local clean = string.gsub(fName, "Fruit", "")
-        local stats = player:FindFirstChild("PlayerStats")
-        if stats and stats:FindFirstChild("DFName") and stats.DFName.Value == clean then return true end
-        local mainGui = playerGui:FindFirstChild("MainGui")
-        local scrolling = mainGui and mainGui:FindFirstChild("StarterFrame") and mainGui.StarterFrame:FindFirstChild("Inventory_Frame") and mainGui.StarterFrame.Inventory_Frame:FindFirstChild("ScrollingFrameFruits")
-        if scrolling then
-            for _, item in ipairs(scrolling:GetChildren()) do
-                if string.find(item.Name, clean) or (item:IsA("TextLabel") and string.find(item.Text, clean)) then return true end
-            end
-        end
-        return false
-    end
 
     task.spawn(function()
         while _G.FruitCollectorEnabled do
@@ -305,14 +317,27 @@ local function LoadFruitEngine()
 end
 
 -- ==========================================
--- 3. INICIALIZAÇÃO DE ABAS
+-- 4. INICIALIZAÇÃO FINAL
 -- ==========================================
 local MyHub = HubLib:Init()
 local FruitTab = MyHub:CreateTab("Fruits")
 local GachaTab = MyHub:CreateTab("Gacha")
 local SeaTab = MyHub:CreateTab("Sea Events")
+local ConfigTab = MyHub:CreateTab("Config")
 
-local sBuyKey, bAmt, sUseKey, uType = "Copper Key", 10, "Copper Key", "Open1"
+local StatusGui = CreateStatusGui(MyHub.ScreenGui)
+local sBuyKey, bAmt = "Copper Key", 10
+
+-- [ ABA CONFIG ]
+MyHub:AddToggle(ConfigTab, "Anti-AFK", function(state)
+    if state then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/evxncodes/mainroblox/main/anti-afk"))()
+    end
+end)
+
+MyHub:AddToggle(ConfigTab, "Mostrar FPS/Ping", function(state)
+    StatusGui.Visible = state
+end, true)
 
 -- [ ABA FRUITS ]
 MyHub:AddToggle(FruitTab, "Auto Collect Fruit Map", function(state)
@@ -352,34 +377,23 @@ task.spawn(function()
 end)
 
 -- [ ABA GACHA ]
-MyHub:AddToggle(GachaTab, "Auto Gacha (Fruta Beli)", function(state)
-    _G.AutoGacha = state
-    task.spawn(function()
-        while _G.AutoGacha do
-            pcall(function() ReplicatedStorage.Remotes.Functions.CheckBuy:InvokeServer("GachaBeli") end)
-            task.wait(5)
-        end
-    end)
-end)
-
-local KeyStockFrame = Instance.new("Frame", GachaTab)
-KeyStockFrame.Size = UDim2.new(0.95, 0, 0, 40)
-KeyStockFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", KeyStockFrame)
-local KeyStockText = Instance.new("TextLabel", KeyStockFrame)
-KeyStockText.Size = UDim2.new(1, 0, 1, 0)
-KeyStockText.Text = "Buscando estoque..."
-KeyStockText.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyStockText.Font = Enum.Font.GothamBold
-KeyStockText.TextSize = 11
-KeyStockText.BackgroundTransparency = 1
+local StockFrame = Instance.new("Frame", GachaTab)
+StockFrame.Size = UDim2.new(0.95, 0, 0, 40)
+StockFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", StockFrame)
+local StockLabel = Instance.new("TextLabel", StockFrame)
+StockLabel.Size = UDim2.new(1,0,1,0)
+StockLabel.TextColor3 = Color3.new(1,1,1)
+StockLabel.Font = Enum.Font.GothamBold
+StockLabel.TextSize = 11
+StockLabel.BackgroundTransparency = 1
 
 task.spawn(function()
     while true do
         pcall(function()
             local raw = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.Gacha_Frame.Frame.Information.StockText.Text
-            local timeOnly = string.match(raw, "%((.-)%)") or "0 min"
-            KeyStockText.Text = "Próximo Estoque de Keys em: " .. timeOnly
+            local time = string.match(raw, "%((.-)%)") or "0 min"
+            StockLabel.Text = "Próximo Estoque de Keys em: " .. time
         end)
         task.wait(5)
     end
@@ -390,42 +404,30 @@ MyHub:AddTextBox(GachaTab, "Quantidade", "10", function(v) bAmt = tonumber(v) or
 MyHub:AddButton(GachaTab, "EXECUTAR COMPRA", function() ReplicatedStorage.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyKey, bAmt) end)
 
 -- [ ABA SEA EVENTS ]
-local EventFrame = Instance.new("Frame", SeaTab)
-EventFrame.Size = UDim2.new(0.95, 0, 0, 70)
-EventFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", EventFrame)
-
-local EventTitle = Instance.new("TextLabel", EventFrame)
-EventTitle.Size = UDim2.new(1, 0, 0, 30)
-EventTitle.Text = "EVENTO ATUAL: ---"
-EventTitle.TextColor3 = HubLib.AccentColor
-EventTitle.Font = Enum.Font.GothamBold
-EventTitle.TextSize = 12
-EventTitle.BackgroundTransparency = 1
-
-local EventTimerText = Instance.new("TextLabel", EventFrame)
-EventTimerText.Size = UDim2.new(1, 0, 0, 30)
-EventTimerText.Position = UDim2.new(0, 0, 0, 30)
-EventTimerText.Text = "Tempo: --:--"
-EventTimerText.TextColor3 = Color3.fromRGB(255, 255, 255)
-EventTimerText.Font = Enum.Font.GothamSemibold
-EventTimerText.TextSize = 14
-EventTimerText.BackgroundTransparency = 1
+local SeaFrame = Instance.new("Frame", SeaTab)
+SeaFrame.Size = UDim2.new(0.95, 0, 0, 70)
+SeaFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", SeaFrame)
+local SeaTitle = Instance.new("TextLabel", SeaFrame)
+SeaTitle.Size = UDim2.new(1, 0, 0, 30)
+SeaTitle.TextColor3 = HubLib.AccentColor
+SeaTitle.Font = Enum.Font.GothamBold
+SeaTitle.TextSize = 12
+SeaTitle.BackgroundTransparency = 1
+local SeaTime = Instance.new("TextLabel", SeaFrame)
+SeaTime.Size = UDim2.new(1, 0, 0, 30)
+SeaTime.Position = UDim2.new(0,0,0,35)
+SeaTime.TextColor3 = Color3.new(1,1,1)
+SeaTime.Font = Enum.Font.GothamSemibold
+SeaTime.TextSize = 14
+SeaTime.BackgroundTransparency = 1
 
 task.spawn(function()
     while true do
         pcall(function()
             local path = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea
-            local timer = path.SKTimer.Text
-            
-            if path.HDImage.Visible then
-                EventTitle.Text = "PRÓXIMO EVENTO: HYDRA"
-            elseif path.SKImage.Visible then
-                EventTitle.Text = "PRÓXIMO EVENTO: SEA KING"
-            else
-                EventTitle.Text = "PRÓXIMO EVENTO: BUSCANDO..."
-            end
-            EventTimerText.Text = "Tempo Restante: " .. timer
+            SeaTitle.Text = path.HDImage.Visible and "PRÓXIMO EVENTO: HYDRA" or "PRÓXIMO EVENTO: SEA KING"
+            SeaTime.Text = "Tempo Restante: " .. path.SKTimer.Text
         end)
         task.wait(1)
     end
