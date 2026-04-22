@@ -1,4 +1,4 @@
--- [[ VTZ HUB - FINAL VERSION (SEA UPDATED) ]]
+-- [[ KING LEGACY | VTX HUB - FINAL VERSION ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -48,15 +48,14 @@ function HubLib:Init()
     ScreenGui.Name = "VxezeHub"
     ScreenGui.ResetOnSpawn = false
 
-    local ToggleBtn = Instance.new("TextButton", ScreenGui)
+        local ToggleBtn = Instance.new("ImageButton", ScreenGui)
     ToggleBtn.Name = "VxezeToggle"
     ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
     ToggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
     ToggleBtn.BackgroundColor3 = self.AccentColor
-    ToggleBtn.Text = "VX"
-    ToggleBtn.TextColor3 = Color3.new(1,1,1)
-    ToggleBtn.Font = Enum.Font.GothamBold
-    ToggleBtn.TextSize = 14
+    ToggleBtn.Image = "rbxassetid://ID_AQUI" -- Substitua o ID aqui
+    ToggleBtn.ScaleType = Enum.ScaleType.Fit -- Garante que a imagem caiba no botão
+    
     Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
     makeDraggable(ToggleBtn, ToggleBtn)
 
@@ -67,6 +66,17 @@ function HubLib:Init()
     MainFrame.BackgroundColor3 = self.MainColor
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
+    -- TÍTULO DO HUB
+    local Title = Instance.new("TextLabel", MainFrame)
+    Title.Size = UDim2.new(1, -130, 0, 35)
+    Title.Position = UDim2.new(0, 125, 0, 0)
+    Title.Text = "KING LEGACY | VTX Hub"
+    Title.TextColor3 = Color3.new(1,1,1)
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 14
+    Title.BackgroundTransparency = 1
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
     ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
     local Sidebar = Instance.new("Frame", MainFrame)
@@ -76,6 +86,7 @@ function HubLib:Init()
     Instance.new("UIListLayout", Sidebar).HorizontalAlignment = Enum.HorizontalAlignment.Center
     Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
 
+    -- PAGES FOLDER INVISÍVEL
     self.PagesFolder = Instance.new("Frame", MainFrame)
     self.PagesFolder.Size = UDim2.new(1, -130, 1, -45)
     self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
@@ -404,9 +415,9 @@ MyHub:AddGridSelector(GachaTab, "Use Keys", {"Copper Key", "Iron Key", "Gold Key
 MyHub:AddGridSelector(GachaTab, "Mode", {"Open1", "Open10"}, function(v) uType = v end)
 MyHub:AddButton(GachaTab, "USAR KEYS AGORA", function() ReplicatedStorage.Chest.Remotes.Functions.Unbox:InvokeServer(sUseKey, uType) end)
 
--- [ ABA SEA EVENTS (CAMINHOS ATUALIZADOS) ]
+-- [ ABA SEA EVENTS ]
 local SeaFrame = Instance.new("Frame", SeaTab)
-SeaFrame.Size = UDim2.new(0.95, 0, 0, 100) -- Maior para caber a imagem
+SeaFrame.Size = UDim2.new(0.95, 0, 0, 100)
 SeaFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Instance.new("UICorner", SeaFrame)
 
@@ -439,7 +450,6 @@ task.spawn(function()
             local hdImg = folder.HDImage
             local timeLabel = folder.SKTimeLabel
 
-            -- Atualiza o Título e Ícone baseado no que estiver visível
             if hdImg.Visible then
                 SeaTitle.Text = "PRÓXIMO EVENTO: HYDRA"
                 SeaIcon.Image = hdImg.Image
@@ -451,7 +461,6 @@ task.spawn(function()
                 SeaIcon.Image = ""
             end
 
-            -- Atualiza o tempo do caminho SKTimeLabel
             SeaTime.Text = "Tempo: " .. timeLabel.Text
         end)
         task.wait(1)
