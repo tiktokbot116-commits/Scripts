@@ -1,4 +1,4 @@
--- [[ VTZ HUB - FINAL VERSION ]]
+-- [[ VTZ HUB - FINAL VERSION WITH KEY USAGE ]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -290,9 +290,7 @@ end
 _G.FruitCollectorEnabled = false
 local function LoadFruitEngine()
     local VirtualInputManager = game:GetService("VirtualInputManager")
-    local GuiService = game:GetService("GuiService")
     local player = Players.LocalPlayer
-    local playerGui = player:WaitForChild("PlayerGui")
 
     task.spawn(function()
         while _G.FruitCollectorEnabled do
@@ -327,6 +325,7 @@ local ConfigTab = MyHub:CreateTab("Config")
 
 local StatusGui = CreateStatusGui(MyHub.ScreenGui)
 local sBuyKey, bAmt = "Copper Key", 10
+local sUseKey, uType = "Copper Key", "Open1"
 
 -- [ ABA CONFIG ]
 MyHub:AddToggle(ConfigTab, "Anti-AFK", function(state)
@@ -403,6 +402,18 @@ MyHub:AddGridSelector(GachaTab, "Buy Keys", {"Copper Key", "Iron Key", "Gold Key
 MyHub:AddTextBox(GachaTab, "Quantidade", "10", function(v) bAmt = tonumber(v) or 10 end)
 MyHub:AddButton(GachaTab, "EXECUTAR COMPRA", function() ReplicatedStorage.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyKey, bAmt) end)
 
+-- SEÇÃO PARA USAR KEYS
+local Separator = Instance.new("Frame", GachaTab)
+Separator.Size = UDim2.new(0.9, 0, 0, 2)
+Separator.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Separator.BorderSizePixel = 0
+
+MyHub:AddGridSelector(GachaTab, "Use Keys", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sUseKey = v end)
+MyHub:AddGridSelector(GachaTab, "Mode", {"Open1", "Open10"}, function(v) uType = v end)
+MyHub:AddButton(GachaTab, "USAR KEYS AGORA", function() 
+    ReplicatedStorage.Chest.Remotes.Functions.Unbox:InvokeServer(sUseKey, uType) 
+end)
+
 -- [ ABA SEA EVENTS ]
 local SeaFrame = Instance.new("Frame", SeaTab)
 SeaFrame.Size = UDim2.new(0.95, 0, 0, 70)
@@ -412,23 +423,4 @@ local SeaTitle = Instance.new("TextLabel", SeaFrame)
 SeaTitle.Size = UDim2.new(1, 0, 0, 30)
 SeaTitle.TextColor3 = HubLib.AccentColor
 SeaTitle.Font = Enum.Font.GothamBold
-SeaTitle.TextSize = 12
-SeaTitle.BackgroundTransparency = 1
-local SeaTime = Instance.new("TextLabel", SeaFrame)
-SeaTime.Size = UDim2.new(1, 0, 0, 30)
-SeaTime.Position = UDim2.new(0,0,0,35)
-SeaTime.TextColor3 = Color3.new(1,1,1)
-SeaTime.Font = Enum.Font.GothamSemibold
-SeaTime.TextSize = 14
-SeaTime.BackgroundTransparency = 1
-
-task.spawn(function()
-    while true do
-        pcall(function()
-            local path = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea
-            SeaTitle.Text = path.HDImage.Visible and "PRÓXIMO EVENTO: HYDRA" or "PRÓXIMO EVENTO: SEA KING"
-            SeaTime.Text = "Tempo Restante: " .. path.SKTimer.Text
-        end)
-        task.wait(1)
-    end
-end)
+Sea
