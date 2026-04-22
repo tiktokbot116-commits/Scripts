@@ -423,4 +423,23 @@ local SeaTitle = Instance.new("TextLabel", SeaFrame)
 SeaTitle.Size = UDim2.new(1, 0, 0, 30)
 SeaTitle.TextColor3 = HubLib.AccentColor
 SeaTitle.Font = Enum.Font.GothamBold
-Sea
+SeaTitle.TextSize = 12
+SeaTitle.BackgroundTransparency = 1
+local SeaTime = Instance.new("TextLabel", SeaFrame)
+SeaTime.Size = UDim2.new(1, 0, 0, 30)
+SeaTime.Position = UDim2.new(0,0,0,35)
+SeaTime.TextColor3 = Color3.new(1,1,1)
+SeaTime.Font = Enum.Font.GothamSemibold
+SeaTime.TextSize = 14
+SeaTime.BackgroundTransparency = 1
+
+task.spawn(function()
+    while true do
+        pcall(function()
+            local path = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea
+            SeaTitle.Text = path.HDImage.Visible and "PRÓXIMO EVENTO: HYDRA" or "PRÓXIMO EVENTO: SEA KING"
+            SeaTime.Text = "Tempo Restante: " .. path.SKTimer.Text
+        end)
+        task.wait(1)
+    end
+end)
