@@ -1,1 +1,34 @@
-...
+-- [[ Anti-AFK & Auto-Rejoin Skeleton ]] --
+
+-- Prevenção de execução duplicada
+if getgenv().AntiAfkExecuted then 
+    return 
+end
+
+getgenv().AntiAfkExecuted = true
+
+-- Aguarda o carregamento básico
+repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer
+
+local player = game.Players.LocalPlayer
+local virtualUser = game:GetService("VirtualUser")
+local guiService = game:GetService("GuiService")
+local teleportService = game:GetService("TeleportService")
+
+-- Lógica Anti-AFK (Simula interação ao ficar ocioso)
+player.Idled:Connect(function()
+    virtualUser:CaptureController()
+    virtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Lógica Auto-Rejoin (Detecta desconexão e erro de internet)
+guiService.ErrorMessageChanged:Connect(function()
+    task.wait(2) -- Pequena pausa para garantir a estabilidade antes de tentar voltar
+    if #game.Players:GetPlayers() <= 1 then
+        teleportService:Teleport(game.PlaceId, player)
+    else
+        teleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+    end
+end)
+
+print("Anti-AFK e Auto-Rejoin: Ativados.")
