@@ -331,7 +331,7 @@ local sBuyKey, bAmt = "Copper Key", 10
 -- [ ABA CONFIG ]
 MyHub:AddToggle(ConfigTab, "Anti-AFK", function(state)
     if state then
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/evxncodes/mainroblox/main/anti-afk"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Anti%20Afk"))()
     end
 end)
 
