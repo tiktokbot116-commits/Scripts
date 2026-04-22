@@ -85,6 +85,7 @@ function HubLib:Init()
     Sidebar.BackgroundColor3 = self.SidebarColor
     Instance.new("UIListLayout", Sidebar).HorizontalAlignment = Enum.HorizontalAlignment.Center
     Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
+    Sidebar.BackgroundTransparency = 1
 
     -- PAGES FOLDER INVISÍVEL
     self.PagesFolder = Instance.new("Frame", MainFrame)
