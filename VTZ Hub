@@ -7,6 +7,8 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 
 -- ==========================================
 -- 1. ENGINE DA INTERFACE
@@ -206,7 +208,7 @@ function HubLib:AddTextBox(page, text, placeholder, callback)
     Box.Position = UDim2.new(0, 10, 0, 20)
     Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     Box.PlaceholderText = placeholder
-    Box.Text = "10"
+    Box.Text = ""
     Box.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", Box)
     Box.FocusLost:Connect(function() callback(Box.Text) end)
@@ -257,64 +259,87 @@ function HubLib:AddGridSelector(page, title, options, callback)
 end
 
 -- ==========================================
--- 2. GUI DE STATUS (FPS/PING)
+-- 2. UTILIDADES (SERVER HOP / EQUIP)
 -- ==========================================
-local function CreateStatusGui(parent)
-    local StatusFrame = Instance.new("Frame", parent)
-    StatusFrame.Name = "StatusFrame"
-    StatusFrame.Size = UDim2.new(0, 120, 0, 45)
-    StatusFrame.Position = UDim2.new(1, -130, 1, -55)
-    StatusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    StatusFrame.BackgroundTransparency = 0.2
-    Instance.new("UICorner", StatusFrame)
-    Instance.new("UIStroke", StatusFrame).Color = HubLib.AccentColor
-
-    local FPSLabel = Instance.new("TextLabel", StatusFrame)
-    FPSLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    FPSLabel.Text = "FPS: 60"
-    FPSLabel.TextColor3 = Color3.new(1,1,1)
-    FPSLabel.Font = Enum.Font.GothamBold
-    FPSLabel.TextSize = 12
-    FPSLabel.BackgroundTransparency = 1
-
-    local PingLabel = Instance.new("TextLabel", StatusFrame)
-    PingLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    PingLabel.Position = UDim2.new(0, 0, 0.5, 0)
-    PingLabel.Text = "Ping: 0 ms"
-    PingLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    PingLabel.Font = Enum.Font.Gotham
-    PingLabel.TextSize = 11
-    PingLabel.BackgroundTransparency = 1
-
-    RunService.RenderStepped:Connect(function(dt)
-        FPSLabel.Text = "FPS: " .. math.floor(1/dt)
-        local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
-        PingLabel.Text = "Ping: " .. ping .. " ms"
-    end)
-    return StatusFrame
+local function ServerHop()
+    local servers = {}
+    local res = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100"))
+    for _, s in pairs(res.data) do
+        if s.playing < s.maxPlayers and s.id ~= game.JobId then
+            table.insert(servers, s.id)
+        end
+    end
+    if #servers > 0 then
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)])
+    end
 end
 
 -- ==========================================
--- 3. LÓGICA DE FRUTAS
+-- 3. INICIALIZAÇÃO FINAL
 -- ==========================================
+local MyHub = HubLib:Init()
+local MainTab = MyHub:CreateTab("Main")
+local FruitTab = MyHub:CreateTab("Fruits")
+local GachaTab = MyHub:CreateTab("Gacha")
+local SeaTab = MyHub:CreateTab("Sea Events")
+local ConfigTab = MyHub:CreateTab("Config")
+
+local sBuyKey, bAmt = "Copper Key", 10
+local sUseKey, uType = "Copper Key", "Open10"
+local SelectedTool = ""
+local AutoEquipEnabled = false
+local AutoFarmEnabled = false
+
+-- [ ABA MAIN ]
+MyHub:AddToggle(MainTab, "Auto Farm", function(state)
+    AutoFarmEnabled = state
+    -- Lógica de farm básica aqui
+end)
+
+MyHub:AddTextBox(MainTab, "Tool Name", "Ex: Combat", function(v)
+    SelectedTool = v
+end)
+
+MyHub:AddToggle(MainTab, "Auto Equip (0.1s)", function(state)
+    AutoEquipEnabled = state
+    task.spawn(function()
+        while AutoEquipEnabled do
+            local char = Players.LocalPlayer.Character
+            local tool = Players.LocalPlayer.Backpack:FindFirstChild(SelectedTool)
+            if char and tool and not char:FindFirstChild(SelectedTool) then
+                tool.Parent = char
+            end
+            task.wait(0.1)
+        end
+    end)
+end)
+
+-- [ ABA CONFIG ]
+MyHub:AddButton(ConfigTab, "SERVER HOP", function()
+    ServerHop()
+end)
+
+MyHub:AddToggle(ConfigTab, "Anti-AFK", function(state)
+    if state then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Anti%20Afk"))()
+    end
+end)
+
+-- [ ABA FRUITS ]
 _G.FruitCollectorEnabled = false
 local function LoadFruitEngine()
-    local player = Players.LocalPlayer
     task.spawn(function()
         while _G.FruitCollectorEnabled do
             local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit")
             local mapFruits = {}
             if f1 then for _, f in ipairs(f1:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
             if f2 then for _, f in ipairs(f2:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
-
-            if #mapFruits > 0 and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                for _, fruit in ipairs(mapFruits) do
-                    if not _G.FruitCollectorEnabled then break end
-                    local part = fruit.PrimaryPart or fruit:FindFirstChildWhichIsA("BasePart")
-                    if fruit.Parent and part then
-                        player.Character.HumanoidRootPart.CFrame = part.CFrame
-                        task.wait(0.5)
-                    end
+            for _, fruit in ipairs(mapFruits) do
+                if not _G.FruitCollectorEnabled then break end
+                local part = fruit.PrimaryPart or fruit:FindFirstChildWhichIsA("BasePart")
+                if part and Players.LocalPlayer.Character then
+                    Players.LocalPlayer.Character.HumanoidRootPart.CFrame = part.CFrame
+                    task.wait(0.5)
                 end
             end
             task.wait(1)
@@ -322,152 +347,19 @@ local function LoadFruitEngine()
     end)
 end
 
--- ==========================================
--- 4. INICIALIZAÇÃO FINAL
--- ==========================================
-local MyHub = HubLib:Init()
-local FruitTab = MyHub:CreateTab("Fruits")
-local GachaTab = MyHub:CreateTab("Gacha")
-local SeaTab = MyHub:CreateTab("Sea Events")
-local ConfigTab = MyHub:CreateTab("Config")
-
-local StatusGui = CreateStatusGui(MyHub.ScreenGui)
-local sBuyKey, bAmt = "Copper Key", 10
-local sUseKey, uType = "Copper Key", "Open10"
-
--- [ ABA CONFIG ]
-MyHub:AddToggle(ConfigTab, "Anti-AFK", function(state)
-    if state then
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Anti%20Afk"))()
-    end
-end)
-
-MyHub:AddToggle(ConfigTab, "Mostrar FPS/Ping", function(state)
-    StatusGui.Visible = state
-end, true)
-
--- [ ABA FRUITS ]
 MyHub:AddToggle(FruitTab, "Auto Collect Fruit Map", function(state)
     _G.FruitCollectorEnabled = state
     if state then LoadFruitEngine() end
 end)
 
-local MonitorF = Instance.new("Frame", FruitTab)
-MonitorF.Size = UDim2.new(0.95, 0, 0, 60)
-MonitorF.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", MonitorF)
-local FTitle = Instance.new("TextLabel", MonitorF)
-FTitle.Size = UDim2.new(1, 0, 0, 20)
-FTitle.Text = "MONITOR DE FRUTAS"
-FTitle.TextColor3 = HubLib.AccentColor
-FTitle.Font = Enum.Font.GothamBold
-FTitle.TextSize = 10
-FTitle.BackgroundTransparency = 1
-local FruitList = Instance.new("TextLabel", MonitorF)
-FruitList.Size = UDim2.new(1, -20, 0, 30)
-FruitList.Position = UDim2.new(0, 10, 0, 22)
-FruitList.Text = "SCANNING..."
-FruitList.TextColor3 = Color3.fromRGB(200, 200, 200)
-FruitList.Font = Enum.Font.Gotham
-FruitList.TextSize = 9
-FruitList.BackgroundTransparency = 1
-
-task.spawn(function()
-    while true do
-        local lines = {}
-        local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit")
-        if f1 then for _, f in ipairs(f1:GetChildren()) do table.insert(lines, f.Name) end end
-        if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] "..f.Name) end end
-        FruitList.Text = #lines > 0 and table.concat(lines, " | ") or "NENHUMA FRUTA"
-        task.wait(2)
-    end
-end)
-
 -- [ ABA GACHA ]
-local StockFrame = Instance.new("Frame", GachaTab)
-StockFrame.Size = UDim2.new(0.95, 0, 0, 40)
-StockFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", StockFrame)
-local StockLabel = Instance.new("TextLabel", StockFrame)
-StockLabel.Size = UDim2.new(1,0,1,0)
-StockLabel.TextColor3 = Color3.new(1,1,1)
-StockLabel.Font = Enum.Font.GothamBold
-StockLabel.TextSize = 11
-StockLabel.BackgroundTransparency = 1
-
-task.spawn(function()
-    while true do
-        pcall(function()
-            local raw = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.Gacha_Frame.Frame.Information.StockText.Text
-            local time = string.match(raw, "%((.-)%)") or "0 min"
-            StockLabel.Text = "Próximo Estoque de Keys em: " .. time
-        end)
-        task.wait(5)
-    end
-end)
-
 MyHub:AddGridSelector(GachaTab, "Buy Keys", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sBuyKey = v end)
 MyHub:AddTextBox(GachaTab, "Quantidade", "10", function(v) bAmt = tonumber(v) or 10 end)
 MyHub:AddButton(GachaTab, "EXECUTAR COMPRA", function() ReplicatedStorage.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyKey, bAmt) end)
 
-MyHub:AddGridSelector(GachaTab, "Use Keys", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sUseKey = v vUseMode = v end)
+MyHub:AddGridSelector(GachaTab, "Use Keys", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sUseKey = v end)
 MyHub:AddGridSelector(GachaTab, "Mode", {"Open1", "Open10"}, function(v) uType = v end)
 MyHub:AddButton(GachaTab, "USAR KEYS AGORA", function() 
-    local args = {
-        [1] = sUseKey,
-        [2] = uType
-    }
+    local args = {[1] = sUseKey, [2] = uType}
     ReplicatedStorage.Chest.Remotes.Functions.UseKey:InvokeServer(unpack(args))
-end)
-
--- [ ABA SEA EVENTS ]
-local SeaFrame = Instance.new("Frame", SeaTab)
-SeaFrame.Size = UDim2.new(0.95, 0, 0, 100)
-SeaFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", SeaFrame)
-
-local SeaIcon = Instance.new("ImageLabel", SeaFrame)
-SeaIcon.Size = UDim2.new(0, 40, 0, 40)
-SeaIcon.Position = UDim2.new(0.5, -20, 0, 5)
-SeaIcon.BackgroundTransparency = 1
-
-local SeaTitle = Instance.new("TextLabel", SeaFrame)
-SeaTitle.Size = UDim2.new(1, 0, 0, 20)
-SeaTitle.Position = UDim2.new(0, 0, 0, 50)
-SeaTitle.TextColor3 = HubLib.AccentColor
-SeaTitle.Font = Enum.Font.GothamBold
-SeaTitle.TextSize = 12
-SeaTitle.BackgroundTransparency = 1
-
-local SeaTime = Instance.new("TextLabel", SeaFrame)
-SeaTime.Size = UDim2.new(1, 0, 0, 20)
-SeaTime.Position = UDim2.new(0, 0, 0, 70)
-SeaTime.TextColor3 = Color3.new(1,1,1)
-SeaTime.Font = Enum.Font.GothamSemibold
-SeaTime.TextSize = 14
-SeaTime.BackgroundTransparency = 1
-
-task.spawn(function()
-    while true do
-        pcall(function()
-            local folder = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea
-            local skImg = folder.SKImage
-            local hdImg = folder.HDImage
-            local timeLabel = folder.SKTimeLabel
-
-            if hdImg.Visible then
-                SeaTitle.Text = "PRÓXIMO EVENTO: HYDRA"
-                SeaIcon.Image = hdImg.Image
-            elseif skImg.Visible then
-                SeaTitle.Text = "PRÓXIMO EVENTO: SEA KING"
-                SeaIcon.Image = skImg.Image
-            else
-                SeaTitle.Text = "BUSCANDO EVENTO..."
-                SeaIcon.Image = ""
-            end
-
-            SeaTime.Text = "Tempo: " .. timeLabel.Text
-        end)
-        task.wait(1)
-    end
 end)
