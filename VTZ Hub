@@ -1,86 +1,473 @@
--- [[ KING LEGACY | VTX HUB - FINAL OPTIMIZED ]]
-local Players, CoreGui, TS, UIS, RS, RunS, Stats, Http, Teleport = game:GetService("Players"), game:GetService("CoreGui"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("ReplicatedStorage"), game:GetService("RunService"), game:GetService("Stats"), game:GetService("HttpService"), game:GetService("TeleportService")
-local lp = Players.LocalPlayer
+-- [[ KING LEGACY | VTX HUB - FINAL VERSION ]]
 
-local HubLib = {Tabs = {}, MainColor = Color3.fromRGB(20, 20, 20), AccentColor = Color3.fromRGB(81, 74, 255)}
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
-function makeDraggable(f, p)
-    local d, m, fp
-    f.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then d, m, fp = true, i.Position, p.Position end end)
-    UIS.InputChanged:Connect(function(i) if d and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then local delta = i.Position - m p.Position = UDim2.new(fp.X.Scale, fp.X.Offset + delta.X, fp.Y.Scale, fp.Y.Offset + delta.Y) end end)
-    UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then d = false end end)
+-- ==========================================
+-- 1. ENGINE DA INTERFACE
+-- ==========================================
+local HubLib = {}
+HubLib.MainColor = Color3.fromRGB(20, 20, 20)
+HubLib.SidebarColor = Color3.fromRGB(15, 15, 15)
+HubLib.AccentColor = Color3.fromRGB(81, 74, 255) 
+HubLib.ToggleOffColor = Color3.fromRGB(45, 45, 45)
+HubLib.TextColor = Color3.fromRGB(255, 255, 255)
+
+local function makeDraggable(frame, parentFrame)
+    local dragging, mousePos, framePos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            mousePos = input.Position
+            framePos = parentFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - mousePos
+            parentFrame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+        end
+    end)
 end
 
 function HubLib:Init()
-    local target = CoreGui:FindFirstChild("RobloxGui") or CoreGui
-    if target:FindFirstChild("VxezeHub") then target.VxezeHub:Destroy() end
-    local sg = Instance.new("ScreenGui", target); sg.Name = "VxezeHub"; sg.ResetOnSpawn = false
-    local btn = Instance.new("ImageButton", sg); btn.Size = UDim2.new(0, 45, 0, 45); btn.Position = UDim2.new(0, 10, 0.5, -22); btn.BackgroundColor3 = self.AccentColor; btn.Image = "rbxassetid://95478711983741"; Instance.new("UICorner", btn)
-    local mf = Instance.new("Frame", sg); mf.Name = "MainFrame"; mf.Size = UDim2.new(0, 480, 0, 320); mf.Position = UDim2.new(0.5, -240, 0.5, -160); mf.BackgroundColor3 = self.MainColor; Instance.new("UICorner", mf)
-    local title = Instance.new("TextLabel", mf); title.Size = UDim2.new(1, -130, 0, 35); title.Position = UDim2.new(0, 125, 0, 0); title.Text = "KING LEGACY | VTX Hub"; title.TextColor3 = Color3.new(1,1,1); title.Font = Enum.Font.GothamBold; title.BackgroundTransparency = 1; title.TextXAlignment = Enum.TextXAlignment.Left
-    btn.MouseButton1Click:Connect(function() mf.Visible = not mf.Visible end); makeDraggable(btn, btn); makeDraggable(title, mf)
-    local sb = Instance.new("Frame", mf); sb.Size = UDim2.new(0, 120, 1, -35); sb.Position = UDim2.new(0, 0, 0, 35); sb.BackgroundTransparency = 1; Instance.new("UIListLayout", sb).HorizontalAlignment = Enum.HorizontalAlignment.Center
-    self.PF = Instance.new("Frame", mf); self.PF.Size = UDim2.new(1, -130, 1, -45); self.PF.Position = UDim2.new(0, 125, 0, 40); self.PF.BackgroundTransparency = 1
-    self.SB, self.SG, self.MF = sb, sg, mf; return self
+    local targetParent = nil
+    pcall(function() targetParent = CoreGui end)
+    if not targetParent then targetParent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+    if targetParent:FindFirstChild("VxezeHub") then targetParent.VxezeHub:Destroy() end
+
+    local ScreenGui = Instance.new("ScreenGui", targetParent)
+    ScreenGui.Name = "VxezeHub"
+    ScreenGui.ResetOnSpawn = false
+
+    local ToggleBtn = Instance.new("ImageButton", ScreenGui)
+    ToggleBtn.Name = "VxezeToggle"
+    ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+    ToggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
+    ToggleBtn.BackgroundColor3 = self.AccentColor
+    ToggleBtn.Image = "rbxassetid://95478711983741"
+    ToggleBtn.ScaleType = Enum.ScaleType.Fit
+    
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
+    makeDraggable(ToggleBtn, ToggleBtn)
+
+    local MainFrame = Instance.new("Frame", ScreenGui)
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 480, 0, 320)
+    MainFrame.Position = UDim2.new(0.5, -240, 0.5, -160)
+    MainFrame.BackgroundColor3 = self.MainColor
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+    local Title = Instance.new("TextLabel", MainFrame)
+    Title.Size = UDim2.new(1, -130, 0, 35)
+    Title.Position = UDim2.new(0, 125, 0, 0)
+    Title.Text = "KING LEGACY | VTX Hub"
+    Title.TextColor3 = Color3.new(1,1,1)
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 14
+    Title.BackgroundTransparency = 1
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+
+    local Sidebar = Instance.new("Frame", MainFrame)
+    Sidebar.Size = UDim2.new(0, 120, 1, -35)
+    Sidebar.Position = UDim2.new(0, 0, 0, 35)
+    Sidebar.BackgroundColor3 = self.SidebarColor
+    Sidebar.BackgroundTransparency = 1
+    Instance.new("UIListLayout", Sidebar).HorizontalAlignment = Enum.HorizontalAlignment.Center
+    Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
+
+    self.PagesFolder = Instance.new("Frame", MainFrame)
+    self.PagesFolder.Size = UDim2.new(1, -130, 1, -45)
+    self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
+    self.PagesFolder.BackgroundTransparency = 1
+
+    self.ScreenGui = ScreenGui
+    self.Sidebar = Sidebar
+    self.Tabs = {}
+    return self
 end
 
-function HubLib:CreateTab(n)
-    local b = Instance.new("TextButton", self.SB); b.Size = UDim2.new(0.9, 0, 0, 30); b.BackgroundTransparency = 1; b.Text = n:upper(); b.TextColor3 = Color3.fromRGB(150, 150, 150); b.Font = Enum.Font.GothamSemibold; b.TextSize = 11
-    local p = Instance.new("ScrollingFrame", self.PF); p.Size = UDim2.new(1, 0, 1, 0); p.BackgroundTransparency = 1; p.Visible = false; p.ScrollBarThickness = 0; local ly = Instance.new("UIListLayout", p); ly.Padding = UDim.new(0, 6); ly.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    ly:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() p.CanvasSize = UDim2.new(0, 0, 0, ly.AbsoluteContentSize.Y + 10) end)
-    b.MouseButton1Click:Connect(function() for _, t in pairs(self.Tabs) do t.P.Visible = false t.B.TextColor3 = Color3.fromRGB(150, 150, 150) end p.Visible = true b.TextColor3 = self.AccentColor end)
-    table.insert(self.Tabs, {P = p, B = b}); if #self.Tabs == 1 then p.Visible = true b.TextColor3 = self.AccentColor end; return p
-end
+function HubLib:CreateTab(name)
+    local TabBtn = Instance.new("TextButton", self.Sidebar)
+    TabBtn.Size = UDim2.new(0.9, 0, 0, 30)
+    TabBtn.BackgroundTransparency = 1
+    TabBtn.Text = name:upper()
+    TabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    TabBtn.Font = Enum.Font.GothamSemibold
+    TabBtn.TextSize = 11
 
-function HubLib:AddToggle(p, t, c, d)
-    local f = Instance.new("Frame", p); f.Size = UDim2.new(0.95, 0, 0, 38); f.BackgroundColor3 = Color3.fromRGB(30, 30, 30); Instance.new("UICorner", f)
-    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, -60, 1, 0); l.Position = UDim2.new(0, 12, 0, 0); l.Text = t; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Font = Enum.Font.Gotham; l.TextSize = 11; l.TextXAlignment = Enum.TextXAlignment.Left
-    local o = Instance.new("TextButton", f); o.Size = UDim2.new(0, 34, 0, 16); o.Position = UDim2.new(1, -44, 0.5, -8); o.BackgroundColor3 = d and self.AccentColor or Color3.fromRGB(45,45,45); o.Text = ""; Instance.new("UICorner", o).CornerRadius = UDim.new(1, 0)
-    local i = Instance.new("Frame", o); i.Size = UDim2.new(0, 12, 0, 12); i.Position = d and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2); i.BackgroundColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", i).CornerRadius = UDim.new(1, 0)
-    local s = d or false; o.MouseButton1Click:Connect(function() s = not s; c(s) TS:Create(o, TweenInfo.new(0.2), {BackgroundColor3 = s and self.AccentColor or Color3.fromRGB(45,45,45)}):Play() TS:Create(i, TweenInfo.new(0.2), {Position = s and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2)}):Play() end)
-end
+    local Page = Instance.new("ScrollingFrame", self.PagesFolder)
+    Page.Size = UDim2.new(1, 0, 1, 0)
+    Page.BackgroundTransparency = 1
+    Page.Visible = false
+    Page.ScrollBarThickness = 0
+    local layout = Instance.new("UIListLayout", Page)
+    layout.Padding = UDim.new(0, 6)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-function HubLib:AddButton(p, t, c)
-    local b = Instance.new("TextButton", p); b.Size = UDim2.new(0.95, 0, 0, 35); b.BackgroundColor3 = Color3.fromRGB(35, 35, 35); b.Text = t; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamSemibold; b.TextSize = 11; Instance.new("UICorner", b); b.MouseButton1Click:Connect(c)
-end
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+    end)
 
-function HubLib:AddToolSelector(p, callback)
-    local container = Instance.new("Frame", p); container.Size = UDim2.new(0.95, 0, 0, 100); container.BackgroundColor3 = Color3.fromRGB(25, 25, 25); Instance.new("UICorner", container)
-    local sc = Instance.new("ScrollingFrame", container); sc.Size = UDim2.new(1, -10, 1, -10); sc.Position = UDim2.new(0, 5, 0, 5); sc.BackgroundTransparency = 1; sc.ScrollBarThickness = 2
-    local ly = Instance.new("UIListLayout", sc); ly.Padding = UDim.new(0, 4)
-    local function update()
-        for _,v in pairs(sc:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-        for _,t in pairs(lp.Backpack:GetChildren()) do
-            if t:IsA("Tool") and not t.Name:find("Fruit") then
-                local b = Instance.new("TextButton", sc); b.Size = UDim2.new(1, 0, 0, 25); b.BackgroundColor3 = Color3.fromRGB(40, 40, 40); b.Text = t.Name; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.Gotham; b.TextSize = 10; Instance.new("UICorner", b)
-                b.MouseButton1Click:Connect(function() callback(t.Name) end)
-            end
+    TabBtn.MouseButton1Click:Connect(function()
+        for _, t in pairs(self.Tabs) do
+            t.Page.Visible = false
+            t.Btn.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
-        sc.CanvasSize = UDim2.new(0,0,0, ly.AbsoluteContentSize.Y)
-    end
-    update(); lp.Backpack.ChildAdded:Connect(update); lp.Backpack.ChildRemoved:Connect(update)
+        Page.Visible = true
+        TabBtn.TextColor3 = self.AccentColor
+    end)
+
+    table.insert(self.Tabs, {Page = Page, Btn = TabBtn})
+    if #self.Tabs == 1 then Page.Visible = true TabBtn.TextColor3 = self.AccentColor end
+    return Page
 end
 
--- INICIALIZAÇÃO
+function HubLib:AddToggle(page, text, callback, default)
+    local ToggleFrame = Instance.new("Frame", page)
+    ToggleFrame.Size = UDim2.new(0.95, 0, 0, 38)
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Instance.new("UICorner", ToggleFrame).CornerRadius = UDim.new(0, 5)
+
+    local Label = Instance.new("TextLabel", ToggleFrame)
+    Label.Size = UDim2.new(1, -60, 1, 0)
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.Text = text
+    Label.TextColor3 = self.TextColor
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 11
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Outer = Instance.new("TextButton", ToggleFrame)
+    Outer.Size = UDim2.new(0, 38, 0, 18)
+    Outer.Position = UDim2.new(1, -48, 0.5, -9)
+    Outer.BackgroundColor3 = default and self.AccentColor or self.ToggleOffColor
+    Outer.Text = ""
+    Instance.new("UICorner", Outer).CornerRadius = UDim.new(1, 0)
+
+    local Inner = Instance.new("Frame", Outer)
+    Inner.Size = UDim2.new(0, 14, 0, 14)
+    Inner.Position = default and UDim2.new(1, -16, 0, 2) or UDim2.new(0, 2, 0, 2)
+    Inner.BackgroundColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", Inner).CornerRadius = UDim.new(1, 0)
+
+    local state = default or false
+    Outer.MouseButton1Click:Connect(function()
+        state = not state
+        pcall(callback, state)
+        local targetPos = state and UDim2.new(1, -16, 0, 2) or UDim2.new(0, 2, 0, 2)
+        local targetColor = state and self.AccentColor or self.ToggleOffColor
+        TweenService:Create(Outer, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+        TweenService:Create(Inner, TweenInfo.new(0.2), {Position = targetPos}):Play()
+    end)
+end
+
+function HubLib:AddButton(page, text, callback)
+    local Btn = Instance.new("TextButton", page)
+    Btn.Size = UDim2.new(0.95, 0, 0, 35)
+    Btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    Btn.Text = text
+    Btn.TextColor3 = self.TextColor
+    Btn.Font = Enum.Font.GothamSemibold
+    Btn.TextSize = 11
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 5)
+    Btn.MouseButton1Click:Connect(callback)
+end
+
+function HubLib:AddTextBox(page, text, placeholder, callback)
+    local TFrame = Instance.new("Frame", page)
+    TFrame.Size = UDim2.new(0.95, 0, 0, 45)
+    TFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Instance.new("UICorner", TFrame)
+    
+    local Label = Instance.new("TextLabel", TFrame)
+    Label.Size = UDim2.new(1, 0, 0, 20)
+    Label.Position = UDim2.new(0, 10, 0, 2)
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 10
+    Label.BackgroundTransparency = 1
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Box = Instance.new("TextBox", TFrame)
+    Box.Size = UDim2.new(1, -20, 0, 20)
+    Box.Position = UDim2.new(0, 10, 0, 20)
+    Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Box.PlaceholderText = placeholder
+    Box.Text = "10"
+    Box.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", Box)
+    Box.FocusLost:Connect(function() callback(Box.Text) end)
+end
+
+function HubLib:AddGridSelector(page, title, options, callback)
+    local Container = Instance.new("Frame", page)
+    Container.Size = UDim2.new(0.95, 0, 0, 65)
+    Container.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Instance.new("UICorner", Container)
+
+    local Label = Instance.new("TextLabel", Container)
+    Label.Size = UDim2.new(1, 0, 0, 20)
+    Label.Text = title:upper()
+    Label.TextColor3 = self.AccentColor
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 10
+    Label.BackgroundTransparency = 1
+
+    local Grid = Instance.new("Frame", Container)
+    Grid.Size = UDim2.new(1, -10, 0, 35)
+    Grid.Position = UDim2.new(0, 5, 0, 22)
+    Grid.BackgroundTransparency = 1
+    local layout = Instance.new("UIListLayout", Grid)
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, 4)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    local btns = {}
+    for _, opt in pairs(options) do
+        local b = Instance.new("TextButton", Grid)
+        b.Size = UDim2.new(0, 60, 1, 0)
+        b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        b.Text = opt:gsub(" Key", "")
+        b.TextColor3 = Color3.new(0.7,0.7,0.7)
+        b.Font = Enum.Font.GothamSemibold
+        b.TextSize = 8
+        Instance.new("UICorner", b)
+        
+        b.MouseButton1Click:Connect(function()
+            for _, v in pairs(btns) do v.BackgroundColor3 = Color3.fromRGB(40, 40, 40) v.TextColor3 = Color3.new(0.7,0.7,0.7) end
+            b.BackgroundColor3 = self.AccentColor
+            b.TextColor3 = Color3.new(1,1,1)
+            callback(opt)
+        end)
+        table.insert(btns, b)
+    end
+end
+
+-- ==========================================
+-- 2. GUI DE STATUS (FPS/PING)
+-- ==========================================
+local function CreateStatusGui(parent)
+    local StatusFrame = Instance.new("Frame", parent)
+    StatusFrame.Name = "StatusFrame"
+    StatusFrame.Size = UDim2.new(0, 120, 0, 45)
+    StatusFrame.Position = UDim2.new(1, -130, 1, -55)
+    StatusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    StatusFrame.BackgroundTransparency = 0.2
+    Instance.new("UICorner", StatusFrame)
+    Instance.new("UIStroke", StatusFrame).Color = HubLib.AccentColor
+
+    local FPSLabel = Instance.new("TextLabel", StatusFrame)
+    FPSLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    FPSLabel.Text = "FPS: 60"
+    FPSLabel.TextColor3 = Color3.new(1,1,1)
+    FPSLabel.Font = Enum.Font.GothamBold
+    FPSLabel.TextSize = 12
+    FPSLabel.BackgroundTransparency = 1
+
+    local PingLabel = Instance.new("TextLabel", StatusFrame)
+    PingLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    PingLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    PingLabel.Text = "Ping: 0 ms"
+    PingLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    PingLabel.Font = Enum.Font.Gotham
+    PingLabel.TextSize = 11
+    PingLabel.BackgroundTransparency = 1
+
+    RunService.RenderStepped:Connect(function(dt)
+        FPSLabel.Text = "FPS: " .. math.floor(1/dt)
+        local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+        PingLabel.Text = "Ping: " .. ping .. " ms"
+    end)
+    return StatusFrame
+end
+
+-- ==========================================
+-- 3. LÓGICA DE FRUTAS
+-- ==========================================
+_G.FruitCollectorEnabled = false
+local function LoadFruitEngine()
+    local player = Players.LocalPlayer
+    task.spawn(function()
+        while _G.FruitCollectorEnabled do
+            local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit")
+            local mapFruits = {}
+            if f1 then for _, f in ipairs(f1:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
+            if f2 then for _, f in ipairs(f2:GetChildren()) do if f:IsA("Model") then table.insert(mapFruits, f) end end end
+
+            if #mapFruits > 0 and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                for _, fruit in ipairs(mapFruits) do
+                    if not _G.FruitCollectorEnabled then break end
+                    local part = fruit.PrimaryPart or fruit:FindFirstChildWhichIsA("BasePart")
+                    if fruit.Parent and part then
+                        player.Character.HumanoidRootPart.CFrame = part.CFrame
+                        task.wait(0.5)
+                    end
+                end
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+-- ==========================================
+-- 4. INICIALIZAÇÃO FINAL
+-- ==========================================
 local MyHub = HubLib:Init()
-local MainT, FruitT, GachaT, SeaT, ConfigT = MyHub:CreateTab("Main"), MyHub:CreateTab("Fruits"), MyHub:CreateTab("Gacha"), MyHub:CreateTab("Sea Events"), MyHub:CreateTab("Config")
-local sTool, sBuyK, bAmt, sUseK, uMode = "", "Copper Key", 10, "Copper Key", "Open10"
+local FruitTab = MyHub:CreateTab("Fruits")
+local GachaTab = MyHub:CreateTab("Gacha")
+local SeaTab = MyHub:CreateTab("Sea Events")
+local ConfigTab = MyHub:CreateTab("Config")
 
--- MAIN / FARM
-MyHub:AddToggle(MainT, "Auto Farm Level", function(s) _G.AFarm = s end)
-MyHub:AddToolSelector(MainT, function(v) sTool = v end)
-MyHub:AddToggle(MainT, "Auto Equip Selected (0.1s)", function(s) _G.AEquip = s task.spawn(function() while _G.AEquip do pcall(function() local t = lp.Backpack:FindFirstChild(sTool) if t then t.Parent = lp.Character end end) task.wait(0.1) end end) end)
+local StatusGui = CreateStatusGui(MyHub.ScreenGui)
+local sBuyKey, bAmt = "Copper Key", 10
+local sUseKey, uType = "Copper Key", "Open10"
 
--- FRUITS / SEA / GACHA (LOGICA COMPACTA)
-MyHub:AddToggle(FruitT, "Auto Collect", function(s) _G.CFruit = s task.spawn(function() while _G.CFruit do local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit") for _,f in pairs(f1 and f1:GetChildren() or {}) do lp.Character.HumanoidRootPart.CFrame = f.PrimaryPart.CFrame task.wait(0.5) end for _,f in pairs(f2 and f2:GetChildren() or {}) do lp.Character.HumanoidRootPart.CFrame = f.PrimaryPart.CFrame task.wait(0.5) end task.wait(1) end end) end)
-MyHub:AddButton(GachaT, "Comprar "..sBuyK, function() RS.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyK, bAmt) end)
+-- [ ABA CONFIG ]
+MyHub:AddToggle(ConfigTab, "Anti-AFK", function(state)
+    if state then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Anti%20Afk"))()
+    end
+end)
 
--- CONFIG (FPS/PING/SERVER HOP)
-local stF = Instance.new("Frame", MyHub.SG); stF.Size = UDim2.new(0, 100, 0, 40); stF.Position = UDim2.new(1, -110, 0, 10); stF.BackgroundTransparency = 0.5; stF.BackgroundColor3 = Color3.new(0,0,0); stF.Visible = false; Instance.new("UICorner", stF)
-local fL = Instance.new("TextLabel", stF); fL.Size = UDim2.new(1,0,0.5,0); fL.Text = "FPS: 60"; fL.TextColor3 = Color3.new(1,1,1); fL.BackgroundTransparency = 1; fL.Font = Enum.Font.GothamBold; fL.TextSize = 10
-local pL = Instance.new("TextLabel", stF); pL.Size = UDim2.new(1,0,0.5,0); pL.Position = UDim2.new(0,0,0.5,0); pL.Text = "Ping: 0"; pL.TextColor3 = Color3.new(0.8,0.8,0.8); pL.BackgroundTransparency = 1; pL.Font = Enum.Font.Gotham; pL.TextSize = 10
-RunS.RenderStepped:Connect(function(dt) fL.Text = "FPS: "..math.floor(1/dt) pL.Text = "Ping: "..math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
+MyHub:AddToggle(ConfigTab, "Mostrar FPS/Ping", function(state)
+    StatusGui.Visible = state
+end, true)
 
-MyHub:AddToggle(ConfigT, "Show FPS & Ping", function(s) stF.Visible = s end)
-MyHub:AddButton(ConfigT, "SERVER HOP", function() local s = Http:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?limit=100")).data for _,v in pairs(s) do if v.playing < v.maxPlayers and v.id ~= game.JobId then Teleport:TeleportToPlaceInstance(game.PlaceId, v.id) break end end end)
-MyHub:AddToggle(ConfigT, "Anti-AFK", function(s) if s then loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Anti%20Afk"))() end end)
+-- [ ABA FRUITS ]
+MyHub:AddToggle(FruitTab, "Auto Collect Fruit Map", function(state)
+    _G.FruitCollectorEnabled = state
+    if state then LoadFruitEngine() end
+end)
+
+local MonitorF = Instance.new("Frame", FruitTab)
+MonitorF.Size = UDim2.new(0.95, 0, 0, 60)
+MonitorF.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", MonitorF)
+local FTitle = Instance.new("TextLabel", MonitorF)
+FTitle.Size = UDim2.new(1, 0, 0, 20)
+FTitle.Text = "MONITOR DE FRUTAS"
+FTitle.TextColor3 = HubLib.AccentColor
+FTitle.Font = Enum.Font.GothamBold
+FTitle.TextSize = 10
+FTitle.BackgroundTransparency = 1
+local FruitList = Instance.new("TextLabel", MonitorF)
+FruitList.Size = UDim2.new(1, -20, 0, 30)
+FruitList.Position = UDim2.new(0, 10, 0, 22)
+FruitList.Text = "SCANNING..."
+FruitList.TextColor3 = Color3.fromRGB(200, 200, 200)
+FruitList.Font = Enum.Font.Gotham
+FruitList.TextSize = 9
+FruitList.BackgroundTransparency = 1
+
+task.spawn(function()
+    while true do
+        local lines = {}
+        local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit")
+        if f1 then for _, f in ipairs(f1:GetChildren()) do table.insert(lines, f.Name) end end
+        if f2 then for _, f in ipairs(f2:GetChildren()) do table.insert(lines, "[DROP] "..f.Name) end end
+        FruitList.Text = #lines > 0 and table.concat(lines, " | ") or "NENHUMA FRUTA"
+        task.wait(2)
+    end
+end)
+
+-- [ ABA GACHA ]
+local StockFrame = Instance.new("Frame", GachaTab)
+StockFrame.Size = UDim2.new(0.95, 0, 0, 40)
+StockFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", StockFrame)
+local StockLabel = Instance.new("TextLabel", StockFrame)
+StockLabel.Size = UDim2.new(1,0,1,0)
+StockLabel.TextColor3 = Color3.new(1,1,1)
+StockLabel.Font = Enum.Font.GothamBold
+StockLabel.TextSize = 11
+StockLabel.BackgroundTransparency = 1
+
+task.spawn(function()
+    while true do
+        pcall(function()
+            local raw = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.Gacha_Frame.Frame.Information.StockText.Text
+            local time = string.match(raw, "%((.-)%)") or "0 min"
+            StockLabel.Text = "Próximo Estoque de Keys em: " .. time
+        end)
+        task.wait(5)
+    end
+end)
+
+MyHub:AddGridSelector(GachaTab, "Buy Keys", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sBuyKey = v end)
+MyHub:AddTextBox(GachaTab, "Quantidade", "10", function(v) bAmt = tonumber(v) or 10 end)
+MyHub:AddButton(GachaTab, "EXECUTAR COMPRA", function() ReplicatedStorage.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyKey, bAmt) end)
+
+MyHub:AddGridSelector(GachaTab, "Use Keys", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sUseKey = v vUseMode = v end)
+MyHub:AddGridSelector(GachaTab, "Mode", {"Open1", "Open10"}, function(v) uType = v end)
+MyHub:AddButton(GachaTab, "USAR KEYS AGORA", function() 
+    local args = {
+        [1] = sUseKey,
+        [2] = uType
+    }
+    ReplicatedStorage.Chest.Remotes.Functions.UseKey:InvokeServer(unpack(args))
+end)
+
+-- [ ABA SEA EVENTS ]
+local SeaFrame = Instance.new("Frame", SeaTab)
+SeaFrame.Size = UDim2.new(0.95, 0, 0, 100)
+SeaFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", SeaFrame)
+
+local SeaIcon = Instance.new("ImageLabel", SeaFrame)
+SeaIcon.Size = UDim2.new(0, 40, 0, 40)
+SeaIcon.Position = UDim2.new(0.5, -20, 0, 5)
+SeaIcon.BackgroundTransparency = 1
+
+local SeaTitle = Instance.new("TextLabel", SeaFrame)
+SeaTitle.Size = UDim2.new(1, 0, 0, 20)
+SeaTitle.Position = UDim2.new(0, 0, 0, 50)
+SeaTitle.TextColor3 = HubLib.AccentColor
+SeaTitle.Font = Enum.Font.GothamBold
+SeaTitle.TextSize = 12
+SeaTitle.BackgroundTransparency = 1
+
+local SeaTime = Instance.new("TextLabel", SeaFrame)
+SeaTime.Size = UDim2.new(1, 0, 0, 20)
+SeaTime.Position = UDim2.new(0, 0, 0, 70)
+SeaTime.TextColor3 = Color3.new(1,1,1)
+SeaTime.Font = Enum.Font.GothamSemibold
+SeaTime.TextSize = 14
+SeaTime.BackgroundTransparency = 1
+
+task.spawn(function()
+    while true do
+        pcall(function()
+            local folder = Players.LocalPlayer.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea
+            local skImg = folder.SKImage
+            local hdImg = folder.HDImage
+            local timeLabel = folder.SKTimeLabel
+
+            if hdImg.Visible then
+                SeaTitle.Text = "PRÓXIMO EVENTO: HYDRA"
+                SeaIcon.Image = hdImg.Image
+            elseif skImg.Visible then
+                SeaTitle.Text = "PRÓXIMO EVENTO: SEA KING"
+                SeaIcon.Image = skImg.Image
+            else
+                SeaTitle.Text = "BUSCANDO EVENTO..."
+                SeaIcon.Image = ""
+            end
+
+            SeaTime.Text = "Tempo: " .. timeLabel.Text
+        end)
+        task.wait(1)
+    end
+end)
