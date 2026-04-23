@@ -1,4 +1,4 @@
--- [[ KING LEGACY | VTX HUB - PARTE 1 ]]
+-- [[ KING LEGACY | VTX HUB - FINAL OPTIMIZED ]]
 local Players, CoreGui, TS, UIS, RS, RunS, Stats, Http, Teleport = game:GetService("Players"), game:GetService("CoreGui"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("ReplicatedStorage"), game:GetService("RunService"), game:GetService("Stats"), game:GetService("HttpService"), game:GetService("TeleportService")
 local lp = Players.LocalPlayer
 
@@ -15,16 +15,13 @@ function HubLib:Init()
     local target = CoreGui:FindFirstChild("RobloxGui") or CoreGui
     if target:FindFirstChild("VxezeHub") then target.VxezeHub:Destroy() end
     local sg = Instance.new("ScreenGui", target); sg.Name = "VxezeHub"; sg.ResetOnSpawn = false
-    
-    local btn = Instance.new("ImageButton", sg); btn.Name = "Toggle"; btn.Size = UDim2.new(0, 45, 0, 45); btn.Position = UDim2.new(0, 10, 0.5, -22); btn.BackgroundColor3 = self.AccentColor; btn.Image = "rbxassetid://95478711983741"; Instance.new("UICorner", btn)
+    local btn = Instance.new("ImageButton", sg); btn.Size = UDim2.new(0, 45, 0, 45); btn.Position = UDim2.new(0, 10, 0.5, -22); btn.BackgroundColor3 = self.AccentColor; btn.Image = "rbxassetid://95478711983741"; Instance.new("UICorner", btn)
     local mf = Instance.new("Frame", sg); mf.Name = "MainFrame"; mf.Size = UDim2.new(0, 480, 0, 320); mf.Position = UDim2.new(0.5, -240, 0.5, -160); mf.BackgroundColor3 = self.MainColor; Instance.new("UICorner", mf)
-    
     local title = Instance.new("TextLabel", mf); title.Size = UDim2.new(1, -130, 0, 35); title.Position = UDim2.new(0, 125, 0, 0); title.Text = "KING LEGACY | VTX Hub"; title.TextColor3 = Color3.new(1,1,1); title.Font = Enum.Font.GothamBold; title.BackgroundTransparency = 1; title.TextXAlignment = Enum.TextXAlignment.Left
     btn.MouseButton1Click:Connect(function() mf.Visible = not mf.Visible end); makeDraggable(btn, btn); makeDraggable(title, mf)
-    
-    local sb = Instance.new("Frame", mf); sb.Name = "Sidebar"; sb.Size = UDim2.new(0, 120, 1, -35); sb.Position = UDim2.new(0, 0, 0, 35); sb.BackgroundTransparency = 1; Instance.new("UIListLayout", sb).HorizontalAlignment = Enum.HorizontalAlignment.Center
+    local sb = Instance.new("Frame", mf); sb.Size = UDim2.new(0, 120, 1, -35); sb.Position = UDim2.new(0, 0, 0, 35); sb.BackgroundTransparency = 1; Instance.new("UIListLayout", sb).HorizontalAlignment = Enum.HorizontalAlignment.Center
     self.PF = Instance.new("Frame", mf); self.PF.Size = UDim2.new(1, -130, 1, -45); self.PF.Position = UDim2.new(0, 125, 0, 40); self.PF.BackgroundTransparency = 1
-    self.SB, self.SG = sb, sg; return self
+    self.SB, self.SG, self.MF = sb, sg, mf; return self
 end
 
 function HubLib:CreateTab(n)
@@ -40,141 +37,50 @@ function HubLib:AddToggle(p, t, c, d)
     local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, -60, 1, 0); l.Position = UDim2.new(0, 12, 0, 0); l.Text = t; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Font = Enum.Font.Gotham; l.TextSize = 11; l.TextXAlignment = Enum.TextXAlignment.Left
     local o = Instance.new("TextButton", f); o.Size = UDim2.new(0, 34, 0, 16); o.Position = UDim2.new(1, -44, 0.5, -8); o.BackgroundColor3 = d and self.AccentColor or Color3.fromRGB(45,45,45); o.Text = ""; Instance.new("UICorner", o).CornerRadius = UDim.new(1, 0)
     local i = Instance.new("Frame", o); i.Size = UDim2.new(0, 12, 0, 12); i.Position = d and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2); i.BackgroundColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", i).CornerRadius = UDim.new(1, 0)
-    local s = d or false
-    o.MouseButton1Click:Connect(function() s = not s; c(s) TS:Create(o, TweenInfo.new(0.2), {BackgroundColor3 = s and self.AccentColor or Color3.fromRGB(45,45,45)}):Play() TS:Create(i, TweenInfo.new(0.2), {Position = s and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2)}):Play() end)
+    local s = d or false; o.MouseButton1Click:Connect(function() s = not s; c(s) TS:Create(o, TweenInfo.new(0.2), {BackgroundColor3 = s and self.AccentColor or Color3.fromRGB(45,45,45)}):Play() TS:Create(i, TweenInfo.new(0.2), {Position = s and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2)}):Play() end)
 end
 
 function HubLib:AddButton(p, t, c)
     local b = Instance.new("TextButton", p); b.Size = UDim2.new(0.95, 0, 0, 35); b.BackgroundColor3 = Color3.fromRGB(35, 35, 35); b.Text = t; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamSemibold; b.TextSize = 11; Instance.new("UICorner", b); b.MouseButton1Click:Connect(c)
 end
 
-function HubLib:AddTextBox(p, t, ph, c)
-    local f = Instance.new("Frame", p); f.Size = UDim2.new(0.95, 0, 0, 45); f.BackgroundColor3 = Color3.fromRGB(30, 30, 30); Instance.new("UICorner", f)
-    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 20); l.Position = UDim2.new(0, 10, 0, 2); l.Text = t; l.TextColor3 = Color3.fromRGB(180, 180, 180); l.Font = Enum.Font.Gotham; l.TextSize = 10; l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left
-    local b = Instance.new("TextBox", f); b.Size = UDim2.new(1, -20, 0, 20); b.Position = UDim2.new(0, 10, 0, 20); b.BackgroundColor3 = Color3.fromRGB(40, 40, 40); b.PlaceholderText = ph; b.Text = ""; b.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", b); b.FocusLost:Connect(function() c(b.Text) end)
-end
-
-function HubLib:AddGridSelector(p, t, opts, c)
-    local cn = Instance.new("Frame", p); cn.Size = UDim2.new(0.95, 0, 0, 65); cn.BackgroundColor3 = Color3.fromRGB(25, 25, 25); Instance.new("UICorner", cn)
-    local l = Instance.new("TextLabel", cn); l.Size = UDim2.new(1, 0, 0, 20); l.Text = t:upper(); l.TextColor3 = self.AccentColor; l.Font = Enum.Font.GothamBold; l.TextSize = 10; l.BackgroundTransparency = 1
-    local g = Instance.new("Frame", cn); g.Size = UDim2.new(1, -10, 0, 35); g.Position = UDim2.new(0, 5, 0, 22); g.BackgroundTransparency = 1; Instance.new("UIListLayout", g).FillDirection = Enum.FillDirection.Horizontal; g.UIListLayout.Padding = UDim.new(0, 4); g.UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    local btns = {}
-    for _, o in pairs(opts) do
-        local b = Instance.new("TextButton", g); b.Size = UDim2.new(0, 60, 1, 0); b.BackgroundColor3 = Color3.fromRGB(40, 40, 40); b.Text = o:gsub(" Key", ""); b.TextColor3 = Color3.new(0.7,0.7,0.7); b.Font = Enum.Font.GothamSemibold; b.TextSize = 8; Instance.new("UICorner", b)
-        b.MouseButton1Click:Connect(function() for _, v in pairs(btns) do v.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end b.BackgroundColor3 = self.AccentColor c(o) end); table.insert(btns, b)
+function HubLib:AddToolSelector(p, callback)
+    local container = Instance.new("Frame", p); container.Size = UDim2.new(0.95, 0, 0, 100); container.BackgroundColor3 = Color3.fromRGB(25, 25, 25); Instance.new("UICorner", container)
+    local sc = Instance.new("ScrollingFrame", container); sc.Size = UDim2.new(1, -10, 1, -10); sc.Position = UDim2.new(0, 5, 0, 5); sc.BackgroundTransparency = 1; sc.ScrollBarThickness = 2
+    local ly = Instance.new("UIListLayout", sc); ly.Padding = UDim.new(0, 4)
+    local function update()
+        for _,v in pairs(sc:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        for _,t in pairs(lp.Backpack:GetChildren()) do
+            if t:IsA("Tool") and not t.Name:find("Fruit") then
+                local b = Instance.new("TextButton", sc); b.Size = UDim2.new(1, 0, 0, 25); b.BackgroundColor3 = Color3.fromRGB(40, 40, 40); b.Text = t.Name; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.Gotham; b.TextSize = 10; Instance.new("UICorner", b)
+                b.MouseButton1Click:Connect(function() callback(t.Name) end)
+            end
+        end
+        sc.CanvasSize = UDim2.new(0,0,0, ly.AbsoluteContentSize.Y)
     end
+    update(); lp.Backpack.ChildAdded:Connect(update); lp.Backpack.ChildRemoved:Connect(update)
 end
 
--- INICIO DA MONTAGEM
+-- INICIALIZAÇÃO
 local MyHub = HubLib:Init()
-local MainT = MyHub:CreateTab("Main")
-local FruitT = MyHub:CreateTab("Fruits")
-local GachaT = MyHub:CreateTab("Gacha")
-local SeaT = MyHub:CreateTab("Sea Events")
-local ConfigT = MyHub:CreateTab("Config")
-
+local MainT, FruitT, GachaT, SeaT, ConfigT = MyHub:CreateTab("Main"), MyHub:CreateTab("Fruits"), MyHub:CreateTab("Gacha"), MyHub:CreateTab("Sea Events"), MyHub:CreateTab("Config")
 local sTool, sBuyK, bAmt, sUseK, uMode = "", "Copper Key", 10, "Copper Key", "Open10"
 
--- ABA MAIN
+-- MAIN / FARM
 MyHub:AddToggle(MainT, "Auto Farm Level", function(s) _G.AFarm = s end)
-MyHub:AddTextBox(MainT, "Tool Name", "Combat", function(v) sTool = v end)
-MyHub:AddToggle(MainT, "Auto Equip (0.1s)", function(s) 
-    _G.AEquip = s 
-    task.spawn(function() 
-        while _G.AEquip do 
-            pcall(function() 
-                local t = lp.Backpack:FindFirstChild(sTool) 
-                if t then t.Parent = lp.Character end 
-            end) 
-            task.wait(0.1) 
-        end 
-    end) 
-end)
--- [[ KING LEGACY | VTX HUB - PARTE 2 ]]
+MyHub:AddToolSelector(MainT, function(v) sTool = v end)
+MyHub:AddToggle(MainT, "Auto Equip Selected (0.1s)", function(s) _G.AEquip = s task.spawn(function() while _G.AEquip do pcall(function() local t = lp.Backpack:FindFirstChild(sTool) if t then t.Parent = lp.Character end end) task.wait(0.1) end end) end)
 
--- ABA FRUITS
-MyHub:AddToggle(FruitT, "Auto Collect Fruits", function(s) 
-    _G.CFruit = s 
-    task.spawn(function() 
-        while _G.CFruit do 
-            local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit") 
-            for _,f in pairs(f1 and f1:GetChildren() or {}) do 
-                if f:IsA("Model") and f.PrimaryPart then
-                    lp.Character.HumanoidRootPart.CFrame = f.PrimaryPart.CFrame 
-                    task.wait(0.5) 
-                end
-            end 
-            for _,f in pairs(f2 and f2:GetChildren() or {}) do 
-                if f:IsA("Model") and f.PrimaryPart then
-                    lp.Character.HumanoidRootPart.CFrame = f.PrimaryPart.CFrame 
-                    task.wait(0.5) 
-                end
-            end 
-            task.wait(1) 
-        end 
-    end) 
-end)
+-- FRUITS / SEA / GACHA (LOGICA COMPACTA)
+MyHub:AddToggle(FruitT, "Auto Collect", function(s) _G.CFruit = s task.spawn(function() while _G.CFruit do local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit") for _,f in pairs(f1 and f1:GetChildren() or {}) do lp.Character.HumanoidRootPart.CFrame = f.PrimaryPart.CFrame task.wait(0.5) end for _,f in pairs(f2 and f2:GetChildren() or {}) do lp.Character.HumanoidRootPart.CFrame = f.PrimaryPart.CFrame task.wait(0.5) end task.wait(1) end end) end)
+MyHub:AddButton(GachaT, "Comprar "..sBuyK, function() RS.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyK, bAmt) end)
 
-local fL = Instance.new("TextLabel", FruitT); fL.Size = UDim2.new(1,0,0,30); fL.TextColor3 = Color3.new(1,1,1); fL.Font = Enum.Font.Gotham; fL.TextSize = 10; fL.BackgroundTransparency = 1; fL.Text = "SCANNING FRUITS..."
-task.spawn(function() 
-    while true do 
-        local n = {} 
-        local f1, f2 = workspace:FindFirstChild("AllspawnDF"), workspace:FindFirstChild("AllDroppedFruit") 
-        if f1 then for _,f in pairs(f1:GetChildren()) do table.insert(n, f.Name) end end 
-        if f2 then for _,f in pairs(f2:GetChildren()) do table.insert(n, "[D] "..f.Name) end end 
-        fL.Text = #n>0 and "FRUTAS: " .. table.concat(n, " | ") or "NENHUMA FRUTA NO MAPA" 
-        task.wait(2) 
-    end 
-end)
+-- CONFIG (FPS/PING/SERVER HOP)
+local stF = Instance.new("Frame", MyHub.SG); stF.Size = UDim2.new(0, 100, 0, 40); stF.Position = UDim2.new(1, -110, 0, 10); stF.BackgroundTransparency = 0.5; stF.BackgroundColor3 = Color3.new(0,0,0); stF.Visible = false; Instance.new("UICorner", stF)
+local fL = Instance.new("TextLabel", stF); fL.Size = UDim2.new(1,0,0.5,0); fL.Text = "FPS: 60"; fL.TextColor3 = Color3.new(1,1,1); fL.BackgroundTransparency = 1; fL.Font = Enum.Font.GothamBold; fL.TextSize = 10
+local pL = Instance.new("TextLabel", stF); pL.Size = UDim2.new(1,0,0.5,0); pL.Position = UDim2.new(0,0,0.5,0); pL.Text = "Ping: 0"; pL.TextColor3 = Color3.new(0.8,0.8,0.8); pL.BackgroundTransparency = 1; pL.Font = Enum.Font.Gotham; pL.TextSize = 10
+RunS.RenderStepped:Connect(function(dt) fL.Text = "FPS: "..math.floor(1/dt) pL.Text = "Ping: "..math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
 
--- ABA GACHA
-local stL = Instance.new("TextLabel", GachaT); stL.Size = UDim2.new(1,0,0,30); stL.TextColor3 = HubLib.AccentColor; stL.Font = Enum.Font.GothamBold; stL.TextSize = 11; stL.BackgroundTransparency = 1
-task.spawn(function() 
-    while true do 
-        pcall(function() 
-            local txt = lp.PlayerGui.MainGui.StarterFrame.Gacha_Frame.Frame.Information.StockText.Text
-            stL.Text = "PRÓXIMO ESTOQUE: " .. (string.match(txt, "%((.-)%)") or "---")
-        end) 
-        task.wait(5) 
-    end 
-end)
-
-MyHub:AddGridSelector(GachaT, "Comprar Chave", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sBuyK = v end)
-MyHub:AddTextBox(GachaT, "Quantidade", "10", function(v) bAmt = tonumber(v) or 10 end)
-MyHub:AddButton(GachaT, "EXECUTAR COMPRA", function() RS.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyK, bAmt) end)
-
-MyHub:AddGridSelector(GachaT, "Usar Chave", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sUseK = v end)
-MyHub:AddGridSelector(GachaT, "Modo de Abertura", {"Open1", "Open10"}, function(v) uMode = v end)
-MyHub:AddButton(GachaT, "ABRIR CHAVES", function() RS.Chest.Remotes.Functions.UseKey:InvokeServer(sUseK, uMode) end)
-
--- ABA SEA EVENTS
-local seaL = Instance.new("TextLabel", SeaT); seaL.Size = UDim2.new(1,0,0,60); seaL.TextColor3 = Color3.new(1,1,1); seaL.Font = Enum.Font.GothamBold; seaL.TextSize = 12; seaL.BackgroundTransparency = 1; seaL.Text = "MONITORANDO MAR..."
-task.spawn(function() 
-    while true do 
-        pcall(function() 
-            local f = lp.PlayerGui.MainGui.StarterFrame.LegacyPoseFrame.SecondSea 
-            local ev = f.HDImage.Visible and "HYDRA" or f.SKImage.Visible and "SEA KING" or "NENHUM" 
-            seaL.Text = "EVENTO ATIVO: " .. ev .. "\nTEMPO RESTANTE: " .. f.SKTimeLabel.Text 
-        end) 
-        task.wait(1) 
-    end 
-end)
-
--- ABA CONFIG
-MyHub:AddButton(ConfigT, "SERVER HOP (Mudar de Server)", function() 
-    local s = Http:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?limit=100")).data 
-    for _,v in pairs(s) do 
-        if v.playing < v.maxPlayers and v.id ~= game.JobId then 
-            Teleport:TeleportToPlaceInstance(game.PlaceId, v.id) 
-            break 
-        end 
-    end 
-end)
-
-MyHub:AddToggle(ConfigT, "Anti-AFK (Prevenir Desconexão)", function(s) 
-    if s then 
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Anti%20Afk"))() 
-    end 
-end)
-
-print("VTX HUB CARREGADO COM SUCESSO!")
+MyHub:AddToggle(ConfigT, "Show FPS & Ping", function(s) stF.Visible = s end)
+MyHub:AddButton(ConfigT, "SERVER HOP", function() local s = Http:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?limit=100")).data for _,v in pairs(s) do if v.playing < v.maxPlayers and v.id ~= game.JobId then Teleport:TeleportToPlaceInstance(game.PlaceId, v.id) break end end end)
+MyHub:AddToggle(ConfigT, "Anti-AFK", function(s) if s then loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/Anti%20Afk"))() end end)
