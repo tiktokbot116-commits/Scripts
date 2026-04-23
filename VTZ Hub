@@ -9,9 +9,11 @@ local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
 -- ==========================================
--- 1. ENGINE DA INTERFACE
+-- 1. ENGINE DA INTERFACE (GLOBAL)
 -- ==========================================
-local _G.HubLib = {}
+_G.HubLib = {} -- Removido o 'local' para permitir acesso externo
+local HubLib = _G.HubLib
+
 HubLib.MainColor = Color3.fromRGB(20, 20, 20)
 HubLib.SidebarColor = Color3.fromRGB(15, 15, 15)
 HubLib.AccentColor = Color3.fromRGB(81, 74, 255) 
@@ -325,7 +327,9 @@ end
 -- ==========================================
 -- 4. INICIALIZAÇÃO FINAL
 -- ==========================================
-local _G.MyHub = HubLib:Init()
+_G.MyHub = HubLib:Init() -- Definido como global sem o 'local'
+local MyHub = _G.MyHub
+
 local FruitTab = MyHub:CreateTab("Fruits")
 local GachaTab = MyHub:CreateTab("Gacha")
 local SeaTab = MyHub:CreateTab("Sea Events")
