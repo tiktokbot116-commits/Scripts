@@ -1,103 +1,65 @@
--- [[ VTX HUB - PARTE 2 (CORRIGIDA) ]]
+-- [[ MONITOR DE PITY GACHA - ADICIONAR NA ABA GACHA ]]
 
--- Tenta achar a biblioteca global
-local Lib = _G.HubLib
-local MyHubInstance = _G.MyHub
+local GachaMonitor = Instance.new("Frame", GachaTab)
+GachaMonitor.Size = UDim2.new(0.95, 0, 0, 150)
+GachaMonitor.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Instance.new("UICorner", GachaMonitor)
 
-if not Lib or not MyHubInstance then 
-    warn("ERRO: Lib principal não encontrada. Verifique se a Parte 1 usou _G.HubLib")
-    return 
-end
+local GTitle = Instance.new("TextLabel", GachaMonitor)
+GTitle.Size = UDim2.new(1, 0, 0, 25)
+GTitle.Text = "MONITOR DE PITY (1-10)"
+GTitle.TextColor3 = _G.HubLib.AccentColor
+GTitle.Font = Enum.Font.GothamBold
+GTitle.TextSize = 10
+GTitle.BackgroundTransparency = 1
 
--- Injeta a função de seletor na biblioteca global
-function Lib:AddToolSelector(page, callback)
-    local Container = Instance.new("Frame", page)
-    Container.Size = UDim2.new(0.95, 0, 0, 120)
-    Container.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    Instance.new("UICorner", Container)
+local GScroll = Instance.new("ScrollingFrame", GachaMonitor)
+GScroll.Size = UDim2.new(1, -10, 1, -30)
+GScroll.Position = UDim2.new(0, 5, 0, 25)
+GScroll.BackgroundTransparency = 1
+GScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+GScroll.ScrollBarThickness = 2
 
-    local Title = Instance.new("TextLabel", Container)
-    Title.Size = UDim2.new(1, 0, 0, 20)
-    Title.Text = "EQUIPAR ARMA (BACKPACK)"
-    Title.TextColor3 = self.AccentColor
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 10
-    Title.BackgroundTransparency = 1
+local GList = Instance.new("UIListLayout", GScroll)
+GList.Padding = UDim.new(0, 3)
 
-    local Scroll = Instance.new("ScrollingFrame", Container)
-    Scroll.Size = UDim2.new(1, -10, 1, -25)
-    Scroll.Position = UDim2.new(0, 5, 0, 22)
-    Scroll.BackgroundTransparency = 1
-    Scroll.ScrollBarThickness = 2
-
-    local layout = Instance.new("UIGridLayout", Scroll)
-    layout.CellSize = UDim2.new(0, 85, 0, 30)
-    layout.Padding = UDim2.new(0, 5, 0, 5)
-
-    local function updateTools()
-        for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-        for _, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and not tool.Name:find("Fruit") then
-                local b = Instance.new("TextButton", Scroll)
-                b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                b.Text = tool.Name
-                b.TextColor3 = Color3.new(1, 1, 1)
-                b.Font = Enum.Font.Gotham
-                b.TextSize = 8
-                Instance.new("UICorner", b)
-                
-                b.MouseButton1Click:Connect(function()
-                    for _, btn in pairs(Scroll:GetChildren()) do 
-                        if btn:IsA("TextButton") then btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end 
-                    end
-                    b.BackgroundColor3 = Lib.AccentColor
-                    callback(tool.Name)
-                end)
-            end
-        end
-        Scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 5)
+local function UpdateGachaList()
+    -- Limpa a lista antiga no Hub
+    for _, v in pairs(GScroll:GetChildren()) do 
+        if v:IsA("TextLabel") then v:Destroy() end 
     end
 
-    updateTools()
-    game.Players.LocalPlayer.Backpack.ChildAdded:Connect(updateTools)
-    game.Players.LocalPlayer.Backpack.ChildRemoved:Connect(updateTools)
+    pcall(function()
+        local Folder = game:GetService("Players").LocalPlayer.PlayerGui.MainGui.StarterFrame.Gacha_Frame.Frame.ViewFrame.List
+        
+        -- Varre os itens da lista do jogo
+        for _, item in pairs(Folder:GetChildren()) do
+            if item:IsA("Frame") and item:FindFirstChild("IndexLabel") and item:FindFirstChild("FruitNameLabel") then
+                local index = item.IndexLabel.Text
+                local fruit = item.FruitNameLabel.Text
+                
+                local Label = Instance.new("TextLabel", GScroll)
+                Label.Size = UDim2.new(1, 0, 0, 18)
+                Label.BackgroundTransparency = 0.9
+                Label.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                Label.Text = "  [" .. index .. "] " .. fruit
+                Label.TextColor3 = Color3.new(1, 1, 1)
+                Label.Font = Enum.Font.GothamSemibold
+                Label.TextSize = 10
+                Label.TextXAlignment = Enum.TextXAlignment.Left
+                Instance.new("UICorner", Label)
+            end
+        end
+    end)
+    GScroll.CanvasSize = UDim2.new(0, 0, 0, GList.AbsoluteContentSize.Y)
 end
 
--- CRIAÇÃO DA ABA MAIN
-local MainTab = MyHubInstance:CreateTab("Main")
-local selectedToolV2 = ""
-
-MyHubInstance:AddToggle(MainTab, "Auto Farm Level", function(s) _G.VtxFarm = s end)
-
--- Agora a função existe!
-Lib:AddToolSelector(MainTab, function(t) selectedToolV2 = t end)
-
-MyHubInstance:AddToggle(MainTab, "Auto Equip (0.1s)", function(s)
-    _G.VtxEquip = s
-    task.spawn(function()
-        while _G.VtxEquip do
-            if selectedToolV2 ~= "" then
-                pcall(function()
-                    local t = game.Players.LocalPlayer.Backpack:FindFirstChild(selectedToolV2)
-                    if t then t.Parent = game.Players.LocalPlayer.Character end
-                end)
-            end
-            task.wait(0.1)
+-- Atualiza automaticamente quando o inventário de Gacha mudar ou abrir
+task.spawn(function()
+    while true do
+        if GachaTab.Visible then
+            UpdateGachaList()
         end
-    end)
+        task.wait(2) -- Atualiza a cada 2 segundos para não dar lag
+    end
 end)
-
-MyHubInstance:AddToggle(MainTab, "Auto Click", function(s)
-    _G.VtxClick = s
-    task.spawn(function()
-        while _G.VtxClick do
-            pcall(function()
-                local tool = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-                if tool then tool:Activate() end
-            end)
-            task.wait(0.1)
-        end
-    end)
-end)
-
-print("PARTE 2 CARREGADA!")
