@@ -1,7 +1,16 @@
--- [[ VTX HUB - PARTE 2 (GITHUB) ]]
+-- [[ VTX HUB - PARTE 2 (CORRIGIDA) ]]
 
--- 1. EXTENSÃO DA BIBLIOTECA (Adicionando o Seletor de Quadrado)
-function HubLib:AddToolSelector(page, callback)
+-- Tenta achar a biblioteca global
+local Lib = _G.HubLib
+local MyHubInstance = _G.MyHub
+
+if not Lib or not MyHubInstance then 
+    warn("ERRO: Lib principal não encontrada. Verifique se a Parte 1 usou _G.HubLib")
+    return 
+end
+
+-- Injeta a função de seletor na biblioteca global
+function Lib:AddToolSelector(page, callback)
     local Container = Instance.new("Frame", page)
     Container.Size = UDim2.new(0.95, 0, 0, 120)
     Container.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
@@ -9,7 +18,7 @@ function HubLib:AddToolSelector(page, callback)
 
     local Title = Instance.new("TextLabel", Container)
     Title.Size = UDim2.new(1, 0, 0, 20)
-    Title.Text = "EQUIPAR ARMA (CLIQUE)"
+    Title.Text = "EQUIPAR ARMA (BACKPACK)"
     Title.TextColor3 = self.AccentColor
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 10
@@ -20,31 +29,28 @@ function HubLib:AddToolSelector(page, callback)
     Scroll.Position = UDim2.new(0, 5, 0, 22)
     Scroll.BackgroundTransparency = 1
     Scroll.ScrollBarThickness = 2
-    Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 
     local layout = Instance.new("UIGridLayout", Scroll)
-    layout.CellSize = UDim2.new(0, 80, 0, 25)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.CellSize = UDim2.new(0, 85, 0, 30)
     layout.Padding = UDim2.new(0, 5, 0, 5)
 
     local function updateTools()
         for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-        local lp = game.Players.LocalPlayer
-        for _, tool in pairs(lp.Backpack:GetChildren()) do
+        for _, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
             if tool:IsA("Tool") and not tool.Name:find("Fruit") then
                 local b = Instance.new("TextButton", Scroll)
                 b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
                 b.Text = tool.Name
                 b.TextColor3 = Color3.new(1, 1, 1)
                 b.Font = Enum.Font.Gotham
-                b.TextSize = 9
+                b.TextSize = 8
                 Instance.new("UICorner", b)
                 
                 b.MouseButton1Click:Connect(function()
                     for _, btn in pairs(Scroll:GetChildren()) do 
                         if btn:IsA("TextButton") then btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end 
                     end
-                    b.BackgroundColor3 = HubLib.AccentColor
+                    b.BackgroundColor3 = Lib.AccentColor
                     callback(tool.Name)
                 end)
             end
@@ -57,62 +63,41 @@ function HubLib:AddToolSelector(page, callback)
     game.Players.LocalPlayer.Backpack.ChildRemoved:Connect(updateTools)
 end
 
--- 2. CRIAÇÃO DA ABA MAIN
-local MainTab = MyHub:CreateTab("Main")
-local selectedTool = ""
+-- CRIAÇÃO DA ABA MAIN
+local MainTab = MyHubInstance:CreateTab("Main")
+local selectedToolV2 = ""
 
-MyHub:AddToggle(MainTab, "Auto Farm Level", function(state)
-    _G.AutoFarmVtx = state
-    -- Aqui você colocaria sua lógica de farm depois
-end)
+MyHubInstance:AddToggle(MainTab, "Auto Farm Level", function(s) _G.VtxFarm = s end)
 
--- Chamada do seletor que criamos acima
-MyHub:AddToolSelector(MainTab, function(tName)
-    selectedTool = tName
-end)
+-- Agora a função existe!
+Lib:AddToolSelector(MainTab, function(t) selectedToolV2 = t end)
 
-MyHub:AddToggle(MainTab, "Auto Equip (0.1s)", function(state)
-    _G.AutoEquipVtx = state
+MyHubInstance:AddToggle(MainTab, "Auto Equip (0.1s)", function(s)
+    _G.VtxEquip = s
     task.spawn(function()
-        while _G.AutoEquipVtx do
+        while _G.VtxEquip do
+            if selectedToolV2 ~= "" then
+                pcall(function()
+                    local t = game.Players.LocalPlayer.Backpack:FindFirstChild(selectedToolV2)
+                    if t then t.Parent = game.Players.LocalPlayer.Character end
+                end)
+            end
+            task.wait(0.1)
+        end
+    end)
+end)
+
+MyHubInstance:AddToggle(MainTab, "Auto Click", function(s)
+    _G.VtxClick = s
+    task.spawn(function()
+        while _G.VtxClick do
             pcall(function()
-                if selectedTool ~= "" then
-                    local tool = game.Players.LocalPlayer.Backpack:FindFirstChild(selectedTool)
-                    if tool then
-                        tool.Parent = game.Players.LocalPlayer.Character
-                    end
-                end
+                local tool = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool then tool:Activate() end
             end)
             task.wait(0.1)
         end
     end)
 end)
 
-MyHub:AddToggle(MainTab, "Auto Click", function(state)
-    _G.AutoClickVtx = state
-    task.spawn(function()
-        while _G.AutoClickVtx do
-            pcall(function()
-                local char = game.Players.LocalPlayer.Character
-                local weapon = char:FindFirstChildOfClass("Tool")
-                if weapon then weapon:Activate() end
-            end)
-            task.wait(0.1)
-        end
-    end)
-end)
-
-MyHub:AddButton(MainTab, "Server Hop", function()
-    local Http = game:GetService("HttpService")
-    local TPS = game:GetService("TeleportService")
-    local Api = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100"
-    local servers = Http:JSONDecode(game:HttpGet(Api)).data
-    for _, s in pairs(servers) do
-        if s.playing < s.maxPlayers and s.id ~= game.JobId then
-            TPS:TeleportToPlaceInstance(game.PlaceId, s.id)
-            break
-        end
-    end
-end)
-
-print("PARTE 2 CARREGADA COM SUCESSO!")
+print("PARTE 2 CARREGADA!")
