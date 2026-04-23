@@ -1,63 +1,92 @@
--- [[ VTX HUB - PARTE 2 (GITHUB CONT.) ]]
--- Este código deve ser hospedado no seu GitHub e chamado via loadstring
+-- [[ VTX HUB - PARTE 2 (VIA GITHUB) ]]
 
--- 1. Verifica se a biblioteca MyHub existe (foi carregada na parte 1)
-if not MyHub then
-    warn("VTX HUB: Parte 1 não encontrada! Certifique-se de executar o script principal primeiro.")
-    return
+-- Verifica se a HubLib foi carregada pela Parte 1
+if not MyHub then 
+    warn("ERRO: Execute a Parte 1 primeiro!") 
+    return 
 end
 
--- 2. Variáveis de controle para esta parte
-local sToolV2 = ""
-local lp = game.Players.LocalPlayer
+local lp = game:GetService("Players").LocalPlayer
+local RS = game:GetService("ReplicatedStorage")
 
--- 3. Criando a Aba Main (idêntica à primeira)
-local MainT2 = MyHub:CreateTab("Main V2")
+-- Criando a Aba Main no mesmo estilo da Parte 1
+local MainT2 = MyHub:CreateTab("Main")
 
--- 4. Adicionando os Botões e Seletores (Mesmo estilo da Parte 1)
-MyHub:AddToggle(MainT2, "Auto Farm Level (V2)", function(s) 
-    _G.AFarmV2 = s 
+-- Variáveis de controle
+local selectedToolV2 = ""
+local farmDistance = 8
+
+-- 1. SELETOR DE TOOLS (QUADRADO QUE LISTA A BACKPACK)
+-- Ignora qualquer item que tenha "Fruit" no nome
+MyHub:AddToolSelector(MainT2, function(toolName)
+    selectedToolV2 = toolName
+    print("Tool Selecionada: "..toolName)
 end)
 
--- Seletor de ferramentas automático (ignora frutas)
-MyHub:AddToolSelector(MainT2, function(v) 
-    sToolV2 = v 
-    print("Tool Selecionada no V2: " .. v)
-end)
-
--- Auto Equip idêntico ao original
-MyHub:AddToggle(MainT2, "Auto Equip V2 (0.1s)", function(s) 
-    _G.AEquipV2 = s 
-    task.spawn(function() 
-        while _G.AEquipV2 do 
-            pcall(function() 
-                local t = lp.Backpack:FindFirstChild(sToolV2) 
-                if t then 
-                    t.Parent = lp.Character 
-                end 
-            end) 
-            task.wait(0.1) 
-        end 
-    end) 
-end)
-
--- Botão de exemplo seguindo o padrão de remotos que você usa
-MyHub:AddButton(MainT2, "Limpar Inventário (Fruits)", function()
-    -- Exemplo de lógica para remover itens que não deseja
-    for _, item in pairs(lp.Backpack:GetChildren()) do
-        if item.Name:find("Fruit") then
-            item:Destroy()
+-- 2. AUTO EQUIP (0.1s)
+MyHub:AddToggle(MainT2, "Auto Equip (0.1s)", function(state)
+    _G.AutoEquipV2 = state
+    task.spawn(function()
+        while _G.AutoEquipV2 do
+            pcall(function()
+                if selectedToolV2 ~= "" then
+                    local tool = lp.Backpack:FindFirstChild(selectedToolV2)
+                    if tool then
+                        tool.Parent = lp.Character
+                    end
+                end
+            end)
+            task.wait(0.1)
         end
+    end)
+end)
+
+-- 3. AUTO CLICK (ESSENCIAL PARA O FARM)
+MyHub:AddToggle(MainT2, "Auto Click", function(state)
+    _G.AutoClickV2 = state
+    task.spawn(function()
+        while _G.AutoClickV2 do
+            pcall(function()
+                local tool = lp.Character:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
+                end
+            end)
+            task.wait(0.1)
+        end
+    end)
+end)
+
+-- 4. DISTÂNCIA DO FARM
+MyHub:AddTextBox(MainT2, "Distância do Mob", "8", function(v)
+    farmDistance = tonumber(v) or 8
+end)
+
+-- 5. LÓGICA DE FARM (EXEMPLO DE BOTÃO PARA QUESTS)
+-- Seguindo seu padrão de pastas: ReplicatedStorage -> Remotes
+MyHub:AddButton(MainT2, "Pegar Quest Próxima", function()
+    local remote = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("GetQuest")
+    if remote then
+        -- Lógica de disparo do remote de quest
+        print("Buscando quest...")
+    else
+        warn("Remote de Quest não encontrado no caminho padrão.")
     end
 end)
 
--- 5. Monitor de Status adicional para a Main
-local statusLabel = Instance.new("TextLabel", MainT2)
-statusLabel.Size = UDim2.new(1, 0, 0, 30)
-statusLabel.BackgroundTransparency = 1
-statusLabel.TextColor3 = Color3.new(1, 1, 1)
-statusLabel.Font = Enum.Font.GothamSemibold
-statusLabel.TextSize = 10
-statusLabel.Text = "SISTEMA V2 ATIVO"
+-- 6. ANTI-DIE (SEGURANÇA)
+MyHub:AddToggle(MainT2, "Auto Farm Safe (Health)", function(state)
+    _G.SafeFarm = state
+    task.spawn(function()
+        while _G.SafeFarm do
+            local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+            if hum and (hum.Health / hum.MaxHealth) < 0.25 then
+                lp.Character.HumanoidRootPart.CFrame = lp.Character.HumanoidRootPart.CFrame * CFrame.new(0, 500, 0)
+                task.wait(5)
+            end
+            task.wait(1)
+        end
+    end)
+end)
 
-print("PARTE 2 (MAIN V2) CARREGADA COM SUCESSO!")
+print("PARTE 2 - ABA MAIN CARREGADA COM SUCESSO!")
