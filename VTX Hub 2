@@ -1,38 +1,85 @@
--- [[ VTX HUB - PARTE 2 (VIA GITHUB) ]]
+-- [[ VTX HUB - PARTE 2 (GITHUB) ]]
 
--- Verifica se a HubLib foi carregada pela Parte 1
-if not MyHub then 
-    warn("ERRO: Execute a Parte 1 primeiro!") 
-    return 
+-- 1. EXTENSÃO DA BIBLIOTECA (Adicionando o Seletor de Quadrado)
+function HubLib:AddToolSelector(page, callback)
+    local Container = Instance.new("Frame", page)
+    Container.Size = UDim2.new(0.95, 0, 0, 120)
+    Container.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Instance.new("UICorner", Container)
+
+    local Title = Instance.new("TextLabel", Container)
+    Title.Size = UDim2.new(1, 0, 0, 20)
+    Title.Text = "EQUIPAR ARMA (CLIQUE)"
+    Title.TextColor3 = self.AccentColor
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 10
+    Title.BackgroundTransparency = 1
+
+    local Scroll = Instance.new("ScrollingFrame", Container)
+    Scroll.Size = UDim2.new(1, -10, 1, -25)
+    Scroll.Position = UDim2.new(0, 5, 0, 22)
+    Scroll.BackgroundTransparency = 1
+    Scroll.ScrollBarThickness = 2
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+    local layout = Instance.new("UIGridLayout", Scroll)
+    layout.CellSize = UDim2.new(0, 80, 0, 25)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim2.new(0, 5, 0, 5)
+
+    local function updateTools()
+        for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        local lp = game.Players.LocalPlayer
+        for _, tool in pairs(lp.Backpack:GetChildren()) do
+            if tool:IsA("Tool") and not tool.Name:find("Fruit") then
+                local b = Instance.new("TextButton", Scroll)
+                b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                b.Text = tool.Name
+                b.TextColor3 = Color3.new(1, 1, 1)
+                b.Font = Enum.Font.Gotham
+                b.TextSize = 9
+                Instance.new("UICorner", b)
+                
+                b.MouseButton1Click:Connect(function()
+                    for _, btn in pairs(Scroll:GetChildren()) do 
+                        if btn:IsA("TextButton") then btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end 
+                    end
+                    b.BackgroundColor3 = HubLib.AccentColor
+                    callback(tool.Name)
+                end)
+            end
+        end
+        Scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 5)
+    end
+
+    updateTools()
+    game.Players.LocalPlayer.Backpack.ChildAdded:Connect(updateTools)
+    game.Players.LocalPlayer.Backpack.ChildRemoved:Connect(updateTools)
 end
 
-local lp = game:GetService("Players").LocalPlayer
-local RS = game:GetService("ReplicatedStorage")
+-- 2. CRIAÇÃO DA ABA MAIN
+local MainTab = MyHub:CreateTab("Main")
+local selectedTool = ""
 
--- Criando a Aba Main no mesmo estilo da Parte 1
-local MainT2 = MyHub:CreateTab("Main")
-
--- Variáveis de controle
-local selectedToolV2 = ""
-local farmDistance = 8
-
--- 1. SELETOR DE TOOLS (QUADRADO QUE LISTA A BACKPACK)
--- Ignora qualquer item que tenha "Fruit" no nome
-MyHub:AddToolSelector(MainT2, function(toolName)
-    selectedToolV2 = toolName
-    print("Tool Selecionada: "..toolName)
+MyHub:AddToggle(MainTab, "Auto Farm Level", function(state)
+    _G.AutoFarmVtx = state
+    -- Aqui você colocaria sua lógica de farm depois
 end)
 
--- 2. AUTO EQUIP (0.1s)
-MyHub:AddToggle(MainT2, "Auto Equip (0.1s)", function(state)
-    _G.AutoEquipV2 = state
+-- Chamada do seletor que criamos acima
+MyHub:AddToolSelector(MainTab, function(tName)
+    selectedTool = tName
+end)
+
+MyHub:AddToggle(MainTab, "Auto Equip (0.1s)", function(state)
+    _G.AutoEquipVtx = state
     task.spawn(function()
-        while _G.AutoEquipV2 do
+        while _G.AutoEquipVtx do
             pcall(function()
-                if selectedToolV2 ~= "" then
-                    local tool = lp.Backpack:FindFirstChild(selectedToolV2)
+                if selectedTool ~= "" then
+                    local tool = game.Players.LocalPlayer.Backpack:FindFirstChild(selectedTool)
                     if tool then
-                        tool.Parent = lp.Character
+                        tool.Parent = game.Players.LocalPlayer.Character
                     end
                 end
             end)
@@ -41,52 +88,31 @@ MyHub:AddToggle(MainT2, "Auto Equip (0.1s)", function(state)
     end)
 end)
 
--- 3. AUTO CLICK (ESSENCIAL PARA O FARM)
-MyHub:AddToggle(MainT2, "Auto Click", function(state)
-    _G.AutoClickV2 = state
+MyHub:AddToggle(MainTab, "Auto Click", function(state)
+    _G.AutoClickVtx = state
     task.spawn(function()
-        while _G.AutoClickV2 do
+        while _G.AutoClickVtx do
             pcall(function()
-                local tool = lp.Character:FindFirstChildOfClass("Tool")
-                if tool then
-                    tool:Activate()
-                end
+                local char = game.Players.LocalPlayer.Character
+                local weapon = char:FindFirstChildOfClass("Tool")
+                if weapon then weapon:Activate() end
             end)
             task.wait(0.1)
         end
     end)
 end)
 
--- 4. DISTÂNCIA DO FARM
-MyHub:AddTextBox(MainT2, "Distância do Mob", "8", function(v)
-    farmDistance = tonumber(v) or 8
-end)
-
--- 5. LÓGICA DE FARM (EXEMPLO DE BOTÃO PARA QUESTS)
--- Seguindo seu padrão de pastas: ReplicatedStorage -> Remotes
-MyHub:AddButton(MainT2, "Pegar Quest Próxima", function()
-    local remote = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("GetQuest")
-    if remote then
-        -- Lógica de disparo do remote de quest
-        print("Buscando quest...")
-    else
-        warn("Remote de Quest não encontrado no caminho padrão.")
+MyHub:AddButton(MainTab, "Server Hop", function()
+    local Http = game:GetService("HttpService")
+    local TPS = game:GetService("TeleportService")
+    local Api = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100"
+    local servers = Http:JSONDecode(game:HttpGet(Api)).data
+    for _, s in pairs(servers) do
+        if s.playing < s.maxPlayers and s.id ~= game.JobId then
+            TPS:TeleportToPlaceInstance(game.PlaceId, s.id)
+            break
+        end
     end
 end)
 
--- 6. ANTI-DIE (SEGURANÇA)
-MyHub:AddToggle(MainT2, "Auto Farm Safe (Health)", function(state)
-    _G.SafeFarm = state
-    task.spawn(function()
-        while _G.SafeFarm do
-            local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-            if hum and (hum.Health / hum.MaxHealth) < 0.25 then
-                lp.Character.HumanoidRootPart.CFrame = lp.Character.HumanoidRootPart.CFrame * CFrame.new(0, 500, 0)
-                task.wait(5)
-            end
-            task.wait(1)
-        end
-    end)
-end)
-
-print("PARTE 2 - ABA MAIN CARREGADA COM SUCESSO!")
+print("PARTE 2 CARREGADA COM SUCESSO!")
