@@ -48,13 +48,13 @@ function HubLib:Init()
     ScreenGui.Name = "VxezeHub"
     ScreenGui.ResetOnSpawn = false
 
-        local ToggleBtn = Instance.new("ImageButton", ScreenGui)
+    local ToggleBtn = Instance.new("ImageButton", ScreenGui)
     ToggleBtn.Name = "VxezeToggle"
     ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
     ToggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
     ToggleBtn.BackgroundColor3 = self.AccentColor
-    ToggleBtn.Image = "rbxassetid://95478711983741" -- Substitua o ID aqui
-    ToggleBtn.ScaleType = Enum.ScaleType.Fit -- Garante que a imagem caiba no botão
+    ToggleBtn.Image = "rbxassetid://95478711983741"
+    ToggleBtn.ScaleType = Enum.ScaleType.Fit
     
     Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
     makeDraggable(ToggleBtn, ToggleBtn)
@@ -66,7 +66,6 @@ function HubLib:Init()
     MainFrame.BackgroundColor3 = self.MainColor
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
-    -- TÍTULO DO HUB
     local Title = Instance.new("TextLabel", MainFrame)
     Title.Size = UDim2.new(1, -130, 0, 35)
     Title.Position = UDim2.new(0, 125, 0, 0)
@@ -83,11 +82,10 @@ function HubLib:Init()
     Sidebar.Size = UDim2.new(0, 120, 1, -35)
     Sidebar.Position = UDim2.new(0, 0, 0, 35)
     Sidebar.BackgroundColor3 = self.SidebarColor
+    Sidebar.BackgroundTransparency = 1
     Instance.new("UIListLayout", Sidebar).HorizontalAlignment = Enum.HorizontalAlignment.Center
     Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
-    Sidebar.BackgroundTransparency = 1
 
-    -- PAGES FOLDER INVISÍVEL
     self.PagesFolder = Instance.new("Frame", MainFrame)
     self.PagesFolder.Size = UDim2.new(1, -130, 1, -45)
     self.PagesFolder.Position = UDim2.new(0, 125, 0, 40)
@@ -335,7 +333,7 @@ local ConfigTab = MyHub:CreateTab("Config")
 
 local StatusGui = CreateStatusGui(MyHub.ScreenGui)
 local sBuyKey, bAmt = "Copper Key", 10
-local sUseKey, uType = "Copper Key", "Open1"
+local sUseKey, uType = "Copper Key", "Open10"
 
 -- [ ABA CONFIG ]
 MyHub:AddToggle(ConfigTab, "Anti-AFK", function(state)
@@ -412,9 +410,15 @@ MyHub:AddGridSelector(GachaTab, "Buy Keys", {"Copper Key", "Iron Key", "Gold Key
 MyHub:AddTextBox(GachaTab, "Quantidade", "10", function(v) bAmt = tonumber(v) or 10 end)
 MyHub:AddButton(GachaTab, "EXECUTAR COMPRA", function() ReplicatedStorage.Chest.Remotes.Functions.BuyKey:InvokeServer(sBuyKey, bAmt) end)
 
-MyHub:AddGridSelector(GachaTab, "Use Keys", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sUseKey = v end)
+MyHub:AddGridSelector(GachaTab, "Use Keys", {"Copper Key", "Iron Key", "Gold Key"}, function(v) sUseKey = v vUseMode = v end)
 MyHub:AddGridSelector(GachaTab, "Mode", {"Open1", "Open10"}, function(v) uType = v end)
-MyHub:AddButton(GachaTab, "USAR KEYS AGORA", function() ReplicatedStorage.Chest.Remotes.Functions.Unbox:InvokeServer(sUseKey, uType) end)
+MyHub:AddButton(GachaTab, "USAR KEYS AGORA", function() 
+    local args = {
+        [1] = sUseKey,
+        [2] = uType
+    }
+    ReplicatedStorage.Chest.Remotes.Functions.UseKey:InvokeServer(unpack(args))
+end)
 
 -- [ ABA SEA EVENTS ]
 local SeaFrame = Instance.new("Frame", SeaTab)
