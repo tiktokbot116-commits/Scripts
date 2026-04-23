@@ -472,4 +472,4 @@ task.spawn(function()
     end
 end)
 
-loadstring(game:HttpGet("..."))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/VTX%20Hub%202"))()
