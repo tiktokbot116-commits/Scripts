@@ -1,1 +1,63 @@
-...
+-- [[ VTX HUB - PARTE 2 (GITHUB CONT.) ]]
+-- Este código deve ser hospedado no seu GitHub e chamado via loadstring
+
+-- 1. Verifica se a biblioteca MyHub existe (foi carregada na parte 1)
+if not MyHub then
+    warn("VTX HUB: Parte 1 não encontrada! Certifique-se de executar o script principal primeiro.")
+    return
+end
+
+-- 2. Variáveis de controle para esta parte
+local sToolV2 = ""
+local lp = game.Players.LocalPlayer
+
+-- 3. Criando a Aba Main (idêntica à primeira)
+local MainT2 = MyHub:CreateTab("Main V2")
+
+-- 4. Adicionando os Botões e Seletores (Mesmo estilo da Parte 1)
+MyHub:AddToggle(MainT2, "Auto Farm Level (V2)", function(s) 
+    _G.AFarmV2 = s 
+end)
+
+-- Seletor de ferramentas automático (ignora frutas)
+MyHub:AddToolSelector(MainT2, function(v) 
+    sToolV2 = v 
+    print("Tool Selecionada no V2: " .. v)
+end)
+
+-- Auto Equip idêntico ao original
+MyHub:AddToggle(MainT2, "Auto Equip V2 (0.1s)", function(s) 
+    _G.AEquipV2 = s 
+    task.spawn(function() 
+        while _G.AEquipV2 do 
+            pcall(function() 
+                local t = lp.Backpack:FindFirstChild(sToolV2) 
+                if t then 
+                    t.Parent = lp.Character 
+                end 
+            end) 
+            task.wait(0.1) 
+        end 
+    end) 
+end)
+
+-- Botão de exemplo seguindo o padrão de remotos que você usa
+MyHub:AddButton(MainT2, "Limpar Inventário (Fruits)", function()
+    -- Exemplo de lógica para remover itens que não deseja
+    for _, item in pairs(lp.Backpack:GetChildren()) do
+        if item.Name:find("Fruit") then
+            item:Destroy()
+        end
+    end
+end)
+
+-- 5. Monitor de Status adicional para a Main
+local statusLabel = Instance.new("TextLabel", MainT2)
+statusLabel.Size = UDim2.new(1, 0, 0, 30)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.new(1, 1, 1)
+statusLabel.Font = Enum.Font.GothamSemibold
+statusLabel.TextSize = 10
+statusLabel.Text = "SISTEMA V2 ATIVO"
+
+print("PARTE 2 (MAIN V2) CARREGADA COM SUCESSO!")
