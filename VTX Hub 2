@@ -1,65 +1,106 @@
--- [[ MONITOR DE PITY GACHA - ADICIONAR NA ABA GACHA ]]
+-- [[ ABA FARM - VTX HUB ]]
 
-local GachaMonitor = Instance.new("Frame", GachaTab)
-GachaMonitor.Size = UDim2.new(0.95, 0, 0, 150)
-GachaMonitor.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", GachaMonitor)
+local FarmTab = MyHub:CreateTab("Farm")
 
-local GTitle = Instance.new("TextLabel", GachaMonitor)
-GTitle.Size = UDim2.new(1, 0, 0, 25)
-GTitle.Text = "MONITOR DE PITY (1-10)"
-GTitle.TextColor3 = _G.HubLib.AccentColor
-GTitle.Font = Enum.Font.GothamBold
-GTitle.TextSize = 10
-GTitle.BackgroundTransparency = 1
+-- Variáveis Internas
+local selectedMob = "None"
+local mobsList = {}
+local lp = game:GetService("Players").LocalPlayer
 
-local GScroll = Instance.new("ScrollingFrame", GachaMonitor)
-GScroll.Size = UDim2.new(1, -10, 1, -30)
-GScroll.Position = UDim2.new(0, 5, 0, 25)
-GScroll.BackgroundTransparency = 1
-GScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-GScroll.ScrollBarThickness = 2
-
-local GList = Instance.new("UIListLayout", GScroll)
-GList.Padding = UDim.new(0, 3)
-
-local function UpdateGachaList()
-    -- Limpa a lista antiga no Hub
-    for _, v in pairs(GScroll:GetChildren()) do 
-        if v:IsA("TextLabel") then v:Destroy() end 
-    end
-
-    pcall(function()
-        local Folder = game:GetService("Players").LocalPlayer.PlayerGui.MainGui.StarterFrame.Gacha_Frame.Frame.ViewFrame.List
-        
-        -- Varre os itens da lista do jogo
-        for _, item in pairs(Folder:GetChildren()) do
-            if item:IsA("Frame") and item:FindFirstChild("IndexLabel") and item:FindFirstChild("FruitNameLabel") then
-                local index = item.IndexLabel.Text
-                local fruit = item.FruitNameLabel.Text
-                
-                local Label = Instance.new("TextLabel", GScroll)
-                Label.Size = UDim2.new(1, 0, 0, 18)
-                Label.BackgroundTransparency = 0.9
-                Label.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                Label.Text = "  [" .. index .. "] " .. fruit
-                Label.TextColor3 = Color3.new(1, 1, 1)
-                Label.Font = Enum.Font.GothamSemibold
-                Label.TextSize = 10
-                Label.TextXAlignment = Enum.TextXAlignment.Left
-                Instance.new("UICorner", Label)
+-- Função para atualizar lista de Mobs ao redor
+local function updateMobsList()
+    mobsList = {}
+    -- Procura na pasta padrão de Mobs do King Legacy
+    local mobFolder = workspace:FindFirstChild("Mobs") or workspace:FindFirstChild("Enemy")
+    if mobFolder then
+        for _, v in pairs(mobFolder:GetChildren()) do
+            if v:IsA("Model") and not table.find(mobsList, v.Name) then
+                table.insert(mobsList, v.Name)
             end
         end
-    end)
-    GScroll.CanvasSize = UDim2.new(0, 0, 0, GList.AbsoluteContentSize.Y)
+    end
+    return mobsList
 end
 
--- Atualiza automaticamente quando o inventário de Gacha mudar ou abrir
-task.spawn(function()
-    while true do
-        if GachaTab.Visible then
-            UpdateGachaList()
+-- 1. SELETOR DE MOB (DINÂMICO)
+MyHub:AddTextBox(FarmTab, "Nome do Mob (Exato)", "Soldier [Lv. 1]", function(v)
+    selectedMob = v
+end)
+
+-- 2. AUTO FARM LEVEL
+MyHub:AddToggle(FarmTab, "Auto Farm Selected Mob", function(state)
+    _G.MainFarm = state
+    
+    task.spawn(function()
+        while _G.MainFarm do
+            pcall(function()
+                local char = lp.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                
+                -- Busca o alvo
+                local target = nil
+                local mobFolder = workspace:FindFirstChild("Mobs") or workspace:FindFirstChild("Enemy")
+                
+                if mobFolder then
+                    for _, v in pairs(mobFolder:GetChildren()) do
+                        if v.Name == selectedMob and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            target = v
+                            break
+                        end
+                    end
+                end
+
+                if target and root then
+                    -- Teleporte para cima do mob (Distância configurável na Config ou fixa aqui)
+                    local dist = _G.FarmDistance or 8
+                    root.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(0, dist, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+                    
+                    -- Ataque Automático (Se o Auto Click estiver off, ele força aqui)
+                    local tool = char:FindFirstChildOfClass("Tool")
+                    if tool then tool:Activate() end
+                end
+            end)
+            task.wait()
         end
-        task.wait(2) -- Atualiza a cada 2 segundos para não dar lag
+    end)
+end)
+
+-- 3. AUTO ATTACK (APENAS CLIQUE)
+MyHub:AddToggle(FarmTab, "Auto Attack (Fast)", function(state)
+    _G.FastAttack = state
+    task.spawn(function()
+        while _G.FastAttack do
+            pcall(function()
+                local tool = lp.Character:FindFirstChildOfClass("Tool")
+                if tool then tool:Activate() end
+            end)
+            task.wait(0.1)
+        end
+    end)
+end)
+
+-- 4. CONFIGURAÇÕES DE SUPORTE AO FARM
+MyHub:AddToggle(FarmTab, "Auto Buso (Haki)", function(state)
+    _G.AutoBuso = state
+    task.spawn(function()
+        while _G.AutoBuso do
+            if not lp.Character:FindFirstChild("BusoBody") then -- Nome padrão do efeito de Haki
+                game:GetService("ReplicatedStorage").Remotes.Functions.Buso:InvokeServer()
+            end
+            task.wait(5)
+        end
+    end)
+end)
+
+-- 5. ANTI-QUEDA (NECESSÁRIO PARA FARM NO AR)
+game:GetService("RunService").Stepped:Connect(function()
+    if _G.MainFarm then
+        pcall(function()
+            if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+                lp.Character.Humanoid:ChangeState(11)
+            end
+        end)
     end
 end)
+
+print("ABA FARM CARREGADA COM SUCESSO!")
