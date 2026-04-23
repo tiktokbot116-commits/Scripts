@@ -11,7 +11,7 @@ local Stats = game:GetService("Stats")
 -- ==========================================
 -- 1. ENGINE DA INTERFACE
 -- ==========================================
-local HubLib = {}
+local _G.HubLib = {}
 HubLib.MainColor = Color3.fromRGB(20, 20, 20)
 HubLib.SidebarColor = Color3.fromRGB(15, 15, 15)
 HubLib.AccentColor = Color3.fromRGB(81, 74, 255) 
