@@ -1,0 +1,551 @@
+-- [[ AVATAR STEALER EXPERT v23 - OUTFIT CLONER ]]
+local Players = game:GetService("Players")
+local InsertService = game:GetService("InsertService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local antigaGUI = PlayerGui:FindFirstChild("AvatarStealerProGUI")
+if antigaGUI then antigaGUI:Destroy() end
+
+-- Remote do Jogo
+local RemoteConnection = ReplicatedStorage:FindFirstChild("AvatarEditorVerifiedConnections") and ReplicatedStorage.AvatarEditorVerifiedConnections:FindFirstChild("RemoteEvent")
+
+-- 1. CRIAÇÃO DA INTERFACE GRÁFICA COMPLETA (GUI)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AvatarStealerProGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+-- Base Invisível de Arrastre e Ancoragem
+local BaseFrame = Instance.new("Frame")
+BaseFrame.Size = UDim2.new(0, 690, 0, 390)
+BaseFrame.Position = UDim2.new(0.5, -345, 0.4, -195)
+BaseFrame.BackgroundTransparency = 1
+BaseFrame.Active = true
+BaseFrame.Parent = ScreenGui
+
+-- JANELA ESQUERDA: LISTA DE PLAYERS COM SKINS
+local LeftFrame = Instance.new("Frame")
+LeftFrame.Size = UDim2.new(0, 200, 1, 0)
+LeftFrame.Position = UDim2.new(0, 0, 0, 0)
+LeftFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+LeftFrame.BorderSizePixel = 0
+LeftFrame.Parent = BaseFrame
+Instance.new("UICorner", LeftFrame).CornerRadius = UDim.new(0, 8)
+
+local LeftTitle = Instance.new("TextLabel", LeftFrame)
+LeftTitle.Size = UDim2.new(1, -16, 0, 35)
+LeftTitle.Position = UDim2.new(0, 12, 0, 0)
+LeftTitle.BackgroundTransparency = 1
+LeftTitle.Text = "Players com Skins"
+LeftTitle.TextColor3 = Color3.fromRGB(150, 140, 180)
+LeftTitle.Font = Enum.Font.SourceSansBold
+LeftTitle.TextSize = 14
+LeftTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local PlayerScroll = Instance.new("ScrollingFrame", LeftFrame)
+PlayerScroll.Size = UDim2.new(1, -20, 1, -50)
+PlayerScroll.Position = UDim2.new(0, 10, 0, 40)
+PlayerScroll.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+PlayerScroll.BorderSizePixel = 0
+PlayerScroll.ScrollBarThickness = 4
+PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+local LeftLayout = Instance.new("UIListLayout", PlayerScroll)
+LeftLayout.Padding = UDim.new(0, 4)
+Instance.new("UICorner", PlayerScroll).CornerRadius = UDim.new(0, 6)
+
+-- JANELA PRINCIPAL
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 480, 1, 0)
+MainFrame.Position = UDim2.new(0, 210, 0, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = BaseFrame
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, -40, 0, 35)
+Title.Position = UDim2.new(0, 12, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "AVATAR STEALER EXPERT v23"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseBtn = Instance.new("TextButton", MainFrame)
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Position = UDim2.new(1, -30, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+local TextBox = Instance.new("TextBox", MainFrame)
+TextBox.Size = UDim2.new(0, 220, 0, 35)
+TextBox.Position = UDim2.new(0, 12, 0, 45)
+TextBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+TextBox.PlaceholderText = "User ou Display Name..."
+TextBox.Text = ""
+TextBox.TextColor3 = Color3.new(1, 1, 1)
+TextBox.Font = Enum.Font.SourceSans
+TextBox.TextSize = 14
+Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 6)
+
+local ScanBtn = Instance.new("TextButton", MainFrame)
+ScanBtn.Size = UDim2.new(0, 220, 0, 30)
+ScanBtn.Position = UDim2.new(0, 12, 0, 85)
+ScanBtn.BackgroundColor3 = Color3.fromRGB(65, 35, 120)
+ScanBtn.Text = "🔍 Escanear Player"
+ScanBtn.TextColor3 = Color3.new(1, 1, 1)
+ScanBtn.Font = Enum.Font.SourceSansBold
+ScanBtn.TextSize = 14
+Instance.new("UICorner", ScanBtn).CornerRadius = UDim.new(0, 6)
+
+local CostumeScroll = Instance.new("ScrollingFrame", MainFrame)
+CostumeScroll.Size = UDim2.new(0, 220, 0, 205)
+CostumeScroll.Position = UDim2.new(0, 12, 0, 120)
+CostumeScroll.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+CostumeScroll.BorderSizePixel = 0
+CostumeScroll.ScrollBarThickness = 4
+CostumeScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+local ScrollLayout = Instance.new("UIListLayout", CostumeScroll)
+ScrollLayout.Padding = UDim.new(0, 4)
+Instance.new("UICorner", CostumeScroll).CornerRadius = UDim.new(0, 6)
+
+local Viewport = Instance.new("ViewportFrame", MainFrame)
+Viewport.Size = UDim2.new(0, 220, 0, 280)
+Viewport.Position = UDim2.new(1, -232, 0, 45)
+Viewport.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 6)
+
+local ViewCam = Instance.new("Camera")
+ViewCam.FieldOfView = 50
+Viewport.CurrentCamera = ViewCam
+ViewCam.Parent = Viewport
+
+local ActionBtn = Instance.new("TextButton", MainFrame)
+ActionBtn.Size = UDim2.new(1, -24, 0, 35)
+ActionBtn.Position = UDim2.new(0, 12, 1, -92)
+ActionBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+ActionBtn.Text = "Selecione um Outfit Primeiro"
+ActionBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
+ActionBtn.Font = Enum.Font.SourceSansBold
+ActionBtn.TextSize = 14
+ActionBtn.AutoButtonColor = false
+Instance.new("UICorner", ActionBtn).CornerRadius = UDim.new(0, 6)
+
+local SaveBtn = Instance.new("TextButton", MainFrame)
+SaveBtn.Size = UDim2.new(1, -24, 0, 35)
+SaveBtn.Position = UDim2.new(0, 12, 1, -47)
+SaveBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+SaveBtn.Text = "Bloqueado: Skins Diferentes"
+SaveBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
+SaveBtn.Font = Enum.Font.SourceSansBold
+SaveBtn.TextSize = 14
+SaveBtn.AutoButtonColor = false
+Instance.new("UICorner", SaveBtn).CornerRadius = UDim.new(0, 6)
+
+-- Arrastar Conjunto Completo
+local dragging, dragStart, startPos
+BaseFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = input.Position; startPos = BaseFrame.Position end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        BaseFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+BaseFrame.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+
+
+-- [[ 2. MOTOR DE EXTRAÇÃO, CONFERÊNCIA E MAPEAMENTO DE IDS ]]
+
+local todasAsPropriedades = {
+    -- Adicionado mapeamento expandido de Cabeças e Cabelos adicionais no HumanoidDescription
+    "BackAccessory", "FaceAccessory", "FrontAccessory", "HairAccessory", "HatAccessory", "NeckAccessory", "ShouldersAccessory", "WaistAccessory",
+    "Shirt", "Pants", "GraphicTShirt", "Face", "HeadColor",
+    "Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg", 
+    "ClimbAnimation", "FallAnimation", "IdleAnimation", "JumpAnimation", "RunAnimation", "SwimAnimation", "WalkAnimation", "MoodAnimation"
+}
+
+local previewDummy = nil
+local objetoDescriptionSelecionado = nil
+local playerAlvoGlobal = nil
+local idsParaEquiparGlobal = {}
+local canSaveGlobal = false
+
+local function limparLista()
+    for _, filho in ipairs(CostumeScroll:GetChildren()) do
+        if filho:IsA("TextButton") or filho:IsA("TextLabel") then filho:Destroy() end
+    end
+    CostumeScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+end
+
+local function desativarBotoes()
+    objetoDescriptionSelecionado = nil
+    idsParaEquiparGlobal = {}
+    canSaveGlobal = false
+    
+    ActionBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    ActionBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
+    ActionBtn.Text = "Selecione um Outfit Primeiro"
+    ActionBtn.AutoButtonColor = false
+    
+    SaveBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    SaveBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
+    SaveBtn.Text = "Bloqueado: Skins Diferentes"
+    SaveBtn.AutoButtonColor = false
+end
+
+local function extrairAbsolutamenteTodosOsIds(desc)
+    local ids = {}
+    for _, prop in ipairs(todasAsPropriedades) do
+        local valor = desc[prop]
+        if valor then
+            local valorStr = tostring(valor)
+            if valorStr ~= "" and valorStr ~= "0" then
+                for id in string.gmatch(valorStr, "%d+") do
+                    local num = tonumber(id)
+                    if num and num > 0 and not table.find(ids, num) then 
+                        table.insert(ids, num) 
+                    end
+                end
+            end
+        end
+    end
+    return ids
+end
+
+-- EXTRAÇÃO AVANÇADA (Rastreia cabelos complexos, malhas de cabeça e faces dinâmicas com segurança)
+local function extrairDadosFisicosFaciaisECorporais(personagem, tabelaDestino)
+    if not personagem then return end
+    
+    for _, objeto in ipairs(personagem:GetChildren()) do
+        -- Captura Acessórios comuns, Cabelos, Acessórios de cabeça e roupas 3D (Layered Clothing)
+        if objeto:IsA("Accessory") then
+            local idFisico = objeto:GetAttribute("AssetId")
+            
+            -- Se não achar via Attribute, extrai da malha interna (Necessário para cabelos e faces dinâmicas híbridas)
+            if not idFisico then
+                local handle = objeto:FindFirstChild("Handle")
+                local wrapLayer = handle and handle:FindFirstChildOfClass("WrapLayer")
+                if wrapLayer and wrapLayer.CageMeshId ~= "" then
+                    idFisico = tonumber(string.match(wrapLayer.CageMeshId, "%d+"))
+                elseif handle then
+                    local mesh = handle:FindFirstChildOfClass("SpecialMesh")
+                    if mesh and mesh.MeshId ~= "" then
+                        idFisico = tonumber(string.match(mesh.MeshId, "%d+"))
+                    end
+                end
+            end
+            
+            if not idFisico then
+                idFisico = objeto:FindFirstChild("ThumbnailId") and tonumber(objeto.ThumbnailId.Value)
+            end
+            
+            if idFisico and idFisico > 0 and not table.find(tabelaDestino, idFisico) then
+                table.insert(tabelaDestino, idFisico)
+            end
+            
+        elseif objeto:IsA("Shirt") and objeto.ShirtTemplate ~= "" then
+            local id = tonumber(string.match(objeto.ShirtTemplate, "%d+"))
+            if id and not table.find(tabelaDestino, id) then table.insert(tabelaDestino, id) end
+        elseif objeto:IsA("Pants") and objeto.PantsTemplate ~= "" then
+            local id = tonumber(string.match(objeto.PantsTemplate, "%d+"))
+            if id and not table.find(tabelaDestino, id) then table.insert(tabelaDestino, id) end
+        elseif objeto:IsA("ShirtGraphic") and objeto.Graphic ~= "" then
+            local id = tonumber(string.match(objeto.Graphic, "%d+"))
+            if id and not table.find(tabelaDestino, id) then table.insert(tabelaDestino, id) end
+        end
+    end
+    
+    -- Varredura profunda na cabeça para rastrear Faces Dinâmicas clássicas injetadas via Decal/Texture
+    local head = personagem:FindFirstChild("Head")
+    if head then
+        local decal = head:FindFirstChildOfClass("Decal")
+        if decal and decal.Texture ~= "" then
+            local idFace = tonumber(string.match(decal.Texture, "%d+"))
+            if idFace and not table.find(tabelaDestino, idFace) then table.insert(tabelaDestino, idFace) end
+        end
+    end
+end
+
+local function obterMeusIdsVestidos()
+    local meusIds = {}
+    local meuChar = LocalPlayer.Character
+    if meuChar then
+        extrairDadosFisicosFaciaisECorporais(meuChar, meusIds)
+        
+        local hum = meuChar:FindFirstChildOfClass("Humanoid")
+        local sucessoDesc, atualDesc = pcall(function() return hum:GetAppliedDescription() end)
+        if sucessoDesc and atualDesc then
+            for _, prop in ipairs(todasAsPropriedades) do
+                local val = atualDesc[prop]
+                if val then
+                    for id in string.gmatch(tostring(val), "%d+") do
+                        local num = tonumber(id)
+                        if num and num > 0 and not table.find(meusIds, num) then 
+                            table.insert(meusIds, num) 
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return meusIds
+end
+
+local function atualizarStatusDeParidade()
+    if #idsParaEquiparGlobal == 0 then return end
+    
+    local meusIdsAtuais = obterMeusIdsVestidos()
+    local faltamItens = 0
+    
+    for _, id in ipairs(idsParaEquiparGlobal) do
+        if not table.find(meusIdsAtuais, id) then faltamItens = faltamItens + 1 end
+    end
+    
+    if faltamItens == 0 then
+        canSaveGlobal = true
+        ActionBtn.Text = "✔️ Tudo Equipado com Sucesso!"
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 80)
+        
+        SaveBtn.BackgroundColor3 = Color3.fromRGB(35, 145, 65)
+        SaveBtn.TextColor3 = Color3.new(1, 1, 1)
+        SaveBtn.Text = "💾 Salvar Skin (100% Sincronizado)"
+        SaveBtn.AutoButtonColor = true
+    else
+        canSaveGlobal = false
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 200)
+        ActionBtn.TextColor3 = Color3.new(1, 1, 1)
+        ActionBtn.Text = "⚡ Equipar Itens Faltantes (" .. faltamItens .. ") ⚡"
+        ActionBtn.AutoButtonColor = true
+        
+        SaveBtn.BackgroundColor3 = Color3.fromRGB(55, 45, 45)
+        SaveBtn.TextColor3 = Color3.fromRGB(150, 110, 110)
+        SaveBtn.Text = "❌ Faltam " .. faltamItens .. " itens para liberar o Save"
+        SaveBtn.AutoButtonColor = false
+    end
+end
+
+-- [[ PROCESSADOR DE PREVIEW EXATO DO TRAJE CLICADO ]]
+local function gerarPreviewDoTrajeSelecionado(humanoidDesc)
+    if previewDummy then previewDummy:Destroy() end
+    
+    task.spawn(function()
+        local sucesso, modelo = pcall(function()
+            return Players:CreateHumanoidModelFromDescription(humanoidDesc, Enum.HumanoidRigType.R15)
+        end)
+        
+        if sucesso and modelo then
+            previewDummy = modelo
+            previewDummy.Parent = Viewport
+            
+            local dummyHum = previewDummy:FindFirstChildOfClass("Humanoid")
+            if dummyHum then
+                pcall(function() dummyHum:ApplyDescription(humanoidDesc) end)
+            end
+            
+            local hrp = previewDummy:WaitForChild("HumanoidRootPart")
+            hrp.CFrame = CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(180), 0)
+            ViewCam.CFrame = CFrame.new(Vector3.new(0, 1.5, -7), hrp.Position + Vector3.new(0, 0.3, 0))
+        end
+    end)
+end
+
+-- FUNÇÃO ROTINA DE ESCANEAR ACESSADA PELA INTERFACE MANUAL OU CLIQUE LATERAL
+local function executarEscaneamentoDoAlvo(nomeDoAlvo)
+    limparLista()
+    desativarBotoes()
+    if previewDummy then previewDummy:Destroy() end
+    
+    if #nomeDoAlvo == 0 then return end
+    
+    local alvo = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if string.lower(p.Name):sub(1, #nomeDoAlvo) == string.lower(nomeDoAlvo) or string.lower(p.DisplayName):sub(1, #nomeDoAlvo) == string.lower(nomeDoAlvo) then
+            alvo = p
+            break
+        end
+    end
+    
+    if not alvo then
+        local erroLabel = Instance.new("TextLabel", CostumeScroll)
+        erroLabel.Size = UDim2.new(1, -10, 0, 40)
+        erroLabel.BackgroundTransparency = 1
+        erroLabel.Text = "Jogador não encontrado!"
+        erroLabel.TextColor3 = Color3.fromRGB(200, 50, 50)
+        erroLabel.Font = Enum.Font.SourceSansBold
+        erroLabel.TextSize = 14
+        return
+    end
+    
+    playerAlvoGlobal = alvo
+    
+    local costumesFolder = alvo:FindFirstChild("AE_Costumes")
+    local listaTrajes = costumesFolder and costumesFolder:GetChildren() or {}
+    local temTrajesValidos = false
+    
+    for _, item in ipairs(listaTrajes) do
+        if item:IsA("HumanoidDescription") then temTrajesValidos = true; break end
+    end
+    
+    if not temTrajesValidos then
+        local erroLabel = Instance.new("TextLabel", CostumeScroll)
+        erroLabel.Size = UDim2.new(1, -10, 0, 50)
+        erroLabel.BackgroundTransparency = 1
+        erroLabel.Text = "ERRO: Sem avatares salvos!"
+        erroLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+        erroLabel.Font = Enum.Font.SourceSansBold
+        erroLabel.TextSize = 13
+        return
+    end
+    
+    CostumeScroll.CanvasSize = UDim2.new(0, 0, 0, #listaTrajes * 32)
+    for _, item in ipairs(listaTrajes) do
+        if item:IsA("HumanoidDescription") then
+            local btn = Instance.new("TextButton", CostumeScroll)
+            btn.Size = UDim2.new(1, -10, 0, 28)
+            btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+            btn.Text = "📁 " .. item.Name
+            btn.TextColor3 = Color3.new(1, 1, 1)
+            btn.Font = Enum.Font.SourceSansSemibold
+            btn.TextSize = 14
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+            
+            btn.MouseButton1Click:Connect(function()
+                objetoDescriptionSelecionado = item
+                idsParaEquiparGlobal = extrairAbsolutamenteTodosOsIds(item)
+                
+                local alvoChar = workspace:FindFirstChild(playerAlvoGlobal.Name)
+                if alvoChar then
+                    extrairDadosFisicosFaciaisECorporais(alvoChar, idsParaEquiparGlobal)
+                end
+                
+                gerarPreviewDoTrajeSelecionado(item)
+                atualizarStatusDeParidade()
+            end)
+        end
+    end
+end
+
+ScanBtn.MouseButton1Click:Connect(function()
+    executarEscaneamentoDoAlvo(TextBox.Text)
+end)
+
+
+-- [[ 3. LOGICA DO PAINEL LATERAL ESQUERDO (SCANNER DE PASTAS DO SERVIDOR) ]]
+local function atualizarListaLateralDePlayers()
+    for _, filho in ipairs(PlayerScroll:GetChildren()) do
+        if filho:IsA("TextButton") then filho:Destroy() end
+    end
+    
+    local playersComSkinsValidas = {}
+    
+    for _, p in ipairs(Players:GetPlayers()) do
+        local costumesFolder = p:FindFirstChild("AE_Costumes")
+        if costumesFolder then
+            local temSkins = false
+            for _, item in ipairs(costumesFolder:GetChildren()) do
+                if item:IsA("HumanoidDescription") then
+                    temSkins = true
+                    break
+                end
+            end
+            if temSkins then
+                table.insert(playersComSkinsValidas, p)
+            end
+        end
+    end
+    
+    PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, #playersComSkinsValidas * 32)
+    
+    for _, p in ipairs(playersComSkinsValidas) do
+        local pBtn = Instance.new("TextButton", PlayerScroll)
+        pBtn.Size = UDim2.new(1, -10, 0, 28)
+        pBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+        pBtn.Text = "👤 " .. p.DisplayName
+        pBtn.TextColor3 = Color3.fromRGB(230, 220, 255)
+        pBtn.Font = Enum.Font.SourceSansSemibold
+        pBtn.TextSize = 13
+        pBtn.TextXAlignment = Enum.TextXAlignment.Left
+        Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 5)
+        
+        local padding = Instance.new("UIPadding", pBtn)
+        padding.PaddingLeft = UDim.new(0, 8)
+        
+        pBtn.MouseButton1Click:Connect(function()
+            TextBox.Text = p.Name
+            executarEscaneamentoDoAlvo(p.Name)
+        end)
+    end
+end
+
+atualizarListaLateralDePlayers()
+Players.PlayerAdded:Connect(function() task.wait(1); atualizarListaLateralDePlayers() end)
+Players.PlayerRemoving:Connect(atualizarListaLateralDePlayers)
+
+
+-- [[ 4. BOTÕES DE EXECUÇÃO ]]
+
+-- EQUIPAR APENAS ITENS FALTANTES
+ActionBtn.MouseButton1Click:Connect(function()
+    if #idsParaEquiparGlobal == 0 or not RemoteConnection then return end
+    
+    ActionBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 85)
+    ActionBtn.AutoButtonColor = false
+    
+    task.spawn(function()
+        local meusIdsAtuais = obterMeusIdsVestidos()
+        local itensFaltantes = {}
+        
+        for _, id in ipairs(idsParaEquiparGlobal) do
+            if not table.find(meusIdsAtuais, id) then 
+                table.insert(itensFaltantes, id) 
+            end
+        end
+        
+        if #itensFaltantes > 0 then
+            for i, id in ipairs(itensFaltantes) do
+                ActionBtn.Text = "⌛ Equipando ID (" .. i .. "/" .. #itensFaltantes .. ")..."
+                pcall(function() 
+                    RemoteConnection:FireServer("accessory", id) 
+                end)
+                task.wait(0.12)
+            end
+        end
+        
+        ActionBtn.Text = "🔍 Analisando Equipamentos..."
+        task.wait(1.5)
+        
+        atualizarStatusDeParidade()
+    end)
+end)
+
+-- SALVAR SKIN NO BANCO
+SaveBtn.MouseButton1Click:Connect(function()
+    if not canSaveGlobal or not RemoteConnection or not playerAlvoGlobal then return end
+    
+    local nomeOutfitFinal = playerAlvoGlobal.Name .. "'s outfit"
+    local sucesso = pcall(function() 
+        RemoteConnection:FireServer("create", nomeOutfitFinal) 
+    end)
+    
+    if sucesso then
+        SaveBtn.Text = "✔️ Gravado com Sucesso!"
+        SaveBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 50)
+        print("[Salvar]: Dados registrados no servidor.")
+    else
+        SaveBtn.Text = "❌ Erro ao Enviar Comando"
+        SaveBtn.BackgroundColor3 = Color3.fromRGB(130, 30, 30)
+    end
+    
+    task.wait(2)
+    atualizarStatusDeParidade()
+end)
