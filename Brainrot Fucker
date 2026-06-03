@@ -1,4 +1,4 @@
--- // Instâncias Principais da GUI NATIVA
+-- // CONFIGURAÇÃO NATIVA DA GUI
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local UICorner_Main = Instance.new("UICorner")
@@ -6,20 +6,16 @@ local Sidebar = Instance.new("Frame")
 local UICorner_Sidebar = Instance.new("UICorner")
 local TabContainer = Instance.new("Frame")
 
--- // Botões da Lateral (Sidebar)
 local BtnMainTab = Instance.new("TextButton")
 local BtnGamesTab = Instance.new("TextButton")
 
--- // Páginas (Abas)
 local PageMain = Instance.new("Frame")
 local PageGames = Instance.new("Frame")
 
--- // Configurações da ScreenGui
-ScreenGui.Name = "VTZHub_CustomGUI"
+ScreenGui.Name = "VTZHub_GlobalLoader"
 ScreenGui.Parent = game:GetService("CoreGui")
 ScreenGui.ResetOnSpawn = false
 
--- // Janela Principal (MainFrame)
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 550, 0, 380)
 MainFrame.Position = UDim2.new(0.5, -275, 0.5, -190)
@@ -32,7 +28,6 @@ MainFrame.Parent = ScreenGui
 UICorner_Main.CornerRadius = UDim.new(0, 10)
 UICorner_Main.Parent = MainFrame
 
--- // Barra Lateral (Sidebar)
 Sidebar.Name = "Sidebar"
 Sidebar.Size = UDim2.new(0, 140, 1, 0)
 Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
@@ -42,14 +37,12 @@ Sidebar.Parent = MainFrame
 UICorner_Sidebar.CornerRadius = UDim.new(0, 10)
 UICorner_Sidebar.Parent = Sidebar
 
--- // Container das Páginas
 TabContainer.Name = "TabContainer"
 TabContainer.Size = UDim2.new(0, 390, 1, -20)
 TabContainer.Position = UDim2.new(0, 150, 0, 10)
 TabContainer.BackgroundTransparency = 1
 TabContainer.Parent = MainFrame
 
--- // Design dos Botões da Sidebar
 local function estilizarBotaoMenu(botao, texto, pos)
     botao.Size = UDim2.new(0, 120, 0, 35)
     botao.Position = UDim2.new(0, 10, 0, pos)
@@ -78,19 +71,18 @@ PageMain.Parent = TabContainer
 local TitleMain = Instance.new("TextLabel")
 TitleMain.Size = UDim2.new(1, 0, 0, 30)
 TitleMain.BackgroundTransparency = 1
-TitleMain.Text = "Main Script - ID: " .. tostring(game.PlaceId)
+TitleMain.Text = "Global Loader - ID: " .. tostring(game.PlaceId)
 TitleMain.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleMain.TextXAlignment = Enum.TextXAlignment.Left
 TitleMain.Font = Enum.Font.SourceSansBold
 TitleMain.TextSize = 20
 TitleMain.Parent = PageMain
 
--- Executa apenas no Place ID correto do Jogo de Caixas
 if game.PlaceId == 125003919504672 then
+    -- Compartilhando as variáveis de controle no ambiente Global do Executor
     _G.AutoFarm = false
     _G.MinimoRequerido = 0
 
-    -- Botão ON/OFF
     local ToggleBtn = Instance.new("TextButton")
     ToggleBtn.Size = UDim2.new(0, 200, 0, 40)
     ToggleBtn.Position = UDim2.new(0, 0, 0, 50)
@@ -102,7 +94,6 @@ if game.PlaceId == 125003919504672 then
     ToggleBtn.Parent = PageMain
     Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
-    -- TextBox para Valores
     local InputValue = Instance.new("TextBox")
     InputValue.Size = UDim2.new(0, 200, 0, 35)
     InputValue.Position = UDim2.new(0, 0, 0, 100)
@@ -111,11 +102,10 @@ if game.PlaceId == 125003919504672 then
     InputValue.TextColor3 = Color3.fromRGB(0, 255, 150)
     InputValue.Font = Enum.Font.SourceSans
     InputValue.TextSize = 14
-    InputValue.PlaceholderText = "Mínimo (Ex: 1T, 500M, 1CN)"
+    InputValue.PlaceholderText = "Mínimo (Ex: 1T, 10CN)"
     InputValue.Parent = PageMain
     Instance.new("UICorner", InputValue).CornerRadius = UDim.new(0, 6)
 
-    -- Função de Conversão Pura de Sufixos (PT / EN)
     local function converterSufixo(texto)
         texto = string.upper(string.gsub(texto, "%s+", ""))
         local numero = tonumber(string.match(texto, "^[%d%.]+"))
@@ -154,11 +144,41 @@ if game.PlaceId == 125003919504672 then
         elseif string.find(texto, "NW") then return numero * 10^273
         elseif string.find(texto, "CN") then return numero * 10^303
         end
-
         return numero
     end
 
-    -- Evento do Clique do Botão (Executa o Farm via Loadstring)
+    -- // SISTEMA CENTRAL: CARREGADOR GLOBAL (Injeta o script externo no escopo global)
+    local function rodarScriptNoAmbienteGlobal(url)
+        local sucesso, codigoBruto = pcall(function()
+            return game:HttpGet(url)
+        end)
+        
+        if sucesso and codigoBruto then
+            -- Carrega a string do código
+            local funcaoCarregada, erroCompilacao = loadstring(codigoBruto)
+            
+            if funcaoCarregada then
+                -- ALQUIMIA DO LUAU: Força o script baixado a usar o ambiente de variáveis globais (_G) como se fosse dele
+                setfenv(funcaoCarregada, setmetatable({}, {
+                    __index = function(_, chave)
+                        return _G[chave] or shared[chave] or getfenv(0)[chave]
+                    end,
+                    __newindex = function(_, chave, valor)
+                        _G[chave] = valor -- Tudo que o script criar sem 'local' vai direto para o _G do jogo
+                    end
+                }))
+                
+                -- Executa o script modificado em segundo plano
+                task.spawn(funcaoCarregada)
+            else
+                warn("Erro ao compilar código do script externo: " .. tostring(erroCompilacao))
+            end
+        else
+            warn("Erro ao baixar o arquivo de script do GitHub/Site.")
+        end
+    end
+
+    -- Evento do Botão da GUI
     ToggleBtn.MouseButton1Click:Connect(function()
         _G.AutoFarm = not _G.AutoFarm
         
@@ -167,19 +187,9 @@ if game.PlaceId == 125003919504672 then
             ToggleBtn.Text = "Auto Farm: ON"
             _G.MinimoRequerido = converterSufixo(InputValue.Text)
             
-            -- EXECUÇÃO VIA LOADSTRING EXTERNO
-            task.spawn(function()
-                -- Coloque a URL do seu script real do farm aqui dentro
-                local urlDoScriptReal = "https://raw.githubusercontent.com/seu_usuario/seu_repositorio/main/script_do_farm.lua"
-                
-                local sucesso, erro = pcall(function()
-                    loadstring(game:HttpGet(urlDoScriptReal))()
-                end)
-                
-                if not sucesso then
-                    warn("Erro ao injetar o script de farm: " .. tostring(erro))
-                end
-            end)
+            -- Puxa o seu script e transforma tudo dele em Global automaticamente
+            local urlDoSeuScriptFarm = "https://raw.githubusercontent.com/seu_usuario/seu_repositorio/main/script_do_farm.lua"
+            rodarScriptNoAmbienteGlobal(urlDoSeuScriptFarm)
         else
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
             ToggleBtn.Text = "Auto Farm: OFF"
