@@ -1,0 +1,256 @@
+-- // Instâncias Principais da GUI NATIVA
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local UICorner_Main = Instance.new("UICorner")
+local Sidebar = Instance.new("Frame")
+local UICorner_Sidebar = Instance.new("UICorner")
+local TabContainer = Instance.new("Frame")
+
+-- // Botões da Lateral (Sidebar)
+local BtnMainTab = Instance.new("TextButton")
+local BtnGamesTab = Instance.new("TextButton")
+
+-- // Páginas (Abas)
+local PageMain = Instance.new("Frame")
+local PageGames = Instance.new("Frame")
+
+-- // Configurações da ScreenGui
+ScreenGui.Name = "VTZHub_CustomGUI"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+-- // Janela Principal (MainFrame)
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 550, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -275, 0.5, -190)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+UICorner_Main.CornerRadius = UDim.new(0, 10)
+UICorner_Main.Parent = MainFrame
+
+-- // Barra Lateral (Sidebar)
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 140, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = MainFrame
+
+UICorner_Sidebar.CornerRadius = UDim.new(0, 10)
+UICorner_Sidebar.Parent = Sidebar
+
+-- // Container das Páginas
+TabContainer.Name = "TabContainer"
+TabContainer.Size = UDim2.new(0, 390, 1, -20)
+TabContainer.Position = UDim2.new(0, 150, 0, 10)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+
+-- // Design dos Botões da Sidebar
+local function estilizarBotaoMenu(botao, texto, pos)
+    botao.Size = UDim2.new(0, 120, 0, 35)
+    botao.Position = UDim2.new(0, 10, 0, pos)
+    botao.Text = texto
+    botao.TextColor3 = Color3.fromRGB(255, 255, 255)
+    botao.Font = Enum.Font.SourceSansBold
+    botao.TextSize = 16
+    botao.Parent = Sidebar
+    local corner = Instance.new("UICorner", botao)
+    corner.CornerRadius = UDim.new(0, 6)
+end
+estilizarBotaoMenu(BtnMainTab, "Main", 20)
+estilizarBotaoMenu(BtnGamesTab, "Supported Games", 65)
+
+BtnMainTab.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+BtnGamesTab.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+BtnGamesTab.TextColor3 = Color3.fromRGB(180, 180, 180)
+
+-- // --- ABA: MAIN ---
+PageMain.Name = "PageMain"
+PageMain.Size = UDim2.new(1, 0, 1, 0)
+PageMain.BackgroundTransparency = 1
+PageMain.Visible = true
+PageMain.Parent = TabContainer
+
+local TitleMain = Instance.new("TextLabel")
+TitleMain.Size = UDim2.new(1, 0, 0, 30)
+TitleMain.BackgroundTransparency = 1
+TitleMain.Text = "Main Script - ID: " .. tostring(game.PlaceId)
+TitleMain.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleMain.TextXAlignment = Enum.TextXAlignment.Left
+TitleMain.Font = Enum.Font.SourceSansBold
+TitleMain.TextSize = 20
+TitleMain.Parent = PageMain
+
+-- Executa apenas no Place ID correto do Jogo de Caixas
+if game.PlaceId == 125003919504672 then
+    _G.AutoFarm = false
+    _G.MinimoRequerido = 0
+
+    -- Botão ON/OFF
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0, 200, 0, 40)
+    ToggleBtn.Position = UDim2.new(0, 0, 0, 50)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    ToggleBtn.Text = "Auto Farm: OFF"
+    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleBtn.Font = Enum.Font.SourceSansBold
+    ToggleBtn.TextSize = 16
+    ToggleBtn.Parent = PageMain
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+
+    -- TextBox para Valores
+    local InputValue = Instance.new("TextBox")
+    InputValue.Size = UDim2.new(0, 200, 0, 35)
+    InputValue.Position = UDim2.new(0, 0, 0, 100)
+    InputValue.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    InputValue.Text = "1T"
+    InputValue.TextColor3 = Color3.fromRGB(0, 255, 150)
+    InputValue.Font = Enum.Font.SourceSans
+    InputValue.TextSize = 14
+    InputValue.PlaceholderText = "Mínimo (Ex: 1T, 500M, 1CN)"
+    InputValue.Parent = PageMain
+    Instance.new("UICorner", InputValue).CornerRadius = UDim.new(0, 6)
+
+    -- Função de Conversão Pura de Sufixos (PT / EN)
+    local function converterSufixo(texto)
+        texto = string.upper(string.gsub(texto, "%s+", ""))
+        local numero = tonumber(string.match(texto, "^[%d%.]+"))
+        if not numero then return 0 end
+        
+        if string.find(texto, "K") then return numero * 10^3
+        elseif string.find(texto, "M") then return numero * 10^6
+        elseif string.find(texto, "B") then return numero * 10^9
+        elseif string.find(texto, "T") then return numero * 10^12
+        elseif string.find(texto, "QD") then return numero * 10^15
+        elseif string.find(texto, "QT") or string.find(texto, "QN") then return numero * 10^18
+        elseif string.find(texto, "SX") then return numero * 10^21
+        elseif string.find(texto, "SP") then return numero * 10^24
+        elseif string.find(texto, "OC") then return numero * 10^27
+        elseif string.find(texto, "NO") then return numero * 10^30
+        elseif string.find(texto, "DC") then return numero * 10^33
+        elseif string.find(texto, "UD") then return numero * 10^36
+        elseif string.find(texto, "DD") then return numero * 10^39
+        elseif string.find(texto, "TD") then return numero * 10^42
+        elseif string.find(texto, "QDD") then return numero * 10^45
+        elseif string.find(texto, "QTD") then return numero * 10^48
+        elseif string.find(texto, "SXD") then return numero * 10^51
+        elseif string.find(texto, "SPD") then return numero * 10^54
+        elseif string.find(texto, "OCD") then return numero * 10^57
+        elseif string.find(texto, "NOD") then return numero * 10^60
+        elseif string.find(texto, "VG") then return numero * 10^63
+        elseif string.find(texto, "UVG") then return numero * 10^66
+        elseif string.find(texto, "DVG") then return numero * 10^69
+        elseif string.find(texto, "TVG") then return numero * 10^72
+        elseif string.find(texto, "TG") then return numero * 10^93
+        elseif string.find(texto, "QG") then return numero * 10^123
+        elseif string.find(texto, "PC") then return numero * 10^153
+        elseif string.find(texto, "HX") then return numero * 10^183
+        elseif string.find(texto, "HP") then return numero * 10^213
+        elseif string.find(texto, "OG") then return numero * 10^243
+        elseif string.find(texto, "NW") then return numero * 10^273
+        elseif string.find(texto, "CN") then return numero * 10^303
+        end
+
+        return numero
+    end
+
+    -- Evento do Clique do Botão (Executa o Farm via Loadstring)
+    ToggleBtn.MouseButton1Click:Connect(function()
+        _G.AutoFarm = not _G.AutoFarm
+        
+        if _G.AutoFarm then
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+            ToggleBtn.Text = "Auto Farm: ON"
+            _G.MinimoRequerido = converterSufixo(InputValue.Text)
+            
+            -- EXECUÇÃO VIA LOADSTRING EXTERNO
+            task.spawn(function()
+                -- Coloque a URL do seu script real do farm aqui dentro
+                local urlDoScriptReal = "https://raw.githubusercontent.com/seu_usuario/seu_repositorio/main/script_do_farm.lua"
+                
+                local sucesso, erro = pcall(function()
+                    loadstring(game:HttpGet(urlDoScriptReal))()
+                end)
+                
+                if not sucesso then
+                    warn("Erro ao injetar o script de farm: " .. tostring(erro))
+                end
+            end)
+        else
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+            ToggleBtn.Text = "Auto Farm: OFF"
+        end
+    end)
+else
+    local ErrorLabel = Instance.new("TextLabel")
+    ErrorLabel.Size = UDim2.new(1, 0, 0, 40)
+    ErrorLabel.Position = UDim2.new(0, 0, 0, 60)
+    ErrorLabel.BackgroundTransparency = 1
+    ErrorLabel.Text = "❌ Esse mapa não possui funções para a aba Main."
+    ErrorLabel.TextColor3 = Color3.fromRGB(200, 80, 80)
+    ErrorLabel.Font = Enum.Font.SourceSansItalic
+    ErrorLabel.TextSize = 16
+    ErrorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ErrorLabel.Parent = PageMain
+end
+
+-- // --- ABA: SUPPORTED GAMES ---
+PageGames.Name = "PageGames"
+PageGames.Size = UDim2.new(1, 0, 1, 0)
+PageGames.BackgroundTransparency = 1
+PageGames.Visible = false
+PageGames.Parent = TabContainer
+
+local TitleGames = Instance.new("TextLabel")
+TitleGames.Size = UDim2.new(1, 0, 0, 30)
+TitleGames.BackgroundTransparency = 1
+TitleGames.Text = "Supported Games"
+TitleGames.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleGames.TextXAlignment = Enum.TextXAlignment.Left
+TitleGames.Font = Enum.Font.SourceSansBold
+TitleGames.TextSize = 20
+TitleGames.Parent = PageGames
+
+local function criarBotaoJogo(nome, placeId, posicaoY)
+    local GameBtn = Instance.new("TextButton")
+    GameBtn.Size = UDim2.new(1, 0, 0, 40)
+    GameBtn.Position = UDim2.new(0, 0, 0, posicaoY)
+    GameBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    GameBtn.Text = "  🟢 " .. nome .. " ---> [Join Game]"
+    GameBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    GameBtn.Font = Enum.Font.SourceSans
+    GameBtn.TextSize = 16
+    GameBtn.TextXAlignment = Enum.TextXAlignment.Left
+    GameBtn.Parent = PageGames
+    Instance.new("UICorner", GameBtn).CornerRadius = UDim.new(0, 6)
+    
+    GameBtn.MouseButton1Click:Connect(function()
+        game:GetService("TeleportService"):Teleport(placeId, game:GetService("Players").LocalPlayer)
+    end)
+end
+
+criarBotaoJogo("Jogo de Caixas Original", 125003919504672, 50)
+criarBotaoJogo("Outro Jogo Simulador", 987654321, 100)
+
+-- // --- CONTROLE NATIVO DE ALTERNÂNCIA DE ABAS ---
+BtnMainTab.MouseButton1Click:Connect(function()
+    PageMain.Visible = true
+    PageGames.Visible = false
+    BtnMainTab.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    BtnMainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+    BtnGamesTab.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    BtnGamesTab.TextColor3 = Color3.fromRGB(180, 180, 180)
+end)
+
+BtnGamesTab.MouseButton1Click:Connect(function()
+    PageMain.Visible = false
+    PageGames.Visible = true
+    BtnGamesTab.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    BtnGamesTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+    BtnMainTab.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    BtnMainTab.TextColor3 = Color3.fromRGB(180, 180, 180)
+end)
