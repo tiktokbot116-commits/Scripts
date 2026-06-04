@@ -1,7 +1,8 @@
--- // CONFIGURAÇÃO NATIVA DA GUI
+-- // CONFIGURAÇÃO AVANÇADA DA GUI NATIVA (ESTILO DARK PREMIUM)
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local UICorner_Main = Instance.new("UICorner")
+local UIStroke_Main = Instance.new("UIStroke")
 local Sidebar = Instance.new("Frame")
 local UICorner_Sidebar = Instance.new("UICorner")
 local TabContainer = Instance.new("Frame")
@@ -10,56 +11,85 @@ local BtnMainTab = Instance.new("TextButton")
 local BtnGamesTab = Instance.new("TextButton")
 
 local PageMain = Instance.new("Frame")
-local PageGames = Instance.new("Frame")
+local PageGames = Instance.new("ScrollingFrame") -- Mudado para suportar rolagem de vários jogos de forma limpa
 
-ScreenGui.Name = "VTZHub_GlobalLoader"
+ScreenGui.Name = "VTZHub_PremiumLoader"
 ScreenGui.Parent = game:GetService("CoreGui")
 ScreenGui.ResetOnSpawn = false
 
+-- // Janela Principal
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 550, 0, 380)
-MainFrame.Position = UDim2.new(0.5, -275, 0.5, -190)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Size = UDim2.new(0, 580, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -290, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
-UICorner_Main.CornerRadius = UDim.new(0, 10)
+UICorner_Main.CornerRadius = UDim.new(0, 14)
 UICorner_Main.Parent = MainFrame
 
+-- Borda sutil neon profissional
+UIStroke_Main.Thickness = 1.5
+UIStroke_Main.Color = Color3.fromRGB(45, 45, 55)
+UIStroke_Main.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke_Main.Parent = MainFrame
+
+-- // Painel Lateral (Sidebar)
 Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0, 140, 1, 0)
-Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+Sidebar.Size = UDim2.new(0, 150, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainFrame
 
-UICorner_Sidebar.CornerRadius = UDim.new(0, 10)
+UICorner_Sidebar.CornerRadius = UDim.new(0, 14)
 UICorner_Sidebar.Parent = Sidebar
 
+-- // Container de Abas
 TabContainer.Name = "TabContainer"
-TabContainer.Size = UDim2.new(0, 390, 1, -20)
-TabContainer.Position = UDim2.new(0, 150, 0, 10)
+TabContainer.Size = UDim2.new(0, 410, 1, -30)
+TabContainer.Position = UDim2.new(0, 160, 0, 15)
 TabContainer.BackgroundTransparency = 1
 TabContainer.Parent = MainFrame
 
+-- // Construtor de Botões do Menu Lateral com Efeitos Visuais
 local function estilizarBotaoMenu(botao, texto, pos)
-    botao.Size = UDim2.new(0, 120, 0, 35)
+    botao.Size = UDim2.new(0, 130, 0, 38)
     botao.Position = UDim2.new(0, 10, 0, pos)
-    botao.Text = texto
-    botao.TextColor3 = Color3.fromRGB(255, 255, 255)
-    botao.Font = Enum.Font.SourceSansBold
-    botao.TextSize = 16
+    botao.Text = "  " .. texto
+    botao.TextColor3 = Color3.fromRGB(200, 200, 200)
+    botao.Font = Enum.Font.GothamBold
+    botao.TextSize = 14
+    botao.TextXAlignment = Enum.TextXAlignment.Left
     botao.Parent = Sidebar
+    
     local corner = Instance.new("UICorner", botao)
-    corner.CornerRadius = UDim.new(0, 6)
+    corner.CornerRadius = UDim.new(0, 8)
+    
+    local stroke = Instance.new("UIStroke", botao)
+    stroke.Thickness = 1
+    stroke.Color = Color3.fromRGB(30, 30, 35)
+    
+    -- Efeitos dinâmicos de Hover
+    botao.MouseEnter:Connect(function()
+        if botao.BackgroundColor3 ~= Color3.fromRGB(40, 40, 50) then
+            botao.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        end
+    end)
+    botao.MouseLeave:Connect(function()
+        if botao.BackgroundColor3 ~= Color3.fromRGB(40, 40, 50) then
+            botao.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+        end
+    end)
 end
-estilizarBotaoMenu(BtnMainTab, "Main", 20)
-estilizarBotaoMenu(BtnGamesTab, "Supported Games", 65)
 
-BtnMainTab.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-BtnGamesTab.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-BtnGamesTab.TextColor3 = Color3.fromRGB(180, 180, 180)
+estilizarBotaoMenu(BtnMainTab, "Painel Principal", 25)
+estilizarBotaoMenu(BtnGamesTab, "Jogos Suportados", 73)
+
+BtnMainTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+BtnMainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnGamesTab.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 
 -- // --- ABA: MAIN ---
 PageMain.Name = "PageMain"
@@ -71,40 +101,85 @@ PageMain.Parent = TabContainer
 local TitleMain = Instance.new("TextLabel")
 TitleMain.Size = UDim2.new(1, 0, 0, 30)
 TitleMain.BackgroundTransparency = 1
-TitleMain.Text = "Global Loader - ID: " .. tostring(game.PlaceId)
+TitleMain.Text = "Configurações do Script"
 TitleMain.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleMain.TextXAlignment = Enum.TextXAlignment.Left
-TitleMain.Font = Enum.Font.SourceSansBold
-TitleMain.TextSize = 20
+TitleMain.Font = Enum.Font.GothamBold
+TitleMain.TextSize = 22
 TitleMain.Parent = PageMain
 
+local SubtitleMain = Instance.new("TextLabel")
+SubtitleMain.Size = UDim2.new(1, 0, 0, 20)
+SubtitleMain.Position = UDim2.new(0, 0, 0, 30)
+SubtitleMain.BackgroundTransparency = 1
+SubtitleMain.Text = "ID do Mapa Atual: " .. tostring(game.PlaceId)
+SubtitleMain.TextColor3 = Color3.fromRGB(140, 140, 150)
+SubtitleMain.TextXAlignment = Enum.TextXAlignment.Left
+SubtitleMain.Font = Enum.Font.Gotham
+SubtitleMain.TextSize = 13
+SubtitleMain.Parent = PageMain
+
 if game.PlaceId == 125003919504672 then
-    -- Compartilhando as variáveis de controle no ambiente Global do Executor
     _G.AutoFarm = false
     _G.MinimoRequerido = 0
 
+    -- Custom Checkbox/Toggle do Automation Card
+    local Card = Instance.new("Frame")
+    Card.Size = UDim2.new(1, -10, 0, 140)
+    Card.Position = UDim2.new(0, 0, 0, 70)
+    Card.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+    Card.Parent = PageMain
+    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 10)
+    Instance.new("UIStroke", Card).Color = Color3.fromRGB(35, 35, 45)
+
+    local CardTitle = Instance.new("TextLabel")
+    CardTitle.Size = UDim2.new(1, -20, 0, 35)
+    CardTitle.Position = UDim2.new(0, 15, 0, 10)
+    CardTitle.BackgroundTransparency = 1
+    CardTitle.Text = "Controle de Sistemas"
+    CardTitle.TextColor3 = Color3.fromRGB(230, 230, 235)
+    CardTitle.Font = Enum.Font.GothamBold
+    CardTitle.TextSize = 15
+    CardTitle.TextXAlignment = Enum.TextXAlignment.Left
+    CardTitle.Parent = Card
+
     local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(0, 200, 0, 40)
-    ToggleBtn.Position = UDim2.new(0, 0, 0, 50)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-    ToggleBtn.Text = "Auto Farm: OFF"
+    ToggleBtn.Size = UDim2.new(0, 170, 0, 42)
+    ToggleBtn.Position = UDim2.new(0, 15, 0, 50)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
+    ToggleBtn.Text = "Auto Farm: INATIVO"
     ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToggleBtn.Font = Enum.Font.SourceSansBold
-    ToggleBtn.TextSize = 16
-    ToggleBtn.Parent = PageMain
-    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+    ToggleBtn.Font = Enum.Font.GothamBold
+    ToggleBtn.TextSize = 13
+    ToggleBtn.Parent = Card
+    local tCorner = Instance.new("UICorner", ToggleBtn)
+    tCorner.CornerRadius = UDim.new(0, 8)
 
     local InputValue = Instance.new("TextBox")
-    InputValue.Size = UDim2.new(0, 200, 0, 35)
-    InputValue.Position = UDim2.new(0, 0, 0, 100)
-    InputValue.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    InputValue.Size = UDim2.new(0, 180, 0, 42)
+    InputValue.Position = UDim2.new(0, 200, 0, 50)
+    InputValue.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
     InputValue.Text = "1T"
-    InputValue.TextColor3 = Color3.fromRGB(0, 255, 150)
-    InputValue.Font = Enum.Font.SourceSans
+    InputValue.TextColor3 = Color3.fromRGB(0, 255, 160)
+    InputValue.Font = Enum.Font.GothamSemibold
     InputValue.TextSize = 14
-    InputValue.PlaceholderText = "Mínimo (Ex: 1T, 10CN)"
-    InputValue.Parent = PageMain
-    Instance.new("UICorner", InputValue).CornerRadius = UDim.new(0, 6)
+    InputValue.PlaceholderText = "Mínimo Ex: 10M, 1CN"
+    InputValue.Parent = Card
+    local iCorner = Instance.new("UICorner", InputValue)
+    iCorner.CornerRadius = UDim.new(0, 8)
+    local iStroke = Instance.new("UIStroke", InputValue)
+    iStroke.Color = Color3.fromRGB(40, 40, 50)
+
+    local CardTip = Instance.new("TextLabel")
+    CardTip.Size = UDim2.new(1, -20, 0, 25)
+    CardTip.Position = UDim2.new(0, 15, 0, 103)
+    CardTip.BackgroundTransparency = 1
+    CardTip.Text = "💡 Insira o valor mínimo usando sufixos (K, M, B, T... até CN)"
+    CardTip.TextColor3 = Color3.fromRGB(120, 120, 135)
+    CardTip.Font = Enum.Font.Gotham
+    CardTip.TextSize = 12
+    CardTip.TextXAlignment = Enum.TextXAlignment.Left
+    CardTip.Parent = Card
 
     local function converterSufixo(texto)
         texto = string.upper(string.gsub(texto, "%s+", ""))
@@ -147,120 +222,158 @@ if game.PlaceId == 125003919504672 then
         return numero
     end
 
-    -- // SISTEMA CENTRAL: CARREGADOR GLOBAL (Injeta o script externo no escopo global)
     local function rodarScriptNoAmbienteGlobal(url)
-        local sucesso, codigoBruto = pcall(function()
-            return game:HttpGet(url)
-        end)
-        
+        local sucesso, codigoBruto = pcall(function() return game:HttpGet(url) end)
         if sucesso and codigoBruto then
-            -- Carrega a string do código
             local funcaoCarregada, erroCompilacao = loadstring(codigoBruto)
-            
             if funcaoCarregada then
-                -- ALQUIMIA DO LUAU: Força o script baixado a usar o ambiente de variáveis globais (_G) como se fosse dele
                 setfenv(funcaoCarregada, setmetatable({}, {
-                    __index = function(_, chave)
-                        return _G[chave] or shared[chave] or getfenv(0)[chave]
-                    end,
-                    __newindex = function(_, chave, valor)
-                        _G[chave] = valor -- Tudo que o script criar sem 'local' vai direto para o _G do jogo
-                    end
+                    __index = function(_, chave) return _G[chave] or shared[chave] or getfenv(0)[chave] end,
+                    __newindex = function(_, chave, valor) _G[chave] = valor end
                 }))
-                
-                -- Executa o script modificado em segundo plano
                 task.spawn(funcaoCarregada)
             else
-                warn("Erro ao compilar código do script externo: " .. tostring(erroCompilacao))
+                warn("Erro de Compilação: " .. tostring(erroCompilacao))
             end
         else
-            warn("Erro ao baixar o arquivo de script do GitHub/Site.")
+            warn("Erro de Comunicação HTTP com o repositório.")
         end
     end
 
-    -- Evento do Botão da GUI
     ToggleBtn.MouseButton1Click:Connect(function()
         _G.AutoFarm = not _G.AutoFarm
-        
         if _G.AutoFarm then
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
-            ToggleBtn.Text = "Auto Farm: ON"
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 150, 85)
+            ToggleBtn.Text = "Auto Farm: ATIVO"
             _G.MinimoRequerido = converterSufixo(InputValue.Text)
             
-            -- Puxa o seu script e transforma tudo dele em Global automaticamente
             local urlDoSeuScriptFarm = "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/My%20knife%20farm"
             rodarScriptNoAmbienteGlobal(urlDoSeuScriptFarm)
         else
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-            ToggleBtn.Text = "Auto Farm: OFF"
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
+            ToggleBtn.Text = "Auto Farm: INATIVO"
         end
     end)
 else
     local ErrorLabel = Instance.new("TextLabel")
     ErrorLabel.Size = UDim2.new(1, 0, 0, 40)
-    ErrorLabel.Position = UDim2.new(0, 0, 0, 60)
+    ErrorLabel.Position = UDim2.new(0, 0, 0, 70)
     ErrorLabel.BackgroundTransparency = 1
-    ErrorLabel.Text = "❌ Esse mapa não possui funções para a aba Main."
-    ErrorLabel.TextColor3 = Color3.fromRGB(200, 80, 80)
-    ErrorLabel.Font = Enum.Font.SourceSansItalic
-    ErrorLabel.TextSize = 16
+    ErrorLabel.Text = "❌ Esse mapa não possui integrações com o painel Main."
+    ErrorLabel.TextColor3 = Color3.fromRGB(220, 80, 80)
+    ErrorLabel.Font = Enum.Font.GothamBold
+    ErrorLabel.TextSize = 14
     ErrorLabel.TextXAlignment = Enum.TextXAlignment.Left
     ErrorLabel.Parent = PageMain
 end
 
--- // --- ABA: SUPPORTED GAMES ---
+-- // --- ABA: SUPPORTED GAMES (ROBUSTA E SCROLLABLE) ---
 PageGames.Name = "PageGames"
-PageGames.Size = UDim2.new(1, 0, 1, 0)
+PageGames.Size = UDim2.new(1, 0, 1, -20)
+PageGames.Position = UDim2.new(0, 0, 0, 10)
 PageGames.BackgroundTransparency = 1
 PageGames.Visible = false
+PageGames.CanvasSize = UDim2.new(0, 0, 0, 0) -- Cresce dinamicamente
+PageGames.ScrollBarThickness = 4
+PageGames.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 75)
 PageGames.Parent = TabContainer
 
-local TitleGames = Instance.new("TextLabel")
-TitleGames.Size = UDim2.new(1, 0, 0, 30)
-TitleGames.BackgroundTransparency = 1
-TitleGames.Text = "Supported Games"
-TitleGames.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleGames.TextXAlignment = Enum.TextXAlignment.Left
-TitleGames.Font = Enum.Font.SourceSansBold
-TitleGames.TextSize = 20
-TitleGames.Parent = PageGames
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = PageGames
 
-local function criarBotaoJogo(nome, placeId, posicaoY)
-    local GameBtn = Instance.new("TextButton")
-    GameBtn.Size = UDim2.new(1, 0, 0, 40)
-    GameBtn.Position = UDim2.new(0, 0, 0, posicaoY)
-    GameBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    GameBtn.Text = "  🟢 " .. nome .. " ---> [Join Game]"
-    GameBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    GameBtn.Font = Enum.Font.SourceSans
-    GameBtn.TextSize = 16
-    GameBtn.TextXAlignment = Enum.TextXAlignment.Left
-    GameBtn.Parent = PageGames
-    Instance.new("UICorner", GameBtn).CornerRadius = UDim.new(0, 6)
+-- Função Dinâmica para Construção dos Cards de Jogos (Com Imagem e ID integrados pela API)
+local function criarCardDeJogo(nome, placeId)
+    local GameCard = Instance.new("Frame")
+    GameCard.Size = UDim2.new(1, -10, 0, 75)
+    GameCard.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+    GameCard.Parent = PageGames
     
-    GameBtn.MouseButton1Click:Connect(function()
-        game:GetService("TeleportService"):Teleport(placeId, game:GetService("Players").LocalPlayer)
+    local cCorner = Instance.new("UICorner", GameCard)
+    cCorner.CornerRadius = UDim.new(0, 10)
+    local cStroke = Instance.new("UIStroke", GameCard)
+    cStroke.Color = Color3.fromRGB(35, 35, 45)
+
+    -- Foto do Jogo (Puxado direto dos servidores de thumbnail de Assets oficiais do Roblox)
+    local GameIcon = Instance.new("ImageLabel")
+    GameIcon.Size = UDim2.new(0, 55, 0, 55)
+    GameIcon.Position = UDim2.new(0, 10, 0, 10)
+    GameIcon.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+    -- Endpoint nativo de resolução direta de Imagem do Place
+    GameIcon.Image = "rbxthumb://type=GameIcon&id=" .. tostring(placeId) .. "&w=150&h=150"
+    GameIcon.Parent = GameCard
+    local iCorner = Instance.new("UICorner", GameIcon)
+    iCorner.CornerRadius = UDim.new(0, 8)
+
+    -- Título do Jogo
+    local GameNameLabel = Instance.new("TextLabel")
+    GameNameLabel.Size = UDim2.new(0, 200, 0, 20)
+    GameNameLabel.Position = UDim2.new(0, 75, 0, 15)
+    GameNameLabel.BackgroundTransparency = 1
+    GameNameLabel.Text = nome
+    GameNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    GameNameLabel.Font = Enum.Font.GothamBold
+    GameNameLabel.TextSize = 14
+    GameNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    GameNameLabel.Parent = GameCard
+
+    -- Exibição Textual do Place ID
+    local GameIdLabel = Instance.new("TextLabel")
+    GameIdLabel.Size = UDim2.new(0, 200, 0, 15)
+    GameIdLabel.Position = UDim2.new(0, 75, 0, 38)
+    GameIdLabel.BackgroundTransparency = 1
+    GameIdLabel.Text = "Place ID: " .. tostring(placeId)
+    GameIdLabel.TextColor3 = Color3.fromRGB(130, 130, 145)
+    GameIdLabel.Font = Enum.Font.Code
+    GameIdLabel.TextSize = 11
+    GameIdLabel.TextXAlignment = Enum.TextXAlignment.Left
+    GameIdLabel.Parent = GameCard
+
+    -- Botão Teleportador Interativo Interno
+    local TeleportBtn = Instance.new("TextButton")
+    TeleportBtn.Size = UDim2.new(0, 95, 0, 32)
+    TeleportBtn.Position = UDim2.new(1, -110, 0, 21)
+    TeleportBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    TeleportBtn.Text = "Entrar"
+    TeleportBtn.TextColor3 = Color3.fromRGB(240, 240, 255)
+    TeleportBtn.Font = Enum.Font.GothamBold
+    TeleportBtn.TextSize = 12
+    TeleportBtn.Parent = GameCard
+    
+    local bCorner = Instance.new("UICorner", TeleportBtn)
+    bCorner.CornerRadius = UDim.new(0, 6)
+
+    TeleportBtn.MouseEnter:Connect(function() TeleportBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 65) end)
+    TeleportBtn.MouseLeave:Connect(function() TeleportBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) end)
+
+    TeleportBtn.MouseButton1Click:Connect(function()
+        game:GetService("TeleportService"):Teleport(placeId, LocalPlayer)
     end)
+    
+    -- Ajusta o tamanho do Canvas do container de forma dinâmica para prevenir bugs de espaço
+    PageGames.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
 end
 
-criarBotaoJogo("Jogo de Caixas Original", 125003919504672, 50)
-criarBotaoJogo("Outro Jogo Simulador", 987654321, 100)
+-- Instanciação dos Cards com as novas definições
+criarCardDeJogo("My Knife Farm", 125003919504672)
+criarCardDeJogo("Outro Jogo Simulador", 987654321)
 
--- // --- CONTROLE NATIVO DE ALTERNÂNCIA DE ABAS ---
+-- // --- SISTEMA DE ALTERNÂNCIA DE ABAS ---
 BtnMainTab.MouseButton1Click:Connect(function()
     PageMain.Visible = true
     PageGames.Visible = false
-    BtnMainTab.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    BtnMainTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     BtnMainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-    BtnGamesTab.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    BtnGamesTab.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
     BtnGamesTab.TextColor3 = Color3.fromRGB(180, 180, 180)
 end)
 
 BtnGamesTab.MouseButton1Click:Connect(function()
     PageMain.Visible = false
     PageGames.Visible = true
-    BtnGamesTab.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    BtnGamesTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     BtnGamesTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-    BtnMainTab.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    BtnMainTab.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
     BtnMainTab.TextColor3 = Color3.fromRGB(180, 180, 180)
 end)
