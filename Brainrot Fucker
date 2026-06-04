@@ -188,7 +188,7 @@ if game.PlaceId == 125003919504672 then
             _G.MinimoRequerido = converterSufixo(InputValue.Text)
             
             -- Puxa o seu script e transforma tudo dele em Global automaticamente
-            local urlDoSeuScriptFarm = "https://raw.githubusercontent.com/seu_usuario/seu_repositorio/main/script_do_farm.lua"
+            local urlDoSeuScriptFarm = "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/My%20knife%20farm"
             rodarScriptNoAmbienteGlobal(urlDoSeuScriptFarm)
         else
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
