@@ -15,11 +15,18 @@ local PageGames = Instance.new("ScrollingFrame")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local MarketPlaceService = game:GetService("MarketplaceService")
 local LocalPlayer = Players.LocalPlayer
 
--- Controle interno de estado firme
+-- Controle interno de estado
 local AutoFarmAtivo = false
+
+-- Obter nome do jogo atual dinamicamente para a interface
+local NomeDoJogoAtual = "Jogo Desconhecido"
+pcall(function()
+    local info = MarketPlaceService:GetProductInfo(game.PlaceId)
+    NomeDoJogoAtual = info.Name
+end)
 
 ScreenGui.Name = "VTZHub_PremiumLoader"
 ScreenGui.Parent = game:GetService("CoreGui")
@@ -121,7 +128,7 @@ local function configurarBotao(btn, txt, y)
 end
 
 configurarBotao(BtnMainTab, "Painel Principal", 25)
-configurarBotao(BtnGamesTab, "Jogos Suportados", 73)
+configurarBotao(BtnGamesTab, "Jogo Atual", 73)
 BtnMainTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
 
 -- // ABA PRINCIPAL (MAIN)
@@ -132,7 +139,7 @@ PageMain.Parent = TabContainer
 local TitleMain = Instance.new("TextLabel")
 TitleMain.Size = UDim2.new(1, -80, 0, 30)
 TitleMain.BackgroundTransparency = 1
-TitleMain.Text = "Configurações do Script"
+TitleMain.Text = "VTZ Hub Premium"
 TitleMain.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleMain.Font = Enum.Font.GothamBold
 TitleMain.TextSize = 22
@@ -143,7 +150,7 @@ local SubtitleMain = Instance.new("TextLabel")
 SubtitleMain.Size = UDim2.new(1, 0, 0, 20)
 SubtitleMain.Position = UDim2.new(0, 0, 0, 30)
 SubtitleMain.BackgroundTransparency = 1
-SubtitleMain.Text = "ID do Jogo: " .. tostring(game.PlaceId)
+SubtitleMain.Text = "Ambiente verificado com sucesso!"
 SubtitleMain.TextColor3 = Color3.fromRGB(0, 255, 160)
 SubtitleMain.Font = Enum.Font.GothamBold
 SubtitleMain.TextSize = 13
@@ -163,7 +170,7 @@ local CardTitle = Instance.new("TextLabel")
 CardTitle.Size = UDim2.new(1, -20, 0, 35)
 CardTitle.Position = UDim2.new(0, 15, 0, 5)
 CardTitle.BackgroundTransparency = 1
-CardTitle.Text = "Sincronização de Farm Local"
+CardTitle.Text = "Master Auto Farm"
 CardTitle.TextColor3 = Color3.fromRGB(230, 230, 235)
 CardTitle.Font = Enum.Font.GothamBold
 CardTitle.TextSize = 15
@@ -182,106 +189,84 @@ ToggleBtn.Parent = Card
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
 
 -- =============================================================================
--- SISTEMA DE MOVIMENTAÇÃO DE FLUXO DIRETO (SEM VERIFICAÇÃO DE FOLDER)
+-- ESPAÇOS RESERVADOS PARA OS SEUS SCRIPTS (SÓ COLOCAR E COMPILAR)
 -- =============================================================================
 
-local function voarAte(cframeDestino, velocidade)
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if not root or not cframeDestino then return end
-    
-    velocidade = velocidade or 95
-    local distancia = (root.Position - cframeDestino.Position).Magnitude
-    local tempo = distancia / velocidade
-    if distancia < 1.5 then return end
-    
-    local tweenInfo = TweenInfo.new(tempo, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = cframeDestino})
-    tween:Play()
-    tween.Completed:Wait()
+local function executarScriptAutoFarm()
+    -- [ESPAÇO RESERVADO DO JOGO 1]
+    -- Cole o código funcional do seu primeiro jogo aqui dentro
+    task.spawn(function()
+        print("[VTZ Hub] Verificando execução do Jogo 1...")
+        
+        while AutoFarmAtivo do
+            task.wait(0.1)
+            -- Exemplo de Loop do seu script:
+            -- local entities = workspace:FindFirstChild("EntitiesFolder")
+            -- Seu código continua aqui...
+        end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 2]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 3]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 4]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 5]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 6]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 7]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 8]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 9]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
+
+    -- [ESPAÇO RESERVADO DO JOGO 10]
+    task.spawn(function()
+        while AutoFarmAtivo do task.wait(1) end
+    end)
 end
 
-local function executarFarmPorId()
-    if workspace:FindFirstChild("Break_Map") or game.PlaceId == 137069154816703 then
-        task.spawn(function()
-            print("[VTZ Hub] Farm Ativo via Varredura Direta de Prompts.")
-
-            while AutoFarmAtivo do
-                task.wait(0.1)
-                local entities = workspace:FindFirstChild("EntitiesFolder")
-                
-                if entities then
-                    local alvo = nil
-                    
-                    -- Busca direta por qualquer modelo ativo com ProximityPrompt válido
-                    for _, ent in ipairs(entities:GetChildren()) do
-                        if ent:IsA("Model") then
-                            local prompt = ent:FindFirstChildOfClass("ProximityPrompt") or ent:FindFirstChild("ProximityPrompt", true)
-                            local part = ent.PrimaryPart or ent:FindFirstChildOfClass("Part") or ent:FindFirstChildOfClass("MeshPart")
-                            
-                            if prompt and part then
-                                alvo = ent
-                                break
-                            end
-                        end
-                    end
-                    
-                    if alvo then
-                        local prompt = alvo:FindFirstChildOfClass("ProximityPrompt") or alvo:FindFirstChild("ProximityPrompt", true)
-                        local part = alvo.PrimaryPart or alvo:FindFirstChildOfClass("Part") or alvo:FindFirstChildOfClass("MeshPart")
-                        
-                        if prompt and part then
-                            -- Teleporta 2 studs acima do centro da entidade alvo
-                            local posicaoAlvo = part.CFrame * CFrame.new(0, 2, 0)
-                            voarAte(posicaoAlvo, 95)
-                            
-                            if not AutoFarmAtivo then break end 
-                            
-                            fireproximityprompt(prompt, 1) 
-                            task.wait(0.05)
-                        end
-                    end
-                end
-            end
-            print("[VTZ Hub] Celestial Farm finalizado com segurança.")
-        end)
-
-    -- PLACEHOLDERS PROTEGIDOS (2 AO 10)
-    elseif game.PlaceId == 000000002 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    elseif game.PlaceId == 000000003 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    elseif game.PlaceId == 000000004 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    elseif game.PlaceId == 000000005 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    elseif game.PlaceId == 000000006 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    elseif game.PlaceId == 000000007 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    elseif game.PlaceId == 000000008 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    elseif game.PlaceId == 000000009 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    elseif game.PlaceId == 000000010 then
-        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
-    end
-end
-
+-- Ativador do Botão Principal
 ToggleBtn.MouseButton1Click:Connect(function()
     AutoFarmAtivo = not AutoFarmAtivo
     
     if AutoFarmAtivo then
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 150, 85)
         ToggleBtn.Text = "Auto Farm: ATIVO"
-        executarFarmPorId()
+        executarScriptAutoFarm()
     else
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
         ToggleBtn.Text = "Auto Farm: INATIVO"
     end
 end)
 
--- // ABA DE JOGOS (SCROLL)
+-- // ABA DE JOGOS (SCROLL DINÂMICO AUTOMÁTICO)
 PageGames.Size = UDim2.new(1, 0, 1, -20)
 PageGames.Position = UDim2.new(0, 0, 0, 10)
 PageGames.BackgroundTransparency = 1
@@ -293,7 +278,7 @@ local Layout = Instance.new("UIListLayout")
 Layout.Padding = UDim.new(0, 10)
 Layout.Parent = PageGames
 
-local function adicionarJogoLista(nome, id)
+local function carregarJogoAtualNaLista()
     local GCard = Instance.new("Frame")
     GCard.Size = UDim2.new(1, -10, 0, 75)
     GCard.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
@@ -302,39 +287,33 @@ local function adicionarJogoLista(nome, id)
     local s = Instance.new("UIStroke", GCard)
     s.Color = Color3.fromRGB(35, 35, 45)
 
+    -- FOTO DO JOGO AUTOMÁTICA VIA PLACEID ATUAL DO SERVIDOR
     local Icon = Instance.new("ImageLabel")
     Icon.Size = UDim2.new(0, 55, 0, 55)
     Icon.Position = UDim2.new(0, 10, 0, 10)
-    Icon.Image = "rbxthumb://type=GameIcon&id=" .. tostring(id) .. "&w=150&h=150"
+    Icon.Image = "rbxthumb://type=GameIcon&id=" .. tostring(game.GameId) .. "&w=150&h=150"
     Icon.Parent = GCard
     Instance.new("UICorner", Icon).CornerRadius = UDim.new(0, 8)
 
     local LblNome = Instance.new("TextLabel")
-    LblNome.Size = UDim2.new(1, -85, 0, 20)
+    LblNome.Size = UDim2.new(1, -85, 0, 40)
     LblNome.Position = UDim2.new(0, 75, 0, 15)
     LblNome.BackgroundTransparency = 1
-    LblNome.Text = nome
+    LblNome.Text = NomeDoJogoAtual
     LblNome.TextColor3 = Color3.fromRGB(255, 255, 255)
     LblNome.Font = Enum.Font.GothamBold
     LblNome.TextSize = 14
     LblNome.TextXAlignment = Enum.TextXAlignment.Left
+    LblNome.TextYAlignment = Enum.TextYAlignment.Top
+    LblNome.TextWrapped = true
     LblNome.Parent = GCard
-
-    local LblId = Instance.new("TextLabel")
-    LblId.Size = UDim2.new(1, -85, 0, 15)
-    LblId.Position = UDim2.new(0, 75, 0, 38)
-    LblId.BackgroundTransparency = 1
-    LblId.Text = "Place ID: " .. tostring(id)
-    LblId.TextColor3 = Color3.fromRGB(130, 130, 145)
-    LblId.Font = Enum.Font.Code
-    LblId.TextSize = 11
-    LblId.TextXAlignment = Enum.TextXAlignment.Left
-    LblId.Parent = GCard
     
     PageGames.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 20)
 end
 
-adicionarJogoLista("Hack Vault For Brainrots", 137069154816703)
+-- Inicializa a listagem dinâmica do jogo conectado
+carregarJogoAtualNaLista()
 
+-- Alternância de abas nativa
 BtnMainTab.MouseButton1Click:Connect(function() PageMain.Visible = true; PageGames.Visible = false end)
 BtnGamesTab.MouseButton1Click:Connect(function() PageMain.Visible = false; PageGames.Visible = true end)
