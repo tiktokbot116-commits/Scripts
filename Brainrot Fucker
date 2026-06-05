@@ -11,7 +11,10 @@ local BtnMainTab = Instance.new("TextButton")
 local BtnGamesTab = Instance.new("TextButton")
 
 local PageMain = Instance.new("Frame")
-local PageGames = Instance.new("ScrollingFrame") -- Mudado para suportar rolagem de vários jogos de forma limpa
+local PageGames = Instance.new("ScrollingFrame")
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 ScreenGui.Name = "VTZHub_PremiumLoader"
 ScreenGui.Parent = game:GetService("CoreGui")
@@ -30,7 +33,6 @@ MainFrame.Parent = ScreenGui
 UICorner_Main.CornerRadius = UDim.new(0, 14)
 UICorner_Main.Parent = MainFrame
 
--- Borda sutil neon profissional
 UIStroke_Main.Thickness = 1.5
 UIStroke_Main.Color = Color3.fromRGB(45, 45, 55)
 UIStroke_Main.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -53,7 +55,7 @@ TabContainer.Position = UDim2.new(0, 160, 0, 15)
 TabContainer.BackgroundTransparency = 1
 TabContainer.Parent = MainFrame
 
--- // Construtor de Botões do Menu Lateral com Efeitos Visuais
+-- // Construtor de Botões do Menu Lateral
 local function estilizarBotaoMenu(botao, texto, pos)
     botao.Size = UDim2.new(0, 130, 0, 38)
     botao.Position = UDim2.new(0, 10, 0, pos)
@@ -71,7 +73,6 @@ local function estilizarBotaoMenu(botao, texto, pos)
     stroke.Thickness = 1
     stroke.Color = Color3.fromRGB(30, 30, 35)
     
-    -- Efeitos dinâmicos de Hover
     botao.MouseEnter:Connect(function()
         if botao.BackgroundColor3 ~= Color3.fromRGB(40, 40, 50) then
             botao.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -119,12 +120,24 @@ SubtitleMain.Font = Enum.Font.Gotham
 SubtitleMain.TextSize = 13
 SubtitleMain.Parent = PageMain
 
--- ATUALIZADO: Aceita o ID antigo e o seu NOVO ID (137069154816703) para renderizar os botões
-if game.PlaceId == 125003919504672 or game.PlaceId == 137069154816703 then
+-- Tabela contendo os 10 IDs permitidos para ativar a GUI de automação
+local ListaDeMapasValidos = {
+    [125003919504672] = true, -- Jogo das Caixas Original
+    [137069154816703] = true, -- Hack Vault For Brainrots
+    [000000003] = true,       -- Espaço Reservado Jogo 3
+    [000000004] = true,       -- Espaço Reservado Jogo 4
+    [000000005] = true,       -- Espaço Reservado Jogo 5
+    [000000006] = true,       -- Espaço Reservado Jogo 6
+    [000000007] = true,       -- Espaço Reservado Jogo 7
+    [000000008] = true,       -- Espaço Reservado Jogo 8
+    [000000009] = true,       -- Espaço Reservado Jogo 9
+    [000000010] = true        -- Espaço Reservado Jogo 10
+}
+
+if ListaDeMapasValidos[game.PlaceId] then
     _G.AutoFarm = false
     _G.MinimoRequerido = 0
 
-    -- Custom Checkbox/Toggle do Automation Card
     local Card = Instance.new("Frame")
     Card.Size = UDim2.new(1, -10, 0, 140)
     Card.Position = UDim2.new(0, 0, 0, 70)
@@ -274,7 +287,7 @@ PageGames.Size = UDim2.new(1, 0, 1, -20)
 PageGames.Position = UDim2.new(0, 0, 0, 10)
 PageGames.BackgroundTransparency = 1
 PageGames.Visible = false
-PageGames.CanvasSize = UDim2.new(0, 0, 0, 0) -- Cresce dinamicamente
+PageGames.CanvasSize = UDim2.new(0, 0, 0, 0)
 PageGames.ScrollBarThickness = 4
 PageGames.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 75)
 PageGames.Parent = TabContainer
@@ -284,7 +297,6 @@ UIListLayout.Padding = UDim.new(0, 10)
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Parent = PageGames
 
--- Função Dinâmica para Construção dos Cards de Jogos (Com Imagem e ID integrados pela API)
 local function criarCardDeJogo(nome, placeId)
     local GameCard = Instance.new("Frame")
     GameCard.Size = UDim2.new(1, -10, 0, 75)
@@ -296,18 +308,15 @@ local function criarCardDeJogo(nome, placeId)
     local cStroke = Instance.new("UIStroke", GameCard)
     cStroke.Color = Color3.fromRGB(35, 35, 45)
 
-    -- Foto do Jogo (Puxado direto dos servidores de thumbnail de Assets oficiais do Roblox)
     local GameIcon = Instance.new("ImageLabel")
     GameIcon.Size = UDim2.new(0, 55, 0, 55)
     GameIcon.Position = UDim2.new(0, 10, 0, 10)
     GameIcon.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-    -- Endpoint nativo de resolução direta de Imagem do Place
     GameIcon.Image = "rbxthumb://type=GameIcon&id=" .. tostring(placeId) .. "&w=150&h=150"
     GameIcon.Parent = GameCard
     local iCorner = Instance.new("UICorner", GameIcon)
     iCorner.CornerRadius = UDim.new(0, 8)
 
-    -- Título do Jogo
     local GameNameLabel = Instance.new("TextLabel")
     GameNameLabel.Size = UDim2.new(0, 200, 0, 20)
     GameNameLabel.Position = UDim2.new(0, 75, 0, 15)
@@ -319,7 +328,6 @@ local function criarCardDeJogo(nome, placeId)
     GameNameLabel.TextXAlignment = Enum.TextXAlignment.Left
     GameNameLabel.Parent = GameCard
 
-    -- Exibição Textual do Place ID
     local GameIdLabel = Instance.new("TextLabel")
     GameIdLabel.Size = UDim2.new(0, 200, 0, 15)
     GameIdLabel.Position = UDim2.new(0, 75, 0, 38)
@@ -331,7 +339,6 @@ local function criarCardDeJogo(nome, placeId)
     GameIdLabel.TextXAlignment = Enum.TextXAlignment.Left
     GameIdLabel.Parent = GameCard
 
-    -- Botão Teleportador Interativo Interno
     local TeleportBtn = Instance.new("TextButton")
     TeleportBtn.Size = UDim2.new(0, 95, 0, 32)
     TeleportBtn.Position = UDim2.new(1, -110, 0, 21)
@@ -349,16 +356,25 @@ local function criarCardDeJogo(nome, placeId)
     TeleportBtn.MouseLeave:Connect(function() TeleportBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) end)
 
     TeleportBtn.MouseButton1Click:Connect(function()
-        game:GetService("TeleportService"):Teleport(placeId, game:GetService("Players").LocalPlayer)
+        game:GetService("TeleportService"):Teleport(placeId, LocalPlayer)
     end)
     
-    -- Ajusta o tamanho do Canvas do container de forma dinâmica para prevenir bugs de espaço
     PageGames.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
 end
 
--- Instanciação dos Cards (ATUALIZADO: Usando o seu novo ID correto de Farm)
+-- =============================================================================
+-- INSTANCIAÇÃO DOS 10 JOGOS NA ABA "JOGOS SUPORTADOS"
+-- =============================================================================
+criarCardDeJogo("Jogo das Caixas", 125003919504672)
 criarCardDeJogo("Hack Vault For Brainrots", 137069154816703)
-criarCardDeJogo("Outro Jogo Simulador", 987654321)
+criarCardDeJogo("Jogo Suportado 3", 000000003)
+criarCardDeJogo("Jogo Suportado 4", 000000004)
+criarCardDeJogo("Jogo Suportado 5", 000000005)
+criarCardDeJogo("Jogo Suportado 6", 000000006)
+criarCardDeJogo("Jogo Suportado 7", 000000007)
+criarCardDeJogo("Jogo Suportado 8", 000000008)
+criarCardDeJogo("Jogo Suportado 9", 000000009)
+criarCardDeJogo("Jogo Suportado 10", 000000010)
 
 -- // --- SISTEMA DE ALTERNÂNCIA DE ABAS ---
 BtnMainTab.MouseButton1Click:Connect(function()
@@ -378,4 +394,3 @@ BtnGamesTab.MouseButton1Click:Connect(function()
     BtnMainTab.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
     BtnMainTab.TextColor3 = Color3.fromRGB(180, 180, 180)
 end)
-
