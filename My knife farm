@@ -1,5 +1,5 @@
 -- =============================================================================
--- GERENCIADOR DE SCRIPTS EXTERNOS - MÚLTIPLOS JOGOS CONTÍNUOS
+-- GERENCIADOR DE SCRIPTS EXTERNOS - ATUALIZADO (MONITOR DE BOTÃO)
 -- =============================================================================
 
 local Players = game:GetService("Players")
@@ -7,10 +7,10 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local CurrentPlaceId = game.PlaceId
 
--- Desliga execuções de loops antigos globais para evitar sobrecarga de memória
+-- Mata qualquer execução anterior do loop para não acumular scripts rodando juntos
 _G.FarmLoopAtivo = false
 _G.CelestialLoopAtivo = false
-task.wait(0.15)
+task.wait(0.2)
 
 -- // FUNÇÃO AUXILIAR UNIVERSAL: TWEEN / VOAR
 local function voarAte(cframeDestino, velocidade)
@@ -34,6 +34,7 @@ end
 -- =============================================================================
 if CurrentPlaceId == 125003919504672 then
     _G.FarmLoopAtivo = true
+    print("[VTZ Hub] Loop de Farm Iniciado para Jogo das Caixas.")
     
     local function extrairNumeroDaString(texto)
         texto = string.upper(string.gsub(texto, "[,%s$]", ""))
@@ -62,32 +63,33 @@ if CurrentPlaceId == 125003919504672 then
     end
 
     task.spawn(function()
-        while _G.FarmLoopAtivo do
+        -- O script fica rodando enquanto a GUI permitir e o botão estiver ON
+        while _G.FarmLoopAtivo and _G.AutoFarm do
             task.wait(0.3)
-            if _G.AutoFarm then
-                local meuPlot = obterPlotDoJogador()
-                local baseModel = meuPlot and meuPlot:FindFirstChild("Plot_Models") and meuPlot.Plot_Models:FindFirstChild("BaseModel")
-                if baseModel then
-                    local boxStand = baseModel:FindFirstChild("BoxStand")
-                    local sellP = baseModel:FindFirstChild("SellButton") and baseModel.SellButton:FindFirstChild("SellP")
-                    
-                    if boxStand and sellP then
-                        local prompt = boxStand:FindFirstChildOfClass("ProximityPrompt") or boxStand:FindFirstChild("ProximityPrompt", true)
-                        if prompt then
-                            local texto = prompt.ObjectText or prompt.ActionText or ""
-                            if extrairNumeroDaString(texto) >= _G.MinimoRequerido then
-                                voarAte(boxStand.CFrame, 75)
-                                if _G.AutoFarm then
-                                    fireproximityprompt(prompt, 1)
-                                    task.wait(0.1)
-                                    voarAte(sellP.CFrame, 75)
-                                end
-                            end
+            
+            local meuPlot = obterPlotDoJogador()
+            local baseModel = meuPlot and meuPlot:FindFirstChild("Plot_Models") and meuPlot.Plot_Models:FindFirstChild("BaseModel")
+            if baseModel then
+                local boxStand = baseModel:FindFirstChild("BoxStand")
+                local sellP = baseModel:FindFirstChild("SellButton") and baseModel.SellButton:FindFirstChild("SellP")
+                
+                if boxStand and sellP then
+                    local prompt = boxStand:FindFirstChildOfClass("ProximityPrompt") or boxStand:FindFirstChild("ProximityPrompt", true)
+                    if prompt then
+                        local texto = prompt.ObjectText or prompt.ActionText or ""
+                        -- Valor estático simulando o antigo comportamento do textbox interno
+                        if extrairNumeroDaString(texto) >= 1000000000000 then -- 1T Padrão
+                            voarAte(boxStand.CFrame, 75)
+                            if not _G.AutoFarm then break end
+                            fireproximityprompt(prompt, 1)
+                            task.wait(0.1)
+                            voarAte(sellP.CFrame, 75)
                         end
                     end
                 end
             end
         end
+        print("[VTZ Hub] Loop de Farm Desligado com Sucesso.")
     end)
 
 -- =============================================================================
@@ -95,6 +97,7 @@ if CurrentPlaceId == 125003919504672 then
 -- =============================================================================
 elseif CurrentPlaceId == 137069154816703 then
     _G.CelestialLoopAtivo = true
+    print("[VTZ Hub] Loop de Farm Iniciado para Hack Vault.")
     local cframeBase = CFrame.new(75, 4, -714)
 
     local function estaEmCimaDaFloor(modelo, floor)
@@ -106,88 +109,60 @@ elseif CurrentPlaceId == 137069154816703 then
     end
 
     task.spawn(function()
-        while _G.CelestialLoopAtivo do
+        -- O script fica rodando enquanto a GUI permitir e o botão estiver ON
+        while _G.CelestialLoopAtivo and _G.AutoFarm do
             task.wait(0.2)
-            if _G.AutoFarm then
-                local floor = workspace:FindFirstChild("Break_Map") and workspace.Break_Map:FindFirstChild("Locations") and workspace.Break_Map.Locations:FindFirstChild("CelestialFloorBest")
-                local entities = workspace:FindFirstChild("EntitiesFolder")
-                
-                if floor and entities then
-                    local alvo = nil
-                    for _, ent in ipairs(entities:GetChildren()) do
-                        if ent:IsA("Model") and estaEmCimaDaFloor(ent, floor) then
-                            if ent:FindFirstChildOfClass("ProximityPrompt") or ent:FindFirstChild("ProximityPrompt", true) then
-                                alvo = ent
-                                break
-                            end
+            
+            local floor = workspace:FindFirstChild("Break_Map") and workspace.Break_Map:FindFirstChild("Locations") and workspace.Break_Map.Locations:FindFirstChild("CelestialFloorBest")
+            local entities = workspace:FindFirstChild("EntitiesFolder")
+            
+            if floor and entities then
+                local alvo = nil
+                for _, ent in ipairs(entities:GetChildren()) do
+                    if ent:IsA("Model") and estaEmCimaDaFloor(ent, floor) then
+                        if ent:FindFirstChildOfClass("ProximityPrompt") or ent:FindFirstChild("ProximityPrompt", true) then
+                            alvo = ent
+                            break
                         end
                     end
-                    
-                    if alvo and _G.AutoFarm then
-                        local prompt = alvo:FindFirstChildOfClass("ProximityPrompt") or alvo:FindFirstChild("ProximityPrompt", true)
-                        local part = alvo.PrimaryPart or alvo:FindFirstChildOfClass("Part") or alvo:FindFirstChildOfClass("MeshPart")
-                        if prompt and part then
-                            voarAte(cframeBase, 90)
-                            voarAte(part.CFrame, 85)
-                            if _G.AutoFarm then fireproximityprompt(prompt, 1) task.wait(0.1) end
-                            voarAte(cframeBase, 95)
-                        end
+                end
+                
+                if alvo then
+                    local prompt = alvo:FindFirstChildOfClass("ProximityPrompt") or alvo:FindFirstChild("ProximityPrompt", true)
+                    local part = alvo.PrimaryPart or alvo:FindFirstChildOfClass("Part") or alvo:FindFirstChildOfClass("MeshPart")
+                    if prompt and part then
+                        voarAte(cframeBase, 90)
+                        voarAte(part.CFrame, 85)
+                        if not _G.AutoFarm then break end 
+                        fireproximityprompt(prompt, 1) 
+                        task.wait(0.1)
+                        voarAte(cframeBase, 95)
                     end
                 end
             end
         end
+        print("[VTZ Hub] Loop Celestial Desligado com Sucesso.")
     end)
 
 -- =============================================================================
--- [CÓDIGO 3] - MAPA RESERVADO (Substitua o 000000000 pelo ID do novo mapa)
+-- JOGOS DE 3 A 10 (RESERVADOS)
 -- =============================================================================
 elseif CurrentPlaceId == 000000003 then
-    -- Escreva a lógica do Farm 3 aqui (Ex: Simulador de Espada, Auto Clique, etc)
     print("Executando Script do Jogo 3")
-
--- =============================================================================
--- [CÓDIGO 4] - MAPA RESERVADO
--- =============================================================================
 elseif CurrentPlaceId == 000000004 then
     print("Executando Script do Jogo 4")
-
--- =============================================================================
--- [CÓDIGO 5] - MAPA RESERVADO
--- =============================================================================
 elseif CurrentPlaceId == 000000005 then
     print("Executando Script do Jogo 5")
-
--- =============================================================================
--- [CÓDIGO 6] - MAPA RESERVADO
--- =============================================================================
 elseif CurrentPlaceId == 000000006 then
     print("Executando Script do Jogo 6")
-
--- =============================================================================
--- [CÓDIGO 7] - MAPA RESERVADO
--- =============================================================================
 elseif CurrentPlaceId == 000000007 then
     print("Executando Script do Jogo 7")
-
--- =============================================================================
--- [CÓDIGO 8] - MAPA RESERVADO
--- =============================================================================
 elseif CurrentPlaceId == 000000008 then
     print("Executando Script do Jogo 8")
-
--- =============================================================================
--- [CÓDIGO 9] - MAPA RESERVADO
--- =============================================================================
 elseif CurrentPlaceId == 000000009 then
     print("Executando Script do Jogo 9")
-
--- =============================================================================
--- [CÓDIGO 10] - MAPA RESERVADO
--- =============================================================================
 elseif CurrentPlaceId == 000000010 then
     print("Executando Script do Jogo 10")
-
 else
-    -- Caso o jogador execute o script em um mapa que não está registrado na lista
-    warn("VTZ Hub: Este mapa atual não possui automações configuradas no repositório remoto.")
+    warn("VTZ Hub: Este mapa não possui automações configuradas no repositório.")
 end
