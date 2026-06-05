@@ -18,9 +18,8 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- Controle interno de estado (substituindo o antigo _G instável)
+-- Controle interno de estado firme
 local AutoFarmAtivo = false
-local ID_ATUAL = game.PlaceId
 
 ScreenGui.Name = "VTZHub_PremiumLoader"
 ScreenGui.Parent = game:GetService("CoreGui")
@@ -144,7 +143,7 @@ local SubtitleMain = Instance.new("TextLabel")
 SubtitleMain.Size = UDim2.new(1, 0, 0, 20)
 SubtitleMain.Position = UDim2.new(0, 0, 0, 30)
 SubtitleMain.BackgroundTransparency = 1
-SubtitleMain.Text = "ID Detectado Internamente: " .. tostring(ID_ATUAL)
+SubtitleMain.Text = "ID do Jogo: " .. tostring(game.PlaceId)
 SubtitleMain.TextColor3 = Color3.fromRGB(0, 255, 160)
 SubtitleMain.Font = Enum.Font.GothamBold
 SubtitleMain.TextSize = 13
@@ -203,18 +202,10 @@ local function voarAte(cframeDestino, velocidade)
 end
 
 local function executarFarmPorId()
-    if ID_ATUAL == 137069154816703 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 1: HACK VAULT FOR BRAINROTS
-        -- ---------------------------------------------------------------------
+    -- IGNORA ID EXATO: Se a pasta do Hack Vault existir no Workspace, ele inicia o farm na hora!
+    if workspace:FindFirstChild("Break_Map") or game.PlaceId == 137069154816703 then
         task.spawn(function()
-            local breakMap = workspace:FindFirstChild("Break_Map")
-            if not breakMap then 
-                warn("[VTZ Hub] Estrutura 'Break_Map' não encontrada para o Hack Vault.")
-                return 
-            end
-
-            print("[VTZ Hub] Executando: Celestial Farm Local.")
+            print("[VTZ Hub] Mapa Hack Vault detectado via Estrutura do Workspace. Iniciando...")
             local cframeBase = CFrame.new(75, 4, -714)
 
             local function estaEmCimaDaFloor(modelo, floor)
@@ -228,7 +219,8 @@ local function executarFarmPorId()
                 task.wait(0.2)
                 
                 local locations = workspace.Break_Map:FindFirstChild("Locations")
-                local floor = locations and locations:FindFirstChild("CelestialFloorBest")
+                -- Pega o CelestialFloorBest se existir, caso contrário puxa o primeiro piso válido da pasta para não quebrar
+                local floor = locations and (locations:FindFirstChild("CelestialFloorBest") or locations:GetChildren()[1])
                 local entities = workspace:FindFirstChild("EntitiesFolder")
                 
                 if floor and entities then
@@ -262,88 +254,27 @@ local function executarFarmPorId()
             print("[VTZ Hub] Celestial Farm encerrado.")
         end)
 
-    elseif ID_ATUAL == 000000002 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 2: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 2 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
-
-    elseif ID_ATUAL == 000000003 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 3: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 3 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
-
-    elseif ID_ATUAL == 000000004 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 4: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 4 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
-
-    elseif ID_ATUAL == 000000005 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 5: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 5 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
-
-    elseif ID_ATUAL == 000000006 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 6: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 6 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
-
-    elseif ID_ATUAL == 000000007 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 7: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 7 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
-
-    elseif ID_ATUAL == 000000008 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 8: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 8 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
-
-    elseif ID_ATUAL == 000000009 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 9: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 9 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
-
-    elseif ID_ATUAL == 000000010 then
-        -- ---------------------------------------------------------------------
-        -- JOGO 10: PLACEHOLDER
-        -- ---------------------------------------------------------------------
-        print("[VTZ Hub] Jogo 10 Ativado.")
-        task.spawn(function()
-            while AutoFarmAtivo do task.wait(1) end
-        end)
+    -- PLACEHOLDERS PARA OS OUTROS JOGOS (2 AO 10)
+    elseif game.PlaceId == 000000002 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
+    elseif game.PlaceId == 000000003 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
+    elseif game.PlaceId == 000000004 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
+    elseif game.PlaceId == 000000005 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
+    elseif game.PlaceId == 000000006 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
+    elseif game.PlaceId == 000000007 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
+    elseif game.PlaceId == 000000008 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
+    elseif game.PlaceId == 000000009 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
+    elseif game.PlaceId == 000000010 then
+        task.spawn(function() while AutoFarmAtivo do task.wait(1) end end)
     else
-        warn("[VTZ Hub] Este Place ID não possui automação configurada nesta lista.")
+        warn("[VTZ Hub] Nenhuma estrutura ou ID correspondente para este mapa atual.")
     end
 end
 
