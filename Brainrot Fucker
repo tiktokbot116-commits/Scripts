@@ -120,7 +120,7 @@ SubtitleMain.Font = Enum.Font.Gotham
 SubtitleMain.TextSize = 13
 SubtitleMain.Parent = PageMain
 
--- Tabela de validação contendo os IDs suportados
+-- Lista de IDs suportados para ativar o painel principal
 local ListaDeMapasValidos = {
     [125003919504672] = true,
     [137069154816703] = true,
@@ -136,10 +136,9 @@ local ListaDeMapasValidos = {
 
 if ListaDeMapasValidos[game.PlaceId] then
     _G.AutoFarm = false
-    _G.MinimoRequerido = 0
 
     local Card = Instance.new("Frame")
-    Card.Size = UDim2.new(1, -10, 0, 140)
+    Card.Size = UDim2.new(1, -10, 0, 90) -- Ajustado para conter de forma limpa apenas o botão
     Card.Position = UDim2.new(0, 0, 0, 70)
     Card.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
     Card.Parent = PageMain
@@ -148,7 +147,7 @@ if ListaDeMapasValidos[game.PlaceId] then
 
     local CardTitle = Instance.new("TextLabel")
     CardTitle.Size = UDim2.new(1, -20, 0, 35)
-    CardTitle.Position = UDim2.new(0, 15, 0, 10)
+    CardTitle.Position = UDim2.new(0, 15, 0, 5)
     CardTitle.BackgroundTransparency = 1
     CardTitle.Text = "Controle de Sistemas"
     CardTitle.TextColor3 = Color3.fromRGB(230, 230, 235)
@@ -158,8 +157,8 @@ if ListaDeMapasValidos[game.PlaceId] then
     CardTitle.Parent = Card
 
     local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(0, 170, 0, 42)
-    ToggleBtn.Position = UDim2.new(0, 15, 0, 50)
+    ToggleBtn.Size = UDim2.new(1, -30, 0, 38)
+    ToggleBtn.Position = UDim2.new(0, 15, 0, 42)
     ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
     ToggleBtn.Text = "Auto Farm: INATIVO"
     ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -169,76 +168,7 @@ if ListaDeMapasValidos[game.PlaceId] then
     local tCorner = Instance.new("UICorner", ToggleBtn)
     tCorner.CornerRadius = UDim.new(0, 8)
 
-    local InputValue = Instance.new("TextBox")
-    InputValue.Size = UDim2.new(0, 180, 0, 42)
-    InputValue.Position = UDim2.new(0, 200, 0, 50)
-    InputValue.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
-    InputValue.Text = "1T"
-    InputValue.TextColor3 = Color3.fromRGB(0, 255, 160)
-    InputValue.Font = Enum.Font.GothamSemibold
-    InputValue.TextSize = 14
-    InputValue.PlaceholderText = "Mínimo Ex: 10M, 1CN"
-    InputValue.Parent = Card
-    local iCorner = Instance.new("UICorner", InputValue)
-    iCorner.CornerRadius = UDim.new(0, 8)
-    local iStroke = Instance.new("UIStroke", InputValue)
-    iStroke.Color = Color3.fromRGB(40, 40, 50)
-
-    local CardTip = Instance.new("TextLabel")
-    CardTip.Size = UDim2.new(1, -20, 0, 25)
-    CardTip.Position = UDim2.new(0, 15, 0, 103)
-    CardTip.BackgroundTransparency = 1
-    CardTip.Text = "💡 Insira o valor mínimo usando sufixos (K, M, B, T... até CN)"
-    CardTip.TextColor3 = Color3.fromRGB(120, 120, 135)
-    CardTip.Font = Enum.Font.Gotham
-    CardTip.TextSize = 12
-    CardTip.TextXAlignment = Enum.TextXAlignment.Left
-    CardTip.Parent = Card
-
-    local function converterSufixo(texto)
-        texto = string.upper(string.gsub(texto, "%s+", ""))
-        local numero = tonumber(string.match(texto, "^[%d%.]+"))
-        if not numero then return 0 end
-        
-        if string.find(texto, "K") then return numero * 10^3
-        elseif string.find(texto, "M") then return numero * 10^6
-        elseif string.find(texto, "B") then return numero * 10^9
-        elseif string.find(texto, "T") then return numero * 10^12
-        elseif string.find(texto, "QD") then return numero * 10^15
-        elseif string.find(texto, "QT") or string.find(texto, "QN") then return numero * 10^18
-        elseif string.find(texto, "SX") then return numero * 10^21
-        elseif string.find(texto, "SP") then return numero * 10^24
-        elseif string.find(texto, "OC") then return numero * 10^27
-        elseif string.find(texto, "NO") then return numero * 10^30
-        elseif string.find(texto, "DC") then return numero * 10^33
-        elseif string.find(texto, "UD") then return numero * 10^36
-        elseif string.find(texto, "DD") then return numero * 10^39
-        elseif string.find(texto, "TD") then return numero * 10^42
-        elseif string.find(texto, "QDD") then return numero * 10^45
-        elseif string.find(texto, "QTD") then return numero * 10^48
-        elseif string.find(texto, "SXD") then return numero * 10^51
-        elseif string.find(texto, "SPD") then return numero * 10^54
-        elseif string.find(texto, "OCD") then return numero * 10^57
-        elseif string.find(texto, "NOD") then return numero * 10^60
-        elseif string.find(texto, "VG") then return numero * 10^63
-        elseif string.find(texto, "UVG") then return numero * 10^66
-        elseif string.find(texto, "DVG") then return numero * 10^69
-        elseif string.find(texto, "TVG") then return numero * 10^72
-        elseif string.find(texto, "TG") then return numero * 10^93
-        elseif string.find(texto, "QG") then return numero * 10^123
-        elseif string.find(texto, "PC") then return numero * 10^153
-        elseif string.find(texto, "HX") then return numero * 10^183
-        elseif string.find(texto, "HP") then return numero * 10^213
-        elseif string.find(texto, "OG") then return numero * 10^243
-        elseif string.find(texto, "NW") then return numero * 10^273
-        elseif string.find(texto, "CN") then return numero * 10^303
-        end
-        return numero
-    end
-
-    -- SISTEMA AUXILIAR REFORÇADO DE DOWNLOAD DO GITHUB
     local function rodarScriptNoAmbienteGlobal()
-        -- Array de links possíveis (com e sem formatação de espaço) para anular erros de redirecionamento do GitHub
         local urls = {
             "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/My%20knife%20farm",
             "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/main/My%20knife%20farm"
@@ -249,7 +179,6 @@ if ListaDeMapasValidos[game.PlaceId] then
             local sucesso, resultado = pcall(function() return game:HttpGet(url) end)
             if sucesso and resultado and #resultado > 0 then
                 codigoBruto = resultado
-                print("[-] VTZ Hub: Script baixado com sucesso da URL válida.")
                 break
             end
         end
@@ -262,12 +191,11 @@ if ListaDeMapasValidos[game.PlaceId] then
                     __newindex = function(_, chave, valor) _G[chave] = valor end
                 }))
                 task.spawn(funcaoCarregada)
-                print("[+] VTZ Hub: Script executado no ambiente global com sucesso!")
             else
-                warn("[!] Erro de Sintaxe dentro do script do seu GitHub: " .. tostring(erroCompilacao))
+                warn("Erro de Sintaxe no GitHub: " .. tostring(erroCompilacao))
             end
         else
-            warn("[!] Falha Crítica: Não foi possível obter resposta HTTP do GitHub. Verifique a internet ou o nome do arquivo.")
+            warn("Falha ao se conectar com o servidor do GitHub.")
         end
     end
 
@@ -276,9 +204,8 @@ if ListaDeMapasValidos[game.PlaceId] then
         if _G.AutoFarm then
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 150, 85)
             ToggleBtn.Text = "Auto Farm: ATIVO"
-            _G.MinimoRequerido = converterSufixo(InputValue.Text)
             
-            -- Dispara o carregamento seguro do farm remoto
+            -- Apenas despacha o comando para o loadstring remoto tratar o farm
             rodarScriptNoAmbienteGlobal()
         else
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
@@ -298,7 +225,7 @@ else
     ErrorLabel.Parent = PageMain
 end
 
--- // --- ABA: SUPPORTED GAMES (ROBUSTA E SCROLLABLE) ---
+-- // --- ABA: SUPPORTED GAMES (SCROLLABLE - APENAS EXIBIÇÃO) ---
 PageGames.Name = "PageGames"
 PageGames.Size = UDim2.new(1, 0, 1, -20)
 PageGames.Position = UDim2.new(0, 0, 0, 10)
@@ -335,7 +262,7 @@ local function criarCardDeJogo(nome, placeId)
     iCorner.CornerRadius = UDim.new(0, 8)
 
     local GameNameLabel = Instance.new("TextLabel")
-    GameNameLabel.Size = UDim2.new(0, 200, 0, 20)
+    GameNameLabel.Size = UDim2.new(1, -85, 0, 20)
     GameNameLabel.Position = UDim2.new(0, 75, 0, 15)
     GameNameLabel.BackgroundTransparency = 1
     GameNameLabel.Text = nome
@@ -346,7 +273,7 @@ local function criarCardDeJogo(nome, placeId)
     GameNameLabel.Parent = GameCard
 
     local GameIdLabel = Instance.new("TextLabel")
-    GameIdLabel.Size = UDim2.new(0, 200, 0, 15)
+    GameIdLabel.Size = UDim2.new(1, -85, 0, 15)
     GameIdLabel.Position = UDim2.new(0, 75, 0, 38)
     GameIdLabel.BackgroundTransparency = 1
     GameIdLabel.Text = "Place ID: " .. tostring(placeId)
@@ -355,32 +282,12 @@ local function criarCardDeJogo(nome, placeId)
     GameIdLabel.TextSize = 11
     GameIdLabel.TextXAlignment = Enum.TextXAlignment.Left
     GameIdLabel.Parent = GameCard
-
-    local TeleportBtn = Instance.new("TextButton")
-    TeleportBtn.Size = UDim2.new(0, 95, 0, 32)
-    TeleportBtn.Position = UDim2.new(1, -110, 0, 21)
-    TeleportBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    TeleportBtn.Text = "Entrar"
-    TeleportBtn.TextColor3 = Color3.fromRGB(240, 240, 255)
-    TeleportBtn.Font = Enum.Font.GothamBold
-    TeleportBtn.TextSize = 12
-    TeleportBtn.Parent = GameCard
-    
-    local bCorner = Instance.new("UICorner", TeleportBtn)
-    bCorner.CornerRadius = UDim.new(0, 6)
-
-    TeleportBtn.MouseEnter:Connect(function() TeleportBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 65) end)
-    TeleportBtn.MouseLeave:Connect(function() TeleportBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) end)
-
-    TeleportBtn.MouseButton1Click:Connect(function()
-        game:GetService("TeleportService"):Teleport(placeId, LocalPlayer)
-    end)
     
     PageGames.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
 end
 
 -- =============================================================================
--- INSTANCIAÇÃO DOS 10 JOGOS NA ABA "JOGOS SUPORTADOS"
+-- EXIBIÇÃO EXCLUSIVA DOS JOGOS (SEM BOTÕES DE TELEPORTE)
 -- =============================================================================
 criarCardDeJogo("Jogo das Caixas", 125003919504672)
 criarCardDeJogo("Hack Vault For Brainrots", 137069154816703)
