@@ -120,18 +120,18 @@ SubtitleMain.Font = Enum.Font.Gotham
 SubtitleMain.TextSize = 13
 SubtitleMain.Parent = PageMain
 
--- Tabela contendo os 10 IDs permitidos para ativar a GUI de automação
+-- Tabela de validação contendo os IDs suportados
 local ListaDeMapasValidos = {
-    [125003919504672] = true, -- Jogo das Caixas Original
-    [137069154816703] = true, -- Hack Vault For Brainrots
-    [000000003] = true,       -- Espaço Reservado Jogo 3
-    [000000004] = true,       -- Espaço Reservado Jogo 4
-    [000000005] = true,       -- Espaço Reservado Jogo 5
-    [000000006] = true,       -- Espaço Reservado Jogo 6
-    [000000007] = true,       -- Espaço Reservado Jogo 7
-    [000000008] = true,       -- Espaço Reservado Jogo 8
-    [000000009] = true,       -- Espaço Reservado Jogo 9
-    [000000010] = true        -- Espaço Reservado Jogo 10
+    [125003919504672] = true,
+    [137069154816703] = true,
+    [000000003] = true,
+    [000000004] = true,
+    [000000005] = true,
+    [000000006] = true,
+    [000000007] = true,
+    [000000008] = true,
+    [000000009] = true,
+    [000000010] = true
 }
 
 if ListaDeMapasValidos[game.PlaceId] then
@@ -236,9 +236,25 @@ if ListaDeMapasValidos[game.PlaceId] then
         return numero
     end
 
-    local function rodarScriptNoAmbienteGlobal(url)
-        local sucesso, codigoBruto = pcall(function() return game:HttpGet(url) end)
-        if sucesso and codigoBruto then
+    -- SISTEMA AUXILIAR REFORÇADO DE DOWNLOAD DO GITHUB
+    local function rodarScriptNoAmbienteGlobal()
+        -- Array de links possíveis (com e sem formatação de espaço) para anular erros de redirecionamento do GitHub
+        local urls = {
+            "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/My%20knife%20farm",
+            "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/main/My%20knife%20farm"
+        }
+        
+        local codigoBruto = nil
+        for _, url in ipairs(urls) do
+            local sucesso, resultado = pcall(function() return game:HttpGet(url) end)
+            if sucesso and resultado and #resultado > 0 then
+                codigoBruto = resultado
+                print("[-] VTZ Hub: Script baixado com sucesso da URL válida.")
+                break
+            end
+        end
+        
+        if codigoBruto then
             local funcaoCarregada, erroCompilacao = loadstring(codigoBruto)
             if funcaoCarregada then
                 setfenv(funcaoCarregada, setmetatable({}, {
@@ -246,11 +262,12 @@ if ListaDeMapasValidos[game.PlaceId] then
                     __newindex = function(_, chave, valor) _G[chave] = valor end
                 }))
                 task.spawn(funcaoCarregada)
+                print("[+] VTZ Hub: Script executado no ambiente global com sucesso!")
             else
-                warn("Erro de Compilação: " .. tostring(erroCompilacao))
+                warn("[!] Erro de Sintaxe dentro do script do seu GitHub: " .. tostring(erroCompilacao))
             end
         else
-            warn("Erro de Comunicação HTTP com o repositório.")
+            warn("[!] Falha Crítica: Não foi possível obter resposta HTTP do GitHub. Verifique a internet ou o nome do arquivo.")
         end
     end
 
@@ -261,8 +278,8 @@ if ListaDeMapasValidos[game.PlaceId] then
             ToggleBtn.Text = "Auto Farm: ATIVO"
             _G.MinimoRequerido = converterSufixo(InputValue.Text)
             
-            local urlDoSeuScriptFarm = "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/My%20knife%20farm"
-            rodarScriptNoAmbienteGlobal(urlDoSeuScriptFarm)
+            -- Dispara o carregamento seguro do farm remoto
+            rodarScriptNoAmbienteGlobal()
         else
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
             ToggleBtn.Text = "Auto Farm: INATIVO"
