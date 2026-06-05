@@ -119,7 +119,8 @@ SubtitleMain.Font = Enum.Font.Gotham
 SubtitleMain.TextSize = 13
 SubtitleMain.Parent = PageMain
 
-if game.PlaceId == 125003919504672 then
+-- ATUALIZADO: Aceita o ID antigo e o seu NOVO ID (137069154816703) para renderizar os botões
+if game.PlaceId == 125003919504672 or game.PlaceId == 137069154816703 then
     _G.AutoFarm = false
     _G.MinimoRequerido = 0
 
@@ -348,15 +349,15 @@ local function criarCardDeJogo(nome, placeId)
     TeleportBtn.MouseLeave:Connect(function() TeleportBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) end)
 
     TeleportBtn.MouseButton1Click:Connect(function()
-        game:GetService("TeleportService"):Teleport(placeId, LocalPlayer)
+        game:GetService("TeleportService"):Teleport(placeId, game:GetService("Players").LocalPlayer)
     end)
     
     -- Ajusta o tamanho do Canvas do container de forma dinâmica para prevenir bugs de espaço
     PageGames.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
 end
 
--- Instanciação dos Cards com as novas definições
-criarCardDeJogo("My Knife Farm", 125003919504672)
+-- Instanciação dos Cards (ATUALIZADO: Usando o seu novo ID correto de Farm)
+criarCardDeJogo("Hack Vault For Brainrots", 137069154816703)
 criarCardDeJogo("Outro Jogo Simulador", 987654321)
 
 -- // --- SISTEMA DE ALTERNÂNCIA DE ABAS ---
@@ -377,3 +378,4 @@ BtnGamesTab.MouseButton1Click:Connect(function()
     BtnMainTab.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
     BtnMainTab.TextColor3 = Color3.fromRGB(180, 180, 180)
 end)
+
