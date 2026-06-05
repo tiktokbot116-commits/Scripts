@@ -1,4 +1,4 @@
--- // CONFIGURAÇÃO DA GUI NATIVA E AMBIENTE
+-- // CONFIGURAÇÃO DA GUI NATIVA
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local UICorner_Main = Instance.new("UICorner")
@@ -14,14 +14,19 @@ local PageMain = Instance.new("Frame")
 local PageGames = Instance.new("ScrollingFrame")
 
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
+
+-- Controle interno de estado (substituindo o antigo _G instável)
+local AutoFarmAtivo = false
+local ID_ATUAL = game.PlaceId
 
 ScreenGui.Name = "VTZHub_PremiumLoader"
 ScreenGui.Parent = game:GetService("CoreGui")
 ScreenGui.ResetOnSpawn = false
 
--- // JANELA PRINCIPAL
+-- // DESIGN DA JANELA PRINCIPAL
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 580, 0, 400)
 MainFrame.Position = UDim2.new(0.5, -290, 0.5, -200)
@@ -39,16 +44,14 @@ UIStroke_Main.Color = Color3.fromRGB(45, 45, 55)
 UIStroke_Main.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke_Main.Parent = MainFrame
 
--- // BOTÕES TOP-BAR (MINIMIZAR E FECHAR)
+-- // CONTROLES DO TOPO (MINIMIZAR E FECHAR)
 local TopButtonsContainer = Instance.new("Frame")
-TopButtonsContainer.Name = "TopButtonsContainer"
 TopButtonsContainer.Size = UDim2.new(0, 70, 0, 30)
 TopButtonsContainer.Position = UDim2.new(1, -75, 0, 10)
 TopButtonsContainer.BackgroundTransparency = 1
 TopButtonsContainer.Parent = MainFrame
 
 local BtnMinimize = Instance.new("TextButton")
-BtnMinimize.Name = "BtnMinimize"
 BtnMinimize.Size = UDim2.new(0, 25, 0, 25)
 BtnMinimize.Position = UDim2.new(0, 5, 0, 2)
 BtnMinimize.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -60,7 +63,6 @@ BtnMinimize.Parent = TopButtonsContainer
 Instance.new("UICorner", BtnMinimize).CornerRadius = UDim.new(0, 6)
 
 local BtnClose = Instance.new("TextButton")
-BtnClose.Name = "BtnClose"
 BtnClose.Size = UDim2.new(0, 25, 0, 25)
 BtnClose.Position = UDim2.new(0, 38, 0, 2)
 BtnClose.BackgroundColor3 = Color3.fromRGB(70, 25, 25)
@@ -71,328 +73,347 @@ BtnClose.TextSize = 12
 BtnClose.Parent = TopButtonsContainer
 Instance.new("UICorner", BtnClose).CornerRadius = UDim.new(0, 6)
 
--- // BOTÃO MOBILE FLUTUANTE (50x50)
+-- // BOTÃO MOBILE FLUTUANTE
 local MobileToggleBtn = Instance.new("TextButton")
-MobileToggleBtn.Name = "MobileToggleBtn"
 MobileToggleBtn.Size = UDim2.new(0, 50, 0, 50)
-MobileToggleBtn.Position = UDim2.new(0, 15, 0, 15) -- Canto superior esquerdo padrão
+MobileToggleBtn.Position = UDim2.new(0, 15, 0, 15)
 MobileToggleBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
 MobileToggleBtn.Text = "VTZ"
 MobileToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 160)
 MobileToggleBtn.Font = Enum.Font.GothamBold
 MobileToggleBtn.TextSize = 14
 MobileToggleBtn.Active = true
-MobileToggleBtn.Draggable = true -- Permite arrastar o botão mobile para onde quiser
+MobileToggleBtn.Draggable = true
 MobileToggleBtn.Parent = ScreenGui
+Instance.new("UICorner", MobileToggleBtn).CornerRadius = UDim.new(0, 12)
+local mStroke = Instance.new("UIStroke", MobileToggleBtn)
+mStroke.Color = Color3.fromRGB(45, 45, 55)
+mStroke.Thickness = 1.5
 
-local MobileCorner = Instance.new("UICorner", MobileToggleBtn)
-MobileCorner.CornerRadius = UDim.new(0, 12)
-local MobileStroke = Instance.new("UIStroke", MobileToggleBtn)
-MobileStroke.Color = Color3.fromRGB(45, 45, 55)
-MobileStroke.Thickness = 1.5
+local function alternarPainel() MainFrame.Visible = not MainFrame.Visible end
+BtnMinimize.MouseButton1Click:Connect(alternarPainel)
+MobileToggleBtn.MouseButton1Click:Connect(alternarPainel)
+BtnClose.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
--- // SISTEMAS DE ALTERNÂNCIA (VISIBILIDADE)
-local function alternarVisibilidadePainel()
-    MainFrame.Visible = not MainFrame.Visible
-end
-
-BtnMinimize.MouseButton1Click:Connect(alternarVisibilidadePainel)
-MobileToggleBtn.MouseButton1Click:Connect(alternarVisibilidadePainel)
-
-BtnClose.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
-
--- Hotkey 'K' para PC
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.K then
-        alternarVisibilidadePainel()
-    end
-end)
-
--- // PAINEL LATERAL (SIDEBAR)
-Sidebar.Name = "Sidebar"
+-- // MENU LATERAL
 Sidebar.Size = UDim2.new(0, 150, 1, 0)
 Sidebar.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
-Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainFrame
+Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 14)
 
-UICorner_Sidebar.CornerRadius = UDim.new(0, 14)
-UICorner_Sidebar.Parent = Sidebar
-
--- // CONTAINER DE ABAS
-TabContainer.Name = "TabContainer"
 TabContainer.Size = UDim2.new(0, 410, 1, -30)
 TabContainer.Position = UDim2.new(0, 160, 0, 15)
 TabContainer.BackgroundTransparency = 1
 TabContainer.Parent = MainFrame
 
--- // CONSTRUTOR DE BOTÕES DO MENU LATERAL
-local function estilizarBotaoMenu(botao, texto, pos)
-    botao.Size = UDim2.new(0, 130, 0, 38)
-    botao.Position = UDim2.new(0, 10, 0, pos)
-    botao.Text = "  " .. texto
-    botao.TextColor3 = Color3.fromRGB(200, 200, 200)
-    botao.Font = Enum.Font.GothamBold
-    botao.TextSize = 14
-    botao.TextXAlignment = Enum.TextXAlignment.Left
-    botao.Parent = Sidebar
-    
-    local corner = Instance.new("UICorner", botao)
-    corner.CornerRadius = UDim.new(0, 8)
-    
-    local stroke = Instance.new("UIStroke", botao)
-    stroke.Thickness = 1
-    stroke.Color = Color3.fromRGB(30, 30, 35)
-    
-    botao.MouseEnter:Connect(function()
-        if botao.BackgroundColor3 ~= Color3.fromRGB(40, 40, 50) then
-            botao.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-        end
-    end)
-    botao.MouseLeave:Connect(function()
-        if botao.BackgroundColor3 ~= Color3.fromRGB(40, 40, 50) then
-            botao.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-        end
-    end)
+local function configurarBotao(btn, txt, y)
+    btn.Size = UDim2.new(0, 130, 0, 38)
+    btn.Position = UDim2.new(0, 10, 0, y)
+    btn.Text = "  " .. txt
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 14
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.Parent = Sidebar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    local s = Instance.new("UIStroke", btn)
+    s.Thickness = 1
+    s.Color = Color3.fromRGB(30, 30, 35)
 end
 
-estilizarBotaoMenu(BtnMainTab, "Painel Principal", 25)
-estilizarBotaoMenu(BtnGamesTab, "Jogos Suportados", 73)
-
+configurarBotao(BtnMainTab, "Painel Principal", 25)
+configurarBotao(BtnGamesTab, "Jogos Suportados", 73)
 BtnMainTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-BtnMainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-BtnGamesTab.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 
--- // --- ABA: MAIN ---
-PageMain.Name = "PageMain"
+-- // ABA PRINCIPAL (MAIN)
 PageMain.Size = UDim2.new(1, 0, 1, 0)
 PageMain.BackgroundTransparency = 1
-PageMain.Visible = true
 PageMain.Parent = TabContainer
 
 local TitleMain = Instance.new("TextLabel")
-TitleMain.Size = UDim2.new(1, -80, 0, 30) -- Reduzido tamanho para não sobrepor os botões de controle
+TitleMain.Size = UDim2.new(1, -80, 0, 30)
 TitleMain.BackgroundTransparency = 1
 TitleMain.Text = "Configurações do Script"
 TitleMain.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleMain.TextXAlignment = Enum.TextXAlignment.Left
 TitleMain.Font = Enum.Font.GothamBold
 TitleMain.TextSize = 22
+TitleMain.TextXAlignment = Enum.TextXAlignment.Left
 TitleMain.Parent = PageMain
 
 local SubtitleMain = Instance.new("TextLabel")
 SubtitleMain.Size = UDim2.new(1, 0, 0, 20)
 SubtitleMain.Position = UDim2.new(0, 0, 0, 30)
 SubtitleMain.BackgroundTransparency = 1
-SubtitleMain.Text = "ID do Mapa Atual: " .. tostring(game.PlaceId)
-SubtitleMain.TextColor3 = Color3.fromRGB(140, 140, 150)
-SubtitleMain.TextXAlignment = Enum.TextXAlignment.Left
-SubtitleMain.Font = Enum.Font.Gotham
+SubtitleMain.Text = "ID Detectado Internamente: " .. tostring(ID_ATUAL)
+SubtitleMain.TextColor3 = Color3.fromRGB(0, 255, 160)
+SubtitleMain.Font = Enum.Font.GothamBold
 SubtitleMain.TextSize = 13
+SubtitleMain.TextXAlignment = Enum.TextXAlignment.Left
 SubtitleMain.Parent = PageMain
 
--- Lista de IDs suportados para ativar o painel principal
-local ListaDeMapasValidos = {
-    [125003919504672] = true,
-    [137069154816703] = true,
-    [000000003] = true,
-    [000000004] = true,
-    [000000005] = true,
-    [000000006] = true,
-    [000000007] = true,
-    [000000008] = true,
-    [000000009] = true,
-    [000000010] = true
-}
+local Card = Instance.new("Frame")
+Card.Size = UDim2.new(1, -10, 0, 90)
+Card.Position = UDim2.new(0, 0, 0, 70)
+Card.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+Card.Parent = PageMain
+Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 10)
+local cStroke = Instance.new("UIStroke", Card)
+cStroke.Color = Color3.fromRGB(35, 35, 45)
 
-if ListaDeMapasValidos[game.PlaceId] then
-    _G.AutoFarm = false
+local CardTitle = Instance.new("TextLabel")
+CardTitle.Size = UDim2.new(1, -20, 0, 35)
+CardTitle.Position = UDim2.new(0, 15, 0, 5)
+CardTitle.BackgroundTransparency = 1
+CardTitle.Text = "Sincronização de Farm Local"
+CardTitle.TextColor3 = Color3.fromRGB(230, 230, 235)
+CardTitle.Font = Enum.Font.GothamBold
+CardTitle.TextSize = 15
+CardTitle.TextXAlignment = Enum.TextXAlignment.Left
+CardTitle.Parent = Card
 
-    local Card = Instance.new("Frame")
-    Card.Size = UDim2.new(1, -10, 0, 90)
-    Card.Position = UDim2.new(0, 0, 0, 70)
-    Card.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
-    Card.Parent = PageMain
-    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 10)
-    Instance.new("UIStroke", Card).Color = Color3.fromRGB(35, 35, 45)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(1, -30, 0, 38)
+ToggleBtn.Position = UDim2.new(0, 15, 0, 42)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
+ToggleBtn.Text = "Auto Farm: INATIVO"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 13
+ToggleBtn.Parent = Card
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
 
-    local CardTitle = Instance.new("TextLabel")
-    CardTitle.Size = UDim2.new(1, -20, 0, 35)
-    CardTitle.Position = UDim2.new(0, 15, 0, 5)
-    CardTitle.BackgroundTransparency = 1
-    CardTitle.Text = "Controle de Sistemas"
-    CardTitle.TextColor3 = Color3.fromRGB(230, 230, 235)
-    CardTitle.Font = Enum.Font.GothamBold
-    CardTitle.TextSize = 15
-    CardTitle.TextXAlignment = Enum.TextXAlignment.Left
-    CardTitle.Parent = Card
+-- =============================================================================
+-- LOGICA DOS JOGOS E SISTEMA DE MOVIMENTAÇÃO EMBUTIDO
+-- =============================================================================
 
-    local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(1, -30, 0, 38)
-    ToggleBtn.Position = UDim2.new(0, 15, 0, 42)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
-    ToggleBtn.Text = "Auto Farm: INATIVO"
-    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToggleBtn.Font = Enum.Font.GothamBold
-    ToggleBtn.TextSize = 13
-    ToggleBtn.Parent = Card
-    local tCorner = Instance.new("UICorner", ToggleBtn)
-    tCorner.CornerRadius = UDim.new(0, 8)
-
-    -- ROTINA DE DEBUG DO GITHUB (LOADSTRING TRATA TUDO)
-    local function rodarScriptNoAmbienteGlobal()
-        local urls = {
-            "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/My%20knife%20farm",
-            "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/main/My%20knife%20farm"
-        }
-        
-        local codigoBruto = nil
-        for index, url in ipairs(urls) do
-            print("[Tentativa " .. tostring(index) .. "] Baixando de: " .. url)
-            local sucesso, resultado = pcall(function() return game:HttpGet(url) end)
-            if sucesso and resultado and #resultado > 0 then
-                codigoBruto = resultado
-                print("[Sucesso HTTP] Conteúdo retornado com " .. tostring(#resultado) .. " caracteres.")
-                break
-            else
-                warn("[Falha HTTP] URL " .. tostring(index) .. " falhou. Erro: " .. tostring(resultado))
-            end
-        end
-        
-        if codigoBruto then
-            local funcaoCarregada, erroCompilacao = loadstring(codigoBruto)
-            if funcaoCarregada then
-                setfenv(funcaoCarregada, setmetatable({}, {
-                    __index = function(_, chave) return _G[chave] or shared[chave] or getfenv(0)[chave] end,
-                    __newindex = function(_, chave, valor) _G[chave] = valor end
-                }))
-                task.spawn(funcaoCarregada)
-                print("[Loadstring] Executado com sucesso no ambiente global!")
-            else
-                warn("[Erro Crítico] Seu arquivo no GitHub tem um erro de digitação/sintaxe do Lua e não pôde ser compilado: " .. tostring(erroCompilacao))
-            end
-        else
-            warn("[Erro de Conexão] O executor não conseguiu puxar nenhum dado do GitHub. Verifique se o link raw está correto ou se o site está instável.")
-        end
-    end
-
-    ToggleBtn.MouseButton1Click:Connect(function()
-        _G.AutoFarm = not _G.AutoFarm
-        if _G.AutoFarm then
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 150, 85)
-            ToggleBtn.Text = "Auto Farm: ATIVO"
-            
-            -- Dispara o loadstring e deixa ele lidar com toda a lógica externa
-            rodarScriptNoAmbienteGlobal()
-        else
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
-            ToggleBtn.Text = "Auto Farm: INATIVO"
-        end
-    end)
-else
-    local ErrorLabel = Instance.new("TextLabel")
-    ErrorLabel.Size = UDim2.new(1, 0, 0, 40)
-    ErrorLabel.Position = UDim2.new(0, 0, 0, 70)
-    ErrorLabel.BackgroundTransparency = 1
-    ErrorLabel.Text = "❌ Esse mapa não possui integrações com o painel Main."
-    ErrorLabel.TextColor3 = Color3.fromRGB(220, 80, 80)
-    ErrorLabel.Font = Enum.Font.GothamBold
-    ErrorLabel.TextSize = 14
-    ErrorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ErrorLabel.Parent = PageMain
+local function voarAte(cframeDestino, velocidade)
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root or not cframeDestino then return end
+    
+    velocidade = velocidade or 85
+    local distancia = (root.Position - cframeDestino.Position).Magnitude
+    local tempo = distancia / velocidade
+    if distancia < 2 then return end
+    
+    local tweenInfo = TweenInfo.new(tempo, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = cframeDestino})
+    tween:Play()
+    tween.Completed:Wait()
 end
 
--- // --- ABA: SUPPORTED GAMES (SCROLLABLE - SEM BOTÃO DE TELEPORTE) ---
-PageGames.Name = "PageGames"
+local function executarFarmPorId()
+    if ID_ATUAL == 137069154816703 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 1: HACK VAULT FOR BRAINROTS
+        -- ---------------------------------------------------------------------
+        task.spawn(function()
+            local breakMap = workspace:FindFirstChild("Break_Map")
+            if not breakMap then 
+                warn("[VTZ Hub] Estrutura 'Break_Map' não encontrada para o Hack Vault.")
+                return 
+            end
+
+            print("[VTZ Hub] Executando: Celestial Farm Local.")
+            local cframeBase = CFrame.new(75, 4, -714)
+
+            local function estaEmCimaDaFloor(modelo, floor)
+                if not modelo or not floor then return false end
+                local p = modelo.PrimaryPart or modelo:FindFirstChildOfClass("Part") or modelo:FindFirstChildOfClass("MeshPart")
+                if not p then return false end
+                return p.Position.X >= (floor.Position.X - floor.Size.X/2) and p.Position.X <= (floor.Position.X + floor.Size.X/2)
+            end
+
+            while AutoFarmAtivo do
+                task.wait(0.2)
+                
+                local locations = workspace.Break_Map:FindFirstChild("Locations")
+                local floor = locations and locations:FindFirstChild("CelestialFloorBest")
+                local entities = workspace:FindFirstChild("EntitiesFolder")
+                
+                if floor and entities then
+                    local alvo = nil
+                    for _, ent in ipairs(entities:GetChildren()) do
+                        if ent:IsA("Model") and estaEmCimaDaFloor(ent, floor) then
+                            if ent:FindFirstChildOfClass("ProximityPrompt") or ent:FindFirstChild("ProximityPrompt", true) then
+                                alvo = ent
+                                break
+                            end
+                        end
+                    end
+                    
+                    if alvo then
+                        local prompt = alvo:FindFirstChildOfClass("ProximityPrompt") or alvo:FindFirstChild("ProximityPrompt", true)
+                        local part = alvo.PrimaryPart or alvo:FindFirstChildOfClass("Part") or alvo:FindFirstChildOfClass("MeshPart")
+                        
+                        if prompt and part then
+                            voarAte(cframeBase, 90)
+                            voarAte(part.CFrame, 85)
+                            
+                            if not AutoFarmAtivo then break end 
+                            
+                            fireproximityprompt(prompt, 1) 
+                            task.wait(0.1)
+                            voarAte(cframeBase, 95)
+                        end
+                    end
+                end
+            end
+            print("[VTZ Hub] Celestial Farm encerrado.")
+        end)
+
+    elseif ID_ATUAL == 000000002 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 2: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 2 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+
+    elseif ID_ATUAL == 000000003 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 3: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 3 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+
+    elseif ID_ATUAL == 000000004 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 4: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 4 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+
+    elseif ID_ATUAL == 000000005 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 5: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 5 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+
+    elseif ID_ATUAL == 000000006 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 6: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 6 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+
+    elseif ID_ATUAL == 000000007 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 7: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 7 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+
+    elseif ID_ATUAL == 000000008 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 8: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 8 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+
+    elseif ID_ATUAL == 000000009 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 9: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 9 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+
+    elseif ID_ATUAL == 000000010 then
+        -- ---------------------------------------------------------------------
+        -- JOGO 10: PLACEHOLDER
+        -- ---------------------------------------------------------------------
+        print("[VTZ Hub] Jogo 10 Ativado.")
+        task.spawn(function()
+            while AutoFarmAtivo do task.wait(1) end
+        end)
+    else
+        warn("[VTZ Hub] Este Place ID não possui automação configurada nesta lista.")
+    end
+end
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    AutoFarmAtivo = not AutoFarmAtivo
+    
+    if AutoFarmAtivo then
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 150, 85)
+        ToggleBtn.Text = "Auto Farm: ATIVO"
+        executarFarmPorId()
+    else
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
+        ToggleBtn.Text = "Auto Farm: INATIVO"
+    end
+end)
+
+-- // ABA DE JOGOS (SCROLL)
 PageGames.Size = UDim2.new(1, 0, 1, -20)
 PageGames.Position = UDim2.new(0, 0, 0, 10)
 PageGames.BackgroundTransparency = 1
 PageGames.Visible = false
-PageGames.CanvasSize = UDim2.new(0, 0, 0, 0)
 PageGames.ScrollBarThickness = 4
-PageGames.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 75)
 PageGames.Parent = TabContainer
 
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 10)
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Parent = PageGames
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 10)
+Layout.Parent = PageGames
 
-local function criarCardDeJogo(nome, placeId)
-    local GameCard = Instance.new("Frame")
-    GameCard.Size = UDim2.new(1, -10, 0, 75)
-    GameCard.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
-    GameCard.Parent = PageGames
+local function adicionarJogoLista(nome, id)
+    local GCard = Instance.new("Frame")
+    GCard.Size = UDim2.new(1, -10, 0, 75)
+    GCard.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+    GCard.Parent = PageGames
+    Instance.new("UICorner", GCard).CornerRadius = UDim.new(0, 10)
+    local s = Instance.new("UIStroke", GCard)
+    s.Color = Color3.fromRGB(35, 35, 45)
+
+    local Icon = Instance.new("ImageLabel")
+    Icon.Size = UDim2.new(0, 55, 0, 55)
+    Icon.Position = UDim2.new(0, 10, 0, 10)
+    Icon.Image = "rbxthumb://type=GameIcon&id=" .. tostring(id) .. "&w=150&h=150"
+    Icon.Parent = GCard
+    Instance.new("UICorner", Icon).CornerRadius = UDim.new(0, 8)
+
+    local LblNome = Instance.new("TextLabel")
+    LblNome.Size = UDim2.new(1, -85, 0, 20)
+    LblNome.Position = UDim2.new(0, 75, 0, 15)
+    LblNome.BackgroundTransparency = 1
+    LblNome.Text = nome
+    LblNome.TextColor3 = Color3.fromRGB(255, 255, 255)
+    LblNome.Font = Enum.Font.GothamBold
+    LblNome.TextSize = 14
+    LblNome.TextXAlignment = Enum.TextXAlignment.Left
+    LblNome.Parent = GCard
+
+    local LblId = Instance.new("TextLabel")
+    LblId.Size = UDim2.new(1, -85, 0, 15)
+    LblId.Position = UDim2.new(0, 75, 0, 38)
+    LblId.BackgroundTransparency = 1
+    LblId.Text = "Place ID: " .. tostring(id)
+    LblId.TextColor3 = Color3.fromRGB(130, 130, 145)
+    LblId.Font = Enum.Font.Code
+    LblId.TextSize = 11
+    LblId.TextXAlignment = Enum.TextXAlignment.Left
+    LblId.Parent = GCard
     
-    local cCorner = Instance.new("UICorner", GameCard)
-    cCorner.CornerRadius = UDim.new(0, 10)
-    local cStroke = Instance.new("UIStroke", GameCard)
-    cStroke.Color = Color3.fromRGB(35, 35, 45)
-
-    local GameIcon = Instance.new("ImageLabel")
-    GameIcon.Size = UDim2.new(0, 55, 0, 55)
-    GameIcon.Position = UDim2.new(0, 10, 0, 10)
-    GameIcon.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-    GameIcon.Image = "rbxthumb://type=GameIcon&id=" .. tostring(placeId) .. "&w=150&h=150"
-    GameIcon.Parent = GameCard
-    local iCorner = Instance.new("UICorner", GameIcon)
-    iCorner.CornerRadius = UDim.new(0, 8)
-
-    local GameNameLabel = Instance.new("TextLabel")
-    GameNameLabel.Size = UDim2.new(1, -85, 0, 20)
-    GameNameLabel.Position = UDim2.new(0, 75, 0, 15)
-    GameNameLabel.BackgroundTransparency = 1
-    GameNameLabel.Text = nome
-    GameNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    GameNameLabel.Font = Enum.Font.GothamBold
-    GameNameLabel.TextSize = 14
-    GameNameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    GameNameLabel.Parent = GameCard
-
-    local GameIdLabel = Instance.new("TextLabel")
-    GameIdLabel.Size = UDim2.new(1, -85, 0, 15)
-    GameIdLabel.Position = UDim2.new(0, 75, 0, 38)
-    GameIdLabel.BackgroundTransparency = 1
-    GameIdLabel.Text = "Place ID: " .. tostring(placeId)
-    GameIdLabel.TextColor3 = Color3.fromRGB(130, 130, 145)
-    GameIdLabel.Font = Enum.Font.Code
-    GameIdLabel.TextSize = 11
-    GameIdLabel.TextXAlignment = Enum.TextXAlignment.Left
-    GameIdLabel.Parent = GameCard
-    
-    PageGames.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
+    PageGames.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 20)
 end
 
--- =============================================================================
--- EXIBIÇÃO APENAS DE INFOS (FOTO, NOME, ID)
--- =============================================================================
-criarCardDeJogo("Jogo das Caixas", 125003919504672)
-criarCardDeJogo("Hack Vault For Brainrots", 137069154816703)
-criarCardDeJogo("Jogo Suportado 3", 000000003)
-criarCardDeJogo("Jogo Suportado 4", 000000004)
-criarCardDeJogo("Jogo Suportado 5", 000000005)
-criarCardDeJogo("Jogo Suportado 6", 000000006)
-criarCardDeJogo("Jogo Suportado 7", 000000007)
-criarCardDeJogo("Jogo Suportado 8", 000000008)
-criarCardDeJogo("Jogo Suportado 9", 000000009)
-criarCardDeJogo("Jogo Suportado 10", 000000010)
+adicionarJogoLista("Hack Vault For Brainrots", 137069154816703)
 
--- // --- SISTEMA DE ALTERNÂNCIA DE ABAS ---
-BtnMainTab.MouseButton1Click:Connect(function()
-    PageMain.Visible = true
-    PageGames.Visible = false
-    BtnMainTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    BtnMainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-    BtnGamesTab.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-    BtnGamesTab.TextColor3 = Color3.fromRGB(180, 180, 180)
-end)
-
-BtnGamesTab.MouseButton1Click:Connect(function()
-    PageMain.Visible = false
-    PageGames.Visible = true
-    BtnGamesTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    BtnGamesTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-    BtnMainTab.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-    BtnMainTab.TextColor3 = Color3.fromRGB(180, 180, 180)
-end)
+BtnMainTab.MouseButton1Click:Connect(function() PageMain.Visible = true; PageGames.Visible = false end)
+BtnGamesTab.MouseButton1Click:Connect(function() PageMain.Visible = false; PageGames.Visible = true end)
