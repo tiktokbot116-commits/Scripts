@@ -1,24 +1,24 @@
 -- =============================================================================
--- GERENCIADOR DE SCRIPTS EXTERNOS - ATUALIZADO (MONITOR DE BOTÃO)
+-- SCRIPT CENTRAL DO GITHUB (DETECTOR DE PLACE ID COM 10 PLACEHOLDERS)
 -- =============================================================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
-local CurrentPlaceId = game.PlaceId
+local ID_ATUAL = game.PlaceId
 
--- Mata qualquer execução anterior do loop para não acumular scripts rodando juntos
-_G.FarmLoopAtivo = false
+-- Reseta os estados de loops anteriores para evitar execuções duplicadas
 _G.CelestialLoopAtivo = false
-task.wait(0.2)
+_G.PlaceholderLoopAtivo = false
+task.wait(0.15)
 
--- // FUNÇÃO AUXILIAR UNIVERSAL: TWEEN / VOAR
+-- // FUNÇÃO PADRÃO DE MOVIMENTAÇÃO POR TWEEN (VOAR)
 local function voarAte(cframeDestino, velocidade)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local root = character:FindFirstChild("HumanoidRootPart")
     if not root or not cframeDestino then return end
     
-    velocidade = velocidade or 85
+    velocidade = velocity or 85
     local distancia = (root.Position - cframeDestino.Position).Magnitude
     local tempo = distancia / velocidade
     if distancia < 2 then return end
@@ -30,90 +30,36 @@ local function voarAte(cframeDestino, velocidade)
 end
 
 -- =============================================================================
--- [CÓDIGO 1] - MAPA: JOGO DAS CAIXAS ORIGINAL (ID: 125003919504672)
+-- ESTRUTURA SELETORA DE JOGOS (PLACEHOLDERS DO 1 AO 10)
 -- =============================================================================
-if CurrentPlaceId == 125003919504672 then
-    _G.FarmLoopAtivo = true
-    print("[VTZ Hub] Loop de Farm Iniciado para Jogo das Caixas.")
-    
-    local function extrairNumeroDaString(texto)
-        texto = string.upper(string.gsub(texto, "[,%s$]", ""))
-        local apenasNumero = string.match(texto, "[%d%.]+%a*")
-        if not apenasNumero then return 0 end
-        local numero = tonumber(string.match(apenasNumero, "^[%d%.]+"))
-        if not numero then return 0 end
-        if string.find(apenasNumero, "K") then return numero * 10^3
-        elseif string.find(apenasNumero, "M") then return numero * 10^6
-        elseif string.find(apenasNumero, "B") then return numero * 10^9
-        elseif string.find(apenasNumero, "T") then return numero * 10^12
-        elseif string.find(apenasNumero, "CN") then return numero * 10^303
-        end
-        return numero
-    end
 
-    local function obterPlotDoJogador()
-        local plotsFolder = workspace:FindFirstChild("Plots")
-        if not plotsFolder then return nil end
-        for _, plot in ipairs(plotsFolder:GetChildren()) do
-            if plot.Name == LocalPlayer.Name or string.find(plot.Name, LocalPlayer.Name) then
-                return plot
-            end
-        end
-        return nil
-    end
-
+if ID_ATUAL == 137069154816703 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 1: HACK VAULT FOR BRAINROTS (ATIVO)
+    -- -------------------------------------------------------------------------
     task.spawn(function()
-        -- O script fica rodando enquanto a GUI permitir e o botão estiver ON
-        while _G.FarmLoopAtivo and _G.AutoFarm do
-            task.wait(0.3)
-            
-            local meuPlot = obterPlotDoJogador()
-            local baseModel = meuPlot and meuPlot:FindFirstChild("Plot_Models") and meuPlot.Plot_Models:FindFirstChild("BaseModel")
-            if baseModel then
-                local boxStand = baseModel:FindFirstChild("BoxStand")
-                local sellP = baseModel:FindFirstChild("SellButton") and baseModel.SellButton:FindFirstChild("SellP")
-                
-                if boxStand and sellP then
-                    local prompt = boxStand:FindFirstChildOfClass("ProximityPrompt") or boxStand:FindFirstChild("ProximityPrompt", true)
-                    if prompt then
-                        local texto = prompt.ObjectText or prompt.ActionText or ""
-                        -- Valor estático simulando o antigo comportamento do textbox interno
-                        if extrairNumeroDaString(texto) >= 1000000000000 then -- 1T Padrão
-                            voarAte(boxStand.CFrame, 75)
-                            if not _G.AutoFarm then break end
-                            fireproximityprompt(prompt, 1)
-                            task.wait(0.1)
-                            voarAte(sellP.CFrame, 75)
-                        end
-                    end
-                end
-            end
+        local breakMap = workspace:FindFirstChild("Break_Map")
+        if not breakMap then 
+            warn("[VTZ Hub] Estrutura 'Break_Map' não encontrada para o Hack Vault.")
+            return 
         end
-        print("[VTZ Hub] Loop de Farm Desligado com Sucesso.")
-    end)
 
--- =============================================================================
--- [CÓDIGO 2] - MAPA: HACK VAULT FOR BRAINROTS (ID: 137069154816703)
--- =============================================================================
-elseif CurrentPlaceId == 137069154816703 then
-    _G.CelestialLoopAtivo = true
-    print("[VTZ Hub] Loop de Farm Iniciado para Hack Vault.")
-    local cframeBase = CFrame.new(75, 4, -714)
+        _G.CelestialLoopAtivo = true
+        print("[VTZ Hub] ID Reconhecido: Hack Vault. Inicializando Celestial Farm...")
+        local cframeBase = CFrame.new(75, 4, -714)
 
-    local function estaEmCimaDaFloor(modelo, floor)
-        if not modelo or not floor then return false end
-        local p = modelo.PrimaryPart or modelo:FindFirstChildOfClass("Part") or modelo:FindFirstChildOfClass("MeshPart")
-        if not p then return false end
-        local posM, posF, sizeF = p.Position, floor.Position, floor.Size
-        return posM.X >= (posF.X - sizeF.X/2) and posM.X <= (posF.X + sizeF.X/2) and posM.Z >= (posF.Z - sizeF.Z/2) and posM.Z <= (posF.Z + sizeF.Z/2) and posM.Y >= posF.Y
-    end
+        local function estaEmCimaDaFloor(modelo, floor)
+            if not modelo or not floor then return false end
+            local p = modelo.PrimaryPart or modelo:FindFirstChildOfClass("Part") or modelo:FindFirstChildOfClass("MeshPart")
+            if not p then return false end
+            return p.Position.X >= (floor.Position.X - floor.Size.X/2) and p.Position.X <= (floor.Position.X + floor.Size.X/2)
+        end
 
-    task.spawn(function()
-        -- O script fica rodando enquanto a GUI permitir e o botão estiver ON
         while _G.CelestialLoopAtivo and _G.AutoFarm do
             task.wait(0.2)
             
-            local floor = workspace:FindFirstChild("Break_Map") and workspace.Break_Map:FindFirstChild("Locations") and workspace.Break_Map.Locations:FindFirstChild("CelestialFloorBest")
+            local locations = workspace.Break_Map:FindFirstChild("Locations")
+            local floor = locations and locations:FindFirstChild("CelestialFloorBest")
             local entities = workspace:FindFirstChild("EntitiesFolder")
             
             if floor and entities then
@@ -130,10 +76,13 @@ elseif CurrentPlaceId == 137069154816703 then
                 if alvo then
                     local prompt = alvo:FindFirstChildOfClass("ProximityPrompt") or alvo:FindFirstChild("ProximityPrompt", true)
                     local part = alvo.PrimaryPart or alvo:FindFirstChildOfClass("Part") or alvo:FindFirstChildOfClass("MeshPart")
+                    
                     if prompt and part then
                         voarAte(cframeBase, 90)
                         voarAte(part.CFrame, 85)
+                        
                         if not _G.AutoFarm then break end 
+                        
                         fireproximityprompt(prompt, 1) 
                         task.wait(0.1)
                         voarAte(cframeBase, 95)
@@ -141,28 +90,96 @@ elseif CurrentPlaceId == 137069154816703 then
                 end
             end
         end
-        print("[VTZ Hub] Loop Celestial Desligado com Sucesso.")
+        print("[VTZ Hub] Celestial Farm encerrado via GUI (OFF).")
     end)
 
--- =============================================================================
--- JOGOS DE 3 A 10 (RESERVADOS)
--- =============================================================================
-elseif CurrentPlaceId == 000000003 then
-    print("Executando Script do Jogo 3")
-elseif CurrentPlaceId == 000000004 then
-    print("Executando Script do Jogo 4")
-elseif CurrentPlaceId == 000000005 then
-    print("Executando Script do Jogo 5")
-elseif CurrentPlaceId == 000000006 then
-    print("Executando Script do Jogo 6")
-elseif CurrentPlaceId == 000000007 then
-    print("Executando Script do Jogo 7")
-elseif CurrentPlaceId == 000000008 then
-    print("Executando Script do Jogo 8")
-elseif CurrentPlaceId == 000000009 then
-    print("Executando Script do Jogo 9")
-elseif CurrentPlaceId == 000000010 then
-    print("Executando Script do Jogo 10")
+elseif ID_ATUAL == 000000002 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 2: PLACEHOLDER (Substitua o ID acima pelo ID do jogo desejado)
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 2 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do
+            task.wait(1)
+            -- Insira o código do loop de farm aqui
+        end
+    end)
+
+elseif ID_ATUAL == 000000003 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 3: PLACEHOLDER
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 3 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do task.wait(1) end
+    end)
+
+elseif ID_ATUAL == 000000004 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 4: PLACEHOLDER
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 4 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do task.wait(1) end
+    end)
+
+elseif ID_ATUAL == 000000005 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 5: PLACEHOLDER
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 5 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do task.wait(1) end
+    end)
+
+elseif ID_ATUAL == 000000006 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 6: PLACEHOLDER
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 6 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do task.wait(1) end
+    end)
+
+elseif ID_ATUAL == 000000007 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 7: PLACEHOLDER
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 7 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do task.wait(1) end
+    end)
+
+elseif ID_ATUAL == 000000008 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 8: PLACEHOLDER
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 8 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do task.wait(1) end
+    end)
+
+elseif ID_ATUAL == 000000009 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 9: PLACEHOLDER
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 9 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do task.wait(1) end
+    end)
+
+elseif ID_ATUAL == 000000010 then
+    -- -------------------------------------------------------------------------
+    -- JOGO 10: PLACEHOLDER
+    -- -------------------------------------------------------------------------
+    print("[VTZ Hub] Jogo 10 Detectado. Adicione sua lógica de farm aqui.")
+    task.spawn(function()
+        while _G.AutoFarm do task.wait(1) end
+    end)
+
 else
-    warn("VTZ Hub: Este mapa não possui automações configuradas no repositório.")
+    -- -------------------------------------------------------------------------
+    -- MAPA NÃO CONFIGURADO NO REPOSITÓRIO
+    -- -------------------------------------------------------------------------
+    warn("[VTZ Hub] O ID " .. tostring(ID_ATUAL) .. " não possui nenhuma automação ou placeholder correspondente neste script.")
 end
