@@ -1,145 +1,120 @@
 -- =============================================================================
--- CODIGO DO SEU REPOSITÓRIO EXTERNO (O QUE ENTRA NO LOADSTRING)
+-- CÓDIGO DO REPOSITÓRIO: My knife farm (137069154816703)
 -- =============================================================================
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Certifica que o loop anterior foi encerrado antes de iniciar um novo thread
-_G.FarmLoopAtivo = false
+-- Garante que instâncias de loops antigos sejam finalizadas
+_G.CelestialLoopAtivo = false
 task.wait(0.1)
-_G.FarmLoopAtivo = true
+_G.CelestialLoopAtivo = true
 
--- // FUNÇÃO AUXILIAR: EXTRAIR NÚMEROS DE UMA STRING (Trata sufixos K, M, B, T... até CN)
-local function extrairNumeroDaString(texto)
-    texto = string.upper(string.gsub(texto, "[,%s$]", ""))
-    local apenasNumero = string.match(texto, "[%d%.]+%a*")
-    if not apenasNumero then return 0 end
-    
-    local numero = tonumber(string.match(apenasNumero, "^[%d%.]+"))
-    if not numero then return 0 end
-    
-    if string.find(apenasNumero, "K") then return numero * 10^3
-    elseif string.find(apenasNumero, "M") then return numero * 10^6
-    elseif string.find(apenasNumero, "B") then return numero * 10^9
-    elseif string.find(apenasNumero, "T") then return numero * 10^12
-    elseif string.find(apenasNumero, "QD") then return numero * 10^15
-    elseif string.find(apenasNumero, "QT") or string.find(apenasNumero, "QN") then return numero * 10^18
-    elseif string.find(apenasNumero, "SX") then return numero * 10^21
-    elseif string.find(apenasNumero, "SP") then return numero * 10^24
-    elseif string.find(apenasNumero, "OC") then return numero * 10^27
-    elseif string.find(apenasNumero, "NO") then return numero * 10^30
-    elseif string.find(apenasNumero, "DC") then return numero * 10^33
-    elseif string.find(apenasNumero, "UD") then return numero * 10^36
-    elseif string.find(apenasNumero, "DD") then return numero * 10^39
-    elseif string.find(apenasNumero, "TD") then return numero * 10^42
-    elseif string.find(apenasNumero, "QDD") then return numero * 10^45
-    elseif string.find(apenasNumero, "QTD") then return numero * 10^48
-    elseif string.find(apenasNumero, "SXD") then return numero * 10^51
-    elseif string.find(apenasNumero, "SPD") then return numero * 10^54
-    elseif string.find(apenasNumero, "OCD") then return numero * 10^57
-    elseif string.find(apenasNumero, "NOD") then return numero * 10^60
-    elseif string.find(apenasNumero, "VG") then return numero * 10^63
-    elseif string.find(apenasNumero, "UVG") then return numero * 10^66
-    elseif string.find(apenasNumero, "DVG") then return numero * 10^69
-    elseif string.find(apenasNumero, "TVG") then return numero * 10^72
-    elseif string.find(apenasNumero, "TG") then return numero * 10^93
-    elseif string.find(apenasNumero, "QG") then return numero * 10^123
-    elseif string.find(apenasNumero, "PC") then return numero * 10^153
-    elseif string.find(apenasNumero, "HX") then return numero * 10^183
-    elseif string.find(apenasNumero, "HP") then return numero * 10^213
-    elseif string.find(apenasNumero, "OG") then return numero * 10^243
-    elseif string.find(apenasNumero, "NW") then return numero * 10^273
-    elseif string.find(apenasNumero, "CN") then return numero * 10^303
-    end
-    
-    return numero
-end
-
--- // FUNÇÃO AUXILIAR: ENCONTRAR O PLOT DO JOGADOR (Verifica os caminhos comuns passados)
-local function obterPlotDoJogador()
-    local plotsFolder = workspace:FindFirstChild("Plots")
-    if not plotsFolder then return nil end
-    
-    for _, plot in ipairs(plotsFolder:GetChildren()) do
-        if plot.Name == LocalPlayer.Name or 
-           string.find(plot.Name, LocalPlayer.Name .. "'s Plot") or 
-           string.find(string.lower(plot.Name), string.lower(LocalPlayer.Name)) then
-            return plot
-        end
-    end
-    return nil
-end
-
--- // FUNÇÃO AUXILIAR: TWEEN SUAVE ATÉ OS OBJETOS do PLOT
-local function darTween(destino)
+-- // FUNÇÃO AUXILIAR: TWEEN/TELEPORTE SUAVE
+local function voarAte(cframeDestino, velocidade)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local root = character:FindFirstChild("HumanoidRootPart")
-    if not root or not destino then return end
+    if not root or not cframeDestino then return end
     
-    local distancia = (root.Position - destino.Position).Magnitude
-    local velocidade = 75 -- Ajuste a velocidade do voo aqui
+    velocidade = velocidade or 85
+    local distancia = (root.Position - cframeDestino.Position).Magnitude
     local tempo = distancia / velocidade
     
+    -- Se estiver muito perto ou for o retorno base, faz um ajuste rápido
+    if distancia < 5 then return end
+    
     local tweenInfo = TweenInfo.new(tempo, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = destino.CFrame})
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = cframeDestino})
     tween:Play()
     tween.Completed:Wait()
 end
 
--- // LOOP PRINCIPAL DO AUTO FARM EXECUTADO EM SEGUNDO PLANO
+-- // FUNÇÃO AUXILIAR: VERIFICA SE O MODELO ESTÁ EM CIMA DA CELESTIAL FLOOR
+local function estaEmCimaDaFloor(modelo, floor)
+    if not modelo or not floor or not modelo:IsA("Model") then return false end
+    
+    local primaryPart = modelo.PrimaryPart or modelo:FindFirstChildOfClass("Part") or modelo:FindFirstChildOfClass("MeshPart")
+    if not primaryPart then return false end
+    
+    -- Cálculos de bounding box tridimensional simplificado para checar sobreposição vertical (eixos X e Z)
+    local posM = primaryPart.Position
+    local posF = floor.Position
+    local tamanhoF = floor.Size
+    
+    local dentroX = posM.X >= (posF.X - tamanhoF.X/2) and posM.X <= (posF.X + tamanhoF.X/2)
+    local dentroZ = posM.Z >= (posF.Z - tamanhoF.Z/2) and posM.Z <= (posF.Z + tamanhoF.Z/2)
+    local acimaY = posM.Y >= posF.Y -- Precisa estar acima da plataforma
+    
+    return dentroX and dentroZ and acimaY
+end
+
+-- // LOOP DO CELESTIAL FARM
 task.spawn(function()
-    while _G.FarmLoopAtivo do
-        task.wait(0.3)
+    -- Posição base estipulada por você
+    local cframeBase = CFrame.new(75, 4, -714)
+    
+    while _G.CelestialLoopAtivo do
+        task.wait(0.2)
         
-        -- Só executa se o botão na GUI continuar como true (ON)
+        -- Só age se o botão global da GUI estiver ativado (ON)
         if _G.AutoFarm then
-            local meuPlot = obterPlotDoJogador()
-            if meuPlot then
-                -- Caminho exato definido por você
-                local plotModels = meuPlot:FindFirstChild("Plot_Models")
-                local baseModel = plotModels and plotModels:FindFirstChild("BaseModel")
+            local breakMap = workspace:FindFirstChild("Break_Map")
+            local locations = breakMap and breakMap:FindFirstChild("Locations")
+            local celestialFloor = locations and locations:FindFirstChild("CelestialFloorBest")
+            local entitiesFolder = workspace:FindFirstChild("EntitiesFolder")
+            
+            if celestialFloor and entitiesFolder then
+                local modeloAlvo = nil
                 
-                local boxStand = baseModel and baseModel:FindFirstChild("BoxStand")
-                local sellButton = baseModel and baseModel:FindFirstChild("SellButton")
-                local sellP = sellButton and sellButton:FindFirstChild("SellP")
+                -- Procura QUALQUER modelo dentro da EntitiesFolder que esteja fisicamente sobre a plataforma
+                for _, entidade in ipairs(entitiesFolder:GetChildren()) do
+                    if entidade:IsA("Model") and estaEmCimaDaFloor(entidade, celestialFloor) then
+                        -- Encontra um ProximityPrompt dentro dele para garantir que é interativo
+                        if entidade:FindFirstChildOfClass("ProximityPrompt") or entidade:FindFirstChild("ProximityPrompt", true) then
+                            modeloAlvo = entidade
+                            break
+                        end
+                    end
+                end
                 
-                if boxStand and sellP then
-                    -- Procura o ProximityPrompt na BoxStand
-                    local prompt = boxStand:FindFirstChildOfClass("ProximityPrompt") or boxStand:FindFirstChild("ProximityPrompt", true)
+                -- Se encontrou um modelo válido cumprindo todos os requisitos
+                if modeloAlvo and _G.AutoFarm then
+                    local prompt = modeloAlvo:FindFirstChildOfClass("ProximityPrompt") or modeloAlvo:FindFirstChild("ProximityPrompt", true)
+                    local partAlvo = modeloAlvo.PrimaryPart or modeloAlvo:FindFirstChildOfClass("Part") or modeloAlvo:FindFirstChildOfClass("MeshPart")
                     
-                    if prompt then
-                        -- Coleta o texto (número) atual que está aparecendo no ProximityPrompt
-                        local textoDoPrompt = prompt.ObjectText or prompt.ActionText or ""
-                        local valorNoStand = extrairNumeroDaString(textoDoPrompt)
+                    if prompt and partAlvo then
+                        -- 1. Teleporta/Voa até a posição base inicial
+                        voarAte(cframeBase, 90)
+                        task.wait(0.1)
                         
-                        -- Se o valor no stand for igual ou maior do que o configurado na TextBox da GUI
-                        if valorNoStand >= _G.MinimoRequerido then
-                            
-                            -- 1. Voa até a BoxStand (Spawn de Caixas)
-                            darTween(boxStand)
+                        if _G.AutoFarm then
+                            -- 2. Voa diretamente até a parte física do modelo alvo
+                            voarAte(partAlvo.CFrame, 85)
                             task.wait(0.1)
                             
-                            -- Verifica novamente se o farm não foi desligado enquanto voava
-                            if _G.AutoFarm then
-                                -- 2. Ativa o ProximityPrompt de forma tradicional (Exclusivo para Executores)
+                            -- 3. Aciona o ProximityPrompt usando a API nativa de exploits
+                            if _G.AutoFarm and prompt then
                                 fireproximityprompt(prompt, 1)
                                 task.wait(0.2)
-                                
-                                -- 3. Dá o Tween até a parte de Venda (SellP)
-                                darTween(sellP)
-                                task.wait(0.4) -- Pequena pausa para o jogo processar a venda
                             end
                             
+                            -- 4. Retorna imediatamente para a posição padrão de segurança
+                            voarAte(cframeBase, 95)
                         end
+                    end
+                else
+                    -- Se não houver entidades elegíveis na plataforma, fica aguardando na base estipulada
+                    local char = LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if root and (root.Position - cframeBase.Position).Magnitude > 10 then
+                        voarAte(cframeBase, 90)
                     end
                 end
             end
         else
-            -- Se desligar o botão na GUI, o loop aguarda sem fechar a execução
+            -- Se desligar o farm na interface gráfica, aguarda sem gastar processamento
             task.wait(0.5)
         end
     end
 end)
-
