@@ -1,4 +1,4 @@
--- // CONFIGURAÇÃO AVANÇADA DA GUI NATIVA (ESTILO DARK PREMIUM)
+-- // CONFIGURAÇÃO DA GUI NATIVA E AMBIENTE
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local UICorner_Main = Instance.new("UICorner")
@@ -14,13 +14,14 @@ local PageMain = Instance.new("Frame")
 local PageGames = Instance.new("ScrollingFrame")
 
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 ScreenGui.Name = "VTZHub_PremiumLoader"
 ScreenGui.Parent = game:GetService("CoreGui")
 ScreenGui.ResetOnSpawn = false
 
--- // Janela Principal
+-- // JANELA PRINCIPAL
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 580, 0, 400)
 MainFrame.Position = UDim2.new(0.5, -290, 0.5, -200)
@@ -38,7 +39,78 @@ UIStroke_Main.Color = Color3.fromRGB(45, 45, 55)
 UIStroke_Main.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke_Main.Parent = MainFrame
 
--- // Painel Lateral (Sidebar)
+-- // BOTÕES TOP-BAR (MINIMIZAR E FECHAR)
+local TopButtonsContainer = Instance.new("Frame")
+TopButtonsContainer.Name = "TopButtonsContainer"
+TopButtonsContainer.Size = UDim2.new(0, 70, 0, 30)
+TopButtonsContainer.Position = UDim2.new(1, -75, 0, 10)
+TopButtonsContainer.BackgroundTransparency = 1
+TopButtonsContainer.Parent = MainFrame
+
+local BtnMinimize = Instance.new("TextButton")
+BtnMinimize.Name = "BtnMinimize"
+BtnMinimize.Size = UDim2.new(0, 25, 0, 25)
+BtnMinimize.Position = UDim2.new(0, 5, 0, 2)
+BtnMinimize.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+BtnMinimize.Text = "-"
+BtnMinimize.TextColor3 = Color3.fromRGB(200, 200, 200)
+BtnMinimize.Font = Enum.Font.GothamBold
+BtnMinimize.TextSize = 16
+BtnMinimize.Parent = TopButtonsContainer
+Instance.new("UICorner", BtnMinimize).CornerRadius = UDim.new(0, 6)
+
+local BtnClose = Instance.new("TextButton")
+BtnClose.Name = "BtnClose"
+BtnClose.Size = UDim2.new(0, 25, 0, 25)
+BtnClose.Position = UDim2.new(0, 38, 0, 2)
+BtnClose.BackgroundColor3 = Color3.fromRGB(70, 25, 25)
+BtnClose.Text = "X"
+BtnClose.TextColor3 = Color3.fromRGB(255, 100, 100)
+BtnClose.Font = Enum.Font.GothamBold
+BtnClose.TextSize = 12
+BtnClose.Parent = TopButtonsContainer
+Instance.new("UICorner", BtnClose).CornerRadius = UDim.new(0, 6)
+
+-- // BOTÃO MOBILE FLUTUANTE (50x50)
+local MobileToggleBtn = Instance.new("TextButton")
+MobileToggleBtn.Name = "MobileToggleBtn"
+MobileToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+MobileToggleBtn.Position = UDim2.new(0, 15, 0, 15) -- Canto superior esquerdo padrão
+MobileToggleBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+MobileToggleBtn.Text = "VTZ"
+MobileToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 160)
+MobileToggleBtn.Font = Enum.Font.GothamBold
+MobileToggleBtn.TextSize = 14
+MobileToggleBtn.Active = true
+MobileToggleBtn.Draggable = true -- Permite arrastar o botão mobile para onde quiser
+MobileToggleBtn.Parent = ScreenGui
+
+local MobileCorner = Instance.new("UICorner", MobileToggleBtn)
+MobileCorner.CornerRadius = UDim.new(0, 12)
+local MobileStroke = Instance.new("UIStroke", MobileToggleBtn)
+MobileStroke.Color = Color3.fromRGB(45, 45, 55)
+MobileStroke.Thickness = 1.5
+
+-- // SISTEMAS DE ALTERNÂNCIA (VISIBILIDADE)
+local function alternarVisibilidadePainel()
+    MainFrame.Visible = not MainFrame.Visible
+end
+
+BtnMinimize.MouseButton1Click:Connect(alternarVisibilidadePainel)
+MobileToggleBtn.MouseButton1Click:Connect(alternarVisibilidadePainel)
+
+BtnClose.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Hotkey 'K' para PC
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.K then
+        alternarVisibilidadePainel()
+    end
+end)
+
+-- // PAINEL LATERAL (SIDEBAR)
 Sidebar.Name = "Sidebar"
 Sidebar.Size = UDim2.new(0, 150, 1, 0)
 Sidebar.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
@@ -48,14 +120,14 @@ Sidebar.Parent = MainFrame
 UICorner_Sidebar.CornerRadius = UDim.new(0, 14)
 UICorner_Sidebar.Parent = Sidebar
 
--- // Container de Abas
+-- // CONTAINER DE ABAS
 TabContainer.Name = "TabContainer"
 TabContainer.Size = UDim2.new(0, 410, 1, -30)
 TabContainer.Position = UDim2.new(0, 160, 0, 15)
 TabContainer.BackgroundTransparency = 1
 TabContainer.Parent = MainFrame
 
--- // Construtor de Botões do Menu Lateral
+-- // CONSTRUTOR DE BOTÕES DO MENU LATERAL
 local function estilizarBotaoMenu(botao, texto, pos)
     botao.Size = UDim2.new(0, 130, 0, 38)
     botao.Position = UDim2.new(0, 10, 0, pos)
@@ -100,7 +172,7 @@ PageMain.Visible = true
 PageMain.Parent = TabContainer
 
 local TitleMain = Instance.new("TextLabel")
-TitleMain.Size = UDim2.new(1, 0, 0, 30)
+TitleMain.Size = UDim2.new(1, -80, 0, 30) -- Reduzido tamanho para não sobrepor os botões de controle
 TitleMain.BackgroundTransparency = 1
 TitleMain.Text = "Configurações do Script"
 TitleMain.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -138,7 +210,7 @@ if ListaDeMapasValidos[game.PlaceId] then
     _G.AutoFarm = false
 
     local Card = Instance.new("Frame")
-    Card.Size = UDim2.new(1, -10, 0, 90) -- Ajustado para conter de forma limpa apenas o botão
+    Card.Size = UDim2.new(1, -10, 0, 90)
     Card.Position = UDim2.new(0, 0, 0, 70)
     Card.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
     Card.Parent = PageMain
@@ -168,6 +240,7 @@ if ListaDeMapasValidos[game.PlaceId] then
     local tCorner = Instance.new("UICorner", ToggleBtn)
     tCorner.CornerRadius = UDim.new(0, 8)
 
+    -- ROTINA DE DEBUG DO GITHUB (LOADSTRING TRATA TUDO)
     local function rodarScriptNoAmbienteGlobal()
         local urls = {
             "https://raw.githubusercontent.com/tiktokbot116-commits/Scripts/refs/heads/main/My%20knife%20farm",
@@ -175,11 +248,15 @@ if ListaDeMapasValidos[game.PlaceId] then
         }
         
         local codigoBruto = nil
-        for _, url in ipairs(urls) do
+        for index, url in ipairs(urls) do
+            print("[Tentativa " .. tostring(index) .. "] Baixando de: " .. url)
             local sucesso, resultado = pcall(function() return game:HttpGet(url) end)
             if sucesso and resultado and #resultado > 0 then
                 codigoBruto = resultado
+                print("[Sucesso HTTP] Conteúdo retornado com " .. tostring(#resultado) .. " caracteres.")
                 break
+            else
+                warn("[Falha HTTP] URL " .. tostring(index) .. " falhou. Erro: " .. tostring(resultado))
             end
         end
         
@@ -191,11 +268,12 @@ if ListaDeMapasValidos[game.PlaceId] then
                     __newindex = function(_, chave, valor) _G[chave] = valor end
                 }))
                 task.spawn(funcaoCarregada)
+                print("[Loadstring] Executado com sucesso no ambiente global!")
             else
-                warn("Erro de Sintaxe no GitHub: " .. tostring(erroCompilacao))
+                warn("[Erro Crítico] Seu arquivo no GitHub tem um erro de digitação/sintaxe do Lua e não pôde ser compilado: " .. tostring(erroCompilacao))
             end
         else
-            warn("Falha ao se conectar com o servidor do GitHub.")
+            warn("[Erro de Conexão] O executor não conseguiu puxar nenhum dado do GitHub. Verifique se o link raw está correto ou se o site está instável.")
         end
     end
 
@@ -205,7 +283,7 @@ if ListaDeMapasValidos[game.PlaceId] then
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 150, 85)
             ToggleBtn.Text = "Auto Farm: ATIVO"
             
-            -- Apenas despacha o comando para o loadstring remoto tratar o farm
+            -- Dispara o loadstring e deixa ele lidar com toda a lógica externa
             rodarScriptNoAmbienteGlobal()
         else
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(160, 45, 45)
@@ -225,7 +303,7 @@ else
     ErrorLabel.Parent = PageMain
 end
 
--- // --- ABA: SUPPORTED GAMES (SCROLLABLE - APENAS EXIBIÇÃO) ---
+-- // --- ABA: SUPPORTED GAMES (SCROLLABLE - SEM BOTÃO DE TELEPORTE) ---
 PageGames.Name = "PageGames"
 PageGames.Size = UDim2.new(1, 0, 1, -20)
 PageGames.Position = UDim2.new(0, 0, 0, 10)
@@ -287,7 +365,7 @@ local function criarCardDeJogo(nome, placeId)
 end
 
 -- =============================================================================
--- EXIBIÇÃO EXCLUSIVA DOS JOGOS (SEM BOTÕES DE TELEPORTE)
+-- EXIBIÇÃO APENAS DE INFOS (FOTO, NOME, ID)
 -- =============================================================================
 criarCardDeJogo("Jogo das Caixas", 125003919504672)
 criarCardDeJogo("Hack Vault For Brainrots", 137069154816703)
