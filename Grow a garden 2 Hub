@@ -1,6 +1,6 @@
 -- GardensManager.lua
 -- Executor: Delta / Xeno | Ambiente: Roblox LocalScript
--- Versão Otimizada (Anti-Lag / Baixo uso de CPU e Memória)
+-- Versão Otimizada (Anti-Lag / Baixo uso de CPU e Memória) - Redz Library
 
 ------------------------------------------------------------------------
 -- SERVICOS
@@ -18,18 +18,23 @@ pcall(function()
 end)
 
 ------------------------------------------------------------------------
--- REFERENCIAS GLOBAIS
+-- REFERENCIAS GLOBAIS E DIRETÓRIOS (VERIFICADOS)
 ------------------------------------------------------------------------
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
-local Gardens      = Workspace:WaitForChild("Gardens", 10)
-local DroppedItems = Workspace:Workspace:WaitForChild("DroppedItems", 10)
+[span_1](start_span)local Gardens      = Workspace:WaitForChild("Gardens", 10)[span_1](end_span)
+[span_2](start_span)local DroppedItems = Workspace:WaitForChild("DroppedItems", 10)[span_2](end_span)
 
-local Networking = require(
-    ReplicatedStorage
-        :WaitForChild("SharedModules")
-        :WaitForChild("Networking")
-)
+-- Confirmação e carregamento do seu diretório padrão de módulos de rede
+[span_3](start_span)local SharedModules = ReplicatedStorage:WaitForChild("SharedModules", 10)[span_3](end_span)
+[span_4](start_span)local NetworkingModule = SharedModules and SharedModules:WaitForChild("Networking", 10)[span_4](end_span)
+local Networking
+
+if NetworkingModule then
+    [span_5](start_span)Networking = require(NetworkingModule)[span_5](end_span)
+else
+    warn("Diretório de Redes (SharedModules.Networking) não encontrado! Verifique a estrutura das pastas.")
+end
 
 ------------------------------------------------------------------------
 -- ESTADO CENTRALIZADO E SISTEMA DE SALVAMENTO
@@ -41,7 +46,7 @@ local State = {
     autoRoubo       = false,
     autoRetorno     = false,
     autoSeedPack    = false,
-    autoCollectAll  = false,
+    [span_6](start_span)autoCollectAll  = false,[span_6](end_span)
     meuPlotNome     = nil,
     plotAlvoNome    = nil,
 }
@@ -60,13 +65,13 @@ function ConfigSystem.Listar()
     local lista = {}
     if listfiles and isfolder(ConfigSystem.Pasta) then
         pcall(function()
-            for _, arquivo in ipairs(listfiles(ConfigSystem.Pasta)) do
+            [span_7](start_span)for _, arquivo in ipairs(listfiles(ConfigSystem.Pasta)) do[span_7](end_span)
                 local nome = string.match(arquivo, "([^/\\]+)%.json$")
                 if nome then
                     table.insert(lista, nome)
                 end
             end
-        end)
+        [span_8](start_span)end)[span_8](end_span)
     end
     if #lista == 0 then table.insert(lista, "Nenhuma config") end
     return lista
@@ -87,17 +92,17 @@ function Input.PressionarE()
 end
 
 ------------------------------------------------------------------------
--- MODULO: PROMPT (OTIMIZADO PARA DELTA)
+-- MODULO: PROMPT (OTIMIZADO)
 ------------------------------------------------------------------------
 local Prompt = {}
 
 function Prompt.AtivarImediato(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
 
-    pcall(function() 
+    [span_9](start_span)pcall(function()[span_9](end_span)
         prompt.RequiresLineOfSight = false 
         prompt.MaxActivationDistance = 999999
-    end)
+    [span_10](start_span)end)[span_10](end_span)
 
     if fireproximityprompt then
         fireproximityprompt(prompt)
@@ -140,7 +145,7 @@ function Char.TeleportarParaPrompt(prompt)
 
     local parentPart = prompt.Parent
     if parentPart and parentPart:IsA("BasePart") then
-        Char.Teleportar(parentPart.Position + Vector3.new(0, 1.5, 0))
+        [span_11](start_span)Char.Teleportar(parentPart.Position + Vector3.new(0, 1.5, 0))[span_11](end_span)
         return true
     end
 
@@ -151,7 +156,7 @@ function Char.TeleportarParaPrompt(prompt)
             pPart = model:FindFirstChildWhichIsA("BasePart", true)
         end
         if pPart then
-            Char.Teleportar(pPart.Position + Vector3.new(0, 1.5, 0))
+            [span_12](start_span)Char.Teleportar(pPart.Position + Vector3.new(0, 1.5, 0))[span_12](end_span)
             return true
         end
     end
@@ -162,7 +167,7 @@ function Char.TeleportarParaPrompt(prompt)
             Char.Teleportar(cursor.Position + Vector3.new(0, 1.5, 0))
             return true
         end
-        cursor = cursor.Parent
+        [span_13](start_span)cursor = cursor.Parent[span_13](end_span)
     end
 
     return false
@@ -183,9 +188,9 @@ function Plots.ResolverMeuPlot()
     if plotId then
         local num = tonumber(plotId)
         if num then
-            State.meuPlotNome = "Plot" .. tostring(num)
+            [span_14](start_span)State.meuPlotNome = "Plot" .. tostring(num)[span_14](end_span)
             return
-        end
+        [span_15](start_span)end[span_15](end_span)
     end
 end
 
@@ -211,9 +216,9 @@ Players.PlayerAdded:Connect(function(p)
     end)
 end)
 for _, p in ipairs(Players:GetPlayers()) do
-    p.AttributeChanged:Connect(function(attr)
+    [span_16](start_span)p.AttributeChanged:Connect(function(attr)[span_16](end_span)
         if attr == "PlotId" then reconstruirCachePlayers() end
-    end)
+    [span_17](start_span)end)[span_17](end_span)
 end
 
 function Plots.DonoDoPlot(plot)
@@ -229,19 +234,19 @@ function Plots.ListarParaDropdown()
 
     for _, plot in ipairs(Gardens:GetChildren()) do
         if string.match(plot.Name, "^Plot%d+$") then
-            local dono = Plots.DonoDoPlot(plot)
+            [span_18](start_span)local dono = Plots.DonoDoPlot(plot)[span_18](end_span)
             local rotulo
 
             if dono then
                 if dono == LocalPlayer.Name then
                     rotulo = dono .. " (meu plot)"
                 else
-                    rotulo = dono .. " (" .. plot.Name .. ")"
+                    [span_19](start_span)rotulo = dono .. " (" .. plot.Name .. ")"[span_19](end_span)
                 end
             else
                 rotulo = "Sem Dono (" .. plot.Name .. ")"
             end
-            table.insert(itens, rotulo)
+            [span_20](start_span)table.insert(itens, rotulo)[span_20](end_span)
         end
     end
     table.sort(itens)
@@ -258,7 +263,6 @@ function Acoes.ProcessarTeleporteEPrompt(prompt)
     local sucesso = Char.TeleportarParaPrompt(prompt)
     if not sucesso then return false end
     
-    -- Pausa de estabilização crucial para evitar crash/freeze no mobile
     task.wait(0.1)
     
     Prompt.AtivarImediato(prompt)
@@ -267,14 +271,16 @@ end
 
 local Venda = {}
 function Venda.Processar()
-    if not State.autoVenda then return false end
+    [span_21](start_span)if not State.autoVenda then return false end[span_21](end_span)
     local backpack = LocalPlayer:FindFirstChild("Backpack")
     if not backpack then return false end
 
     local itemCount = #backpack:GetChildren()
     if itemCount >= State.quantidadeVenda then
-        pcall(function() Networking.NPCS.SellAll:Fire() end)
-        return true
+        if Networking and Networking.NPCS and Networking.NPCS.SellAll then
+            pcall(function() Networking.NPCS.SellAll:Fire() end)
+            return true
+        end
     end
     return false
 end
@@ -283,7 +289,8 @@ local Coleta = {}
 function Coleta.Processar()
     if not State.autoColeta or not State.meuPlotNome then return false end
     if not Gardens then return false end
-    local plot = Gardens:FindFirstChild(State.meuPlotNome)
+    
+    [span_22](start_span)local plot = Gardens:FindFirstChild(State.meuPlotNome)[span_22](end_span)
     if not plot then return false end
 
     for _, inst in ipairs(plot:GetDescendants()) do
@@ -300,7 +307,7 @@ local Roubo = {}
 function Roubo.Processar()
     if not State.autoRoubo or not State.plotAlvoNome then return false end
     if Workspace:GetAttribute("ActivePhase") ~= "Night" then return false end
-    if not Gardens then return false end
+    [span_23](start_span)if not Gardens then return false end[span_23](end_span)
     
     local plot = Gardens:FindFirstChild(State.plotAlvoNome)
     if not plot then return false end
@@ -308,28 +315,28 @@ function Roubo.Processar()
     for _, inst in ipairs(plot:GetDescendants()) do
         if inst:IsA("ProximityPrompt") and inst.Name == "StealPrompt" then
             if not IgnoredPrompts[inst] then
-                local isBamboo = false
-                local ancestral = inst.Parent
+                [span_24](start_span)local isBamboo = false[span_24](end_span)
+                [span_25](start_span)local ancestral = inst.Parent[span_25](end_span)
 
                 while ancestral and ancestral ~= Workspace do
                     local seedName = ancestral:GetAttribute("SeedName")
                     if seedName ~= nil then
-                        if seedName == "Bamboo" then 
+                        [span_26](start_span)if seedName == "Bamboo" then[span_26](end_span)
                             isBamboo = true 
                             IgnoredPrompts[inst] = true
                         end
-                        break
+                        [span_27](start_span)break[span_27](end_span)
                     end
                     ancestral = ancestral.Parent
                 end
 
                 if not isBamboo and not IgnoredPrompts[inst] then
-                    local executou = Acoes.ProcessarTeleporteEPrompt(inst)
+                    [span_28](start_span)local executou = Acoes.ProcessarTeleporteEPrompt(inst)[span_28](end_span)
                     if executou then
                         return true
                     end
                 end
-            end
+            [span_29](start_span)end[span_29](end_span)
         end
     end
     return false
@@ -346,7 +353,7 @@ function FarmMap.Processar()
 
     for _, inst in ipairs(seedFolder:GetDescendants()) do
         if inst:IsA("ProximityPrompt") then
-            return Acoes.ProcessarTeleporteEPrompt(inst)
+            [span_30](start_span)return Acoes.ProcessarTeleporteEPrompt(inst)[span_30](end_span)
         end
     end
     return false
@@ -362,7 +369,7 @@ function CollectAll.Processar()
 
         if not prompt then
             prompt = item:FindFirstChildOfClass("ProximityPrompt", true)
-        end
+        [span_31](start_span)end[span_31](end_span)
 
         if prompt then
             return Acoes.ProcessarTeleporteEPrompt(prompt)
@@ -378,7 +385,7 @@ function Retorno.Processar()
     local root = Char.Root()
 
     if plot and root then
-        local destino   = plot:GetPivot().Position + Vector3.new(0, 3, 0)
+        [span_32](start_span)local destino = plot:GetPivot().Position + Vector3.new(0, 3, 0)[span_32](end_span)
         local distancia = (root.Position - destino).Magnitude
 
         if distancia > 35 then
@@ -390,53 +397,43 @@ function Retorno.Processar()
 end
 
 ------------------------------------------------------------------------
--- CARREGAMENTO DA FLUENT LIBRARY
+-- CARREGAMENTO DA REDZ LIBRARY (SUBSTITUTA DA FLUENT)
 ------------------------------------------------------------------------
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/REDzHUB/main/REDzHUBUiLib.lua"))()
 
-------------------------------------------------------------------------
--- JANELA PRINCIPAL E GUI ELEMENTS
-------------------------------------------------------------------------
-local Window = Fluent:CreateWindow({
-    Title       = "Gardens Manager",
-    SubTitle    = "by Gustavo1203888 (Anti-Lag Otimizado)",
-    TabWidth    = 160,
-    Size        = UDim2.fromOffset(480, 480),
-    Acrylic     = true,
-    Theme       = "Dark",
-    MinimizeKey = Enum.KeyCode.LeftControl,
+-- Criação da Janela Principal
+local Window = RedzLib:MakeWindow({
+    [span_33](start_span)Title = "Gardens Manager",[span_33](end_span)
+    SubTitle = "by Gustavo1203888 (Otimizado Mobile)",
+    SaveFolder = ConfigSystem.Pasta
 })
 
-local Tabs = {
-    Main   = Window:AddTab({ Title = "Main",   Icon = "home"          }),
-    Farm   = Window:AddTab({ Title = "Farm",   Icon = "leaf"          }),
-    Shops  = Window:AddTab({ Title = "Shops",  Icon = "shopping-cart" }),
-    Steal  = Window:AddTab({ Title = "Steal",  Icon = "skull"         }),
-    Config = Window:AddTab({ Title = "Config", Icon = "settings"      }),
-}
-
-local Toggles = {}
-local Inputs  = {}
+-- Criando as Abas (Tabs)
+local TabMain   = Window:MakeTab({"Main", "home"})
+local TabFarm   = Window:MakeTab({"Farm", "leaf"})
+local TabShops  = Window:MakeTab({"Shops", "shopping-cart"})
+local TabSteal  = Window:MakeTab({"Steal", "skull"})
+local TabConfig = Window:MakeTab({"Config", "settings"})
 
 ------------------------------------------------------------------------
 -- ABA: MAIN
 ------------------------------------------------------------------------
-Tabs.Main:AddSection("Gerenciamento do Plot Proprietario")
+TabMain:AddSection({"Gerenciamento do Plot Proprietario"})
 
-Toggles.AutoColeta = Tabs.Main:AddToggle("AutoColeta", {
-    Title       = "Auto Coletar Minhas Frutas",
+local ToggleColeta = TabMain:AddToggle({
+    Name = "Auto Coletar Minhas Frutas",
     Description = "Varre seu plot buscando HarvestPrompt.",
-    Default     = false,
-    Callback    = function(v)
+    Default = false,
+    Callback = function(v)
         State.autoColeta = v
         if not v then Char.AncorarRaiz(false) end
-    end,
+    end
 })
 
 local function configurarPlanta(modelo, invisivel)
     for _, parte in ipairs(modelo:GetDescendants()) do
         if parte:IsA("BasePart") then
-            parte.Transparency = invisivel and 1 or 0
+            [span_34](start_span)parte.Transparency = invisivel and 1 or 0[span_34](end_span)
             parte.CanCollide = not invisivel
         end
     end
@@ -454,56 +451,52 @@ local function toggleInvisPlants(ativo)
     local pastaPlants = meuPlot:FindFirstChild("Plants")
     if not pastaPlants then return end
 
-    for _, plantaModelo in ipairs(pastaPlants:GetChildren()) do
+    [span_35](start_span)for _, plantaModelo in ipairs(pastaPlants:GetChildren()) do[span_35](end_span)
         configurarPlanta(plantaModelo, ativo)
     end
 end
 
-Tabs.Main:AddToggle("InvisPlants", {
-    Title       = "Invis Plants",
-    Description = "Esconde plantas do seu plot via PlotId (Transp 1, Sem Colisão)",
-    Default     = false,
-    Callback    = function(v)
+TabMain:AddToggle({
+    Name = "Invis Plants",
+    Description = "Esconde plantas do seu plot via PlotId",
+    Default = false,
+    Callback = function(v)
         toggleInvisPlants(v)
-        
         if v then
-            -- Previne memory leak limpando conexões antigas antes de recriar
             if _G.PlantConnection then pcall(function() _G.PlantConnection:Disconnect() end) end
             _G.PlantConnection = Gardens.DescendantAdded:Connect(function(obj)
                 local plotId = LocalPlayer:GetAttribute("PlotId")
                 if not plotId then return end
-                
+               
                 local meuPlot = Gardens:FindFirstChild("Plot" .. tostring(plotId))
                 if meuPlot and obj:IsDescendantOf(meuPlot) then
                     if obj:FindFirstAncestor("Plants") then
                         configurarPlanta(obj.Parent, true)
-                    end
+                    [span_36](start_span)end[span_36](end_span)
                 end
             end)
         else
             if _G.PlantConnection then pcall(function() _G.PlantConnection:Disconnect() end) end
         end
-    end,
+    end
 })
 
-Toggles.AutoVenda = Tabs.Main:AddToggle("AutoVenda", {
-    Title       = "Auto Vender Inventario",
-    Description = "Vende automaticamente quando atinge a meta estipulada.",
-    Default     = false,
-    Callback    = function(v)
+local ToggleVenda = TabMain:AddToggle({
+    Name = "Auto Vender Inventario",
+    Description = "Vende automaticamente quando atinge a meta.",
+    Default = false,
+    Callback = function(v)
         State.autoVenda = v
-    end,
+    end
 })
 
-Inputs.MetaVenda = Tabs.Main:AddInput("MetaVenda", {
-    Title = "Quantidade para Vender",
+TabMain:AddTextBox({
+    Name = "Quantidade para Vender",
     Default = "100",
-    Numeric = true,
-    Finished = false,
     Placeholder = "Ex: 50, 100",
     Callback = function(Value)
         local num = tonumber(Value)
-        if num and num > 0 then
+        [span_37](start_span)if num and num > 0 then[span_37](end_span)
             State.quantidadeVenda = num
         end
     end
@@ -512,125 +505,114 @@ Inputs.MetaVenda = Tabs.Main:AddInput("MetaVenda", {
 ------------------------------------------------------------------------
 -- ABA: FARM
 ------------------------------------------------------------------------
-Tabs.Farm:AddSection("Coleta pelo Mapa")
+TabFarm:AddSection({"Coleta pelo Mapa"})
 
-Toggles.AutoSeedPack = Tabs.Farm:AddToggle("AutoSeedPack", {
-    Title       = "Auto Coletar Seed Packs do Mapa",
-    Description = "Coleta as sementes que nascem periodicamente pelo servidor.",
-    Default     = false,
-    Callback    = function(v)
+local ToggleSeedPack = TabFarm:AddToggle({
+    Name = "Auto Coletar Seed Packs do Mapa",
+    Description = "Coleta as sementes periódicas do servidor.",
+    Default = false,
+    Callback = function(v)
         State.autoSeedPack = v
-        if not v then Char.AncorarRaiz(false) end
-    end,
+        [span_38](start_span)if not v then Char.AncorarRaiz(false) end[span_38](end_span)
+    end
 })
 
-Toggles.CollectAllItems = Tabs.Farm:AddToggle("CollectAllItems", {
-    Title       = "Coletar Itens Soltos (DroppedItems)",
+local ToggleCollectAll = TabFarm:AddToggle({
+    Name = "Coletar Itens Soltos (DroppedItems)",
     Description = "Coleta itens descartados ou caidos no chao.",
-    Default     = false,
-    Callback    = function(v)
+    Default = false,
+    Callback = function(v)
         State.autoCollectAll = v
         if not v then Char.AncorarRaiz(false) end
-    end,
+    end
 })
 
 ------------------------------------------------------------------------
 -- ABA: SHOPS
 ------------------------------------------------------------------------
-Tabs.Shops:AddSection("Toggles das Lojas")
+TabShops:AddSection({"Toggles das Lojas"})
 
-Tabs.Shops:AddToggle("TggGearShop", {
-    Title       = "Abrir/Fechar Gear Shop",
-    Default     = false,
-    Callback    = function(v)
+TabShops:AddToggle({
+    Name = "Abrir/Fechar Gear Shop",
+    Default = false,
+    Callback = function(v)
         local pGui = LocalPlayer:FindFirstChild("PlayerGui")
         if pGui then
             local shop = pGui:FindFirstChild("GearShop")
             if shop then shop.Enabled = v end
         end
-    end,
+    end
 })
 
-Tabs.Shops:AddToggle("TggSeedShop", {
-    Title       = "Abrir/Fechar Seed Shop",
-    Default     = false,
-    Callback    = function(v)
+TabShops:AddToggle({
+    Name = "Abrir/Fechar Seed Shop",
+    Default = false,
+    Callback = function(v)
         local pGui = LocalPlayer:FindFirstChild("PlayerGui")
         if pGui then
             local shop = pGui:FindFirstChild("SeedShop")
             if shop then shop.Enabled = v end
         end
-    end,
+    end
 })
 
 ------------------------------------------------------------------------
 -- ABA: STEAL
 ------------------------------------------------------------------------
-Tabs.Steal:AddSection("Configuracoes de Roubo Alheio")
+TabSteal:AddSection({"Configuracoes de Roubo Alheio"})
 
-local LabelPlot = Tabs.Steal:AddParagraph({
-    Title   = "Plot selecionado: NENHUM",
-    Content = "Escolha um terrain mapeado na lista abaixo.",
-})
+-- Na RedzLib, sessões ou labels servem como informativos estáticos
+local LabelPlotSecao = TabSteal:AddSection({"Plot selecionado: NENHUM"})
 
-local DropdownPlots = Tabs.Steal:AddDropdown("DropdownPlots", {
-    Title         = "Selecionar Plot Oponente",
-    Values        = { "Carregando terrenos..." },
-    CurrentOption = "",
-    Multiple      = false,
-    Callback      = function(valor)
-        if not valor or valor == "" or string.find(valor, "meu plot") then return end
+local DropdownPlots = TabSteal:AddDropdown({
+    Name = "Selecionar Plot Oponente",
+    Options = { "Carregando terrenos..." },
+    Default = "",
+    Callback = function(valor)
+        [span_39](start_span)if not valor or valor == "" or string.find(valor, "meu plot") then return end[span_39](end_span)
         local nomeReal = string.match(valor, "%((Plot%d+)%)")
         if not nomeReal then return end
 
         State.plotAlvoNome = nomeReal
-        LabelPlot:SetTitle("Plot selecionado: " .. valor)
-    end,
+    end
 })
 
-Toggles.AutoRoubo = Tabs.Steal:AddToggle("AutoRoubo", {
-    Title       = "Auto Roubar Plot Selecionado (so de noite)",
+local ToggleRoubo = TabSteal:AddToggle({
+    Name = "Auto Roubar Plot Selecionado (so de noite)",
     Description = "Ignora plantas Bamboo.",
-    Default     = false,
-    Callback    = function(v)
+    Default = false,
+    Callback = function(v)
         State.autoRoubo = v
         if not v then Char.AncorarRaiz(false) end
-    end,
+    end
 })
 
-Toggles.AutoRetorno = Tabs.Steal:AddToggle("AutoRetorno", {
-    Title       = "Retornar ao Meu Plot Quando Ocioso",
-    Description = "Retorna para a sua base caso nao haja nenhuma outra tarefa na frente da fila sendo executada.",
-    Default     = false,
-    Callback    = function(v)
-        State.autoRetorno = v
-    end,
+local ToggleRetorno = TabSteal:AddToggle({
+    Name = "Retornar ao Meu Plot Quando Ocioso",
+    Default = false,
+    Callback = function(v)
+        [span_40](start_span)State.autoRetorno = v[span_40](end_span)
+    end
 })
 
 ------------------------------------------------------------------------
 -- ABA: CONFIG
 ------------------------------------------------------------------------
-Tabs.Config:AddSection("Salvar ConfiguraÃ§Ã£o")
+TabConfig:AddSection({"Salvar Configuração"})
 
-Tabs.Config:AddInput("ConfigSaveName", {
-    Title       = "Nome da ConfiguraÃ§Ã£o (Salvar)",
-    Default     = ConfigSystem.NomeParaSalvar,
-    Numeric     = false,
-    Finished    = false,
+TabConfig:AddTextBox({
+    Name = "Nome da Configuração (Salvar)",
+    Default = ConfigSystem.NomeParaSalvar,
     Placeholder = "Digite o nome aqui",
-    Callback    = function(texto)
+    Callback = function(texto)
         ConfigSystem.NomeParaSalvar = texto
     end
 })
 
-Tabs.Config:AddButton({
-    Title    = "Salvar ConfiguraÃ§Ã£o",
-    Description = "Salva o estado atual das abas na pasta do seu executor.",
+TabConfig:AddButton({
+    Name = "Salvar Configuração",
     Callback = function()
-        if not writefile then
-            Fluent:Notify({Title="Erro", Content="Seu executor nÃ£o suporta salvar arquivos.", Duration=3})
-            return
-        end
+        if not writefile then return end
         if ConfigSystem.NomeParaSalvar == "" then return end
         
         local data = {
@@ -639,73 +621,57 @@ Tabs.Config:AddButton({
             quantidadeVenda = State.quantidadeVenda,
             autoSeedPack    = State.autoSeedPack,
             autoCollectAll  = State.autoCollectAll,
-            autoRoubo       = State.autoRoubo,
+            [span_41](start_span)autoRoubo       = State.autoRoubo,[span_41](end_span)
             autoRetorno     = State.autoRetorno
         }
         
         local success, encoded = pcall(HttpService.JSONEncode, HttpService, data)
         if success then
             local path = ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaSalvar .. ".json"
-            pcall(writefile, path, encoded)
-            Fluent:Notify({Title="Sucesso", Content="ConfiguraÃ§Ã£o '" .. ConfigSystem.NomeParaSalvar .. "' salva!", Duration=3})
+            [span_42](start_span)pcall(writefile, path, encoded)[span_42](end_span)
         end
     end
 })
 
-Tabs.Config:AddSection("Carregar ConfiguraÃ§Ã£o")
+TabConfig:AddSection({"Carregar Configuração"})
 
-local DropdownConfigs = Tabs.Config:AddDropdown("ConfigLoadSelect", {
-    Title         = "Selecionar ConfiguraÃ§Ã£o (Ler)",
-    Values        = ConfigSystem.Listar(),
-    CurrentOption = "",
-    Multiple      = false,
-    Callback      = function(valor)
-        if valor and valor ~= "Nenhuma config" then
+local DropdownConfigs = TabConfig:AddDropdown({
+    Name = "Selecionar Configuração (Ler)",
+    Options = ConfigSystem.Listar(),
+    Default = "",
+    Callback = function(valor)
+        [span_43](start_span)if valor and valor ~= "Nenhuma config" then[span_43](end_span)
             ConfigSystem.NomeParaLer = valor
         end
-    end,
-})
-
-Tabs.Config:AddButton({
-    Title    = "Atualizar Lista",
-    Description = "Atualiza os arquivos da pasta.",
-    Callback = function()
-        DropdownConfigs:SetValues(ConfigSystem.Listar())
     end
 })
 
-Tabs.Config:AddButton({
-    Title    = "Aplicar ConfiguraÃ§Ã£o",
-    Description = "Carrega e aplica os toggles salvos no arquivo selecionado.",
+TabConfig:AddButton({
+    Name = "Atualizar Lista",
     Callback = function()
-        if not readfile then
-            Fluent:Notify({Title="Erro", Content="Seu executor nÃ£o suporta ler arquivos.", Duration=3})
-            return
-        end
+        DropdownConfigs:SetOptions(ConfigSystem.Listar())
+    end
+})
+
+TabConfig:AddButton({
+    Name = "Aplicar Configuração",
+    Callback = function()
+        if not readfile then return end
         if ConfigSystem.NomeParaLer == "" or ConfigSystem.NomeParaLer == "Nenhuma config" then return end
         
-        local path = ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaLer .. ".json"
-        
-        if isfile and not isfile(path) then
-            Fluent:Notify({Title="Erro", Content="Arquivo nÃ£o encontrado.", Duration=3})
-            return
-        end
+        [span_44](start_span)local path = ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaLer .. ".json"[span_44](end_span)
+        if isfile and not isfile(path) then return end
         
         local success, content = pcall(readfile, path)
         if success then
-            local successDec, data = pcall(HttpService.JSONDecode, HttpService, content)
+            [span_45](start_span)local successDec, data = pcall(HttpService.JSONDecode, HttpService, content)[span_45](end_span)
             if successDec then
-                if data.autoColeta ~= nil then Toggles.AutoColeta:SetValue(data.autoColeta) end
-                if data.autoVenda ~= nil then Toggles.AutoVenda:SetValue(data.autoVenda) end
-                if data.quantidadeVenda ~= nil then Inputs.MetaVenda:SetValue(tostring(data.quantidadeVenda)) end
-                if data.autoSeedPack ~= nil then Toggles.AutoSeedPack:SetValue(data.autoSeedPack) end
-                if data.autoCollectAll ~= nil then Toggles.CollectAllItems:SetValue(data.autoCollectAll) end
-                if data.autoRoubo ~= nil then Toggles.AutoRoubo:SetValue(data.autoRoubo) end
-                if data.autoRetorno ~= nil then Toggles.AutoRetorno:SetValue(data.autoRetorno) end
-                
-                Fluent:Notify({Title="Sucesso", Content="ConfiguraÃ§Ã£o carregada!", Duration=3})
-            else
-                Fluent:Notify({Title="Erro", Content="Arquivo corrompido ou invalido.", Duration=3})
+                if data.autoColeta ~= nil then ToggleColeta:Set(data.autoColeta) end
+                if data.autoVenda ~= nil then ToggleVenda:Set(data.autoVenda) end
+                if data.autoSeedPack ~= nil then ToggleSeedPack:Set(data.autoSeedPack) end
+                if data.autoCollectAll ~= nil then ToggleCollectAll:Set(data.autoCollectAll) end
+                if data.autoRoubo ~= nil then ToggleRoubo:Set(data.autoRoubo) end
+                if data.autoRetorno ~= nil then ToggleRetorno:Set(data.autoRetorno) end
             end
         end
     end
@@ -718,25 +684,24 @@ task.spawn(function()
     local ultimaListaStr = ""
     while true do
         Plots.ResolverMeuPlot()
-        if Gardens then
+        [span_46](start_span)if Gardens then[span_46](end_span)
             local novosItens = Plots.ListarParaDropdown()
             local atualStr = table.concat(novosItens, "|")
 
             if atualStr ~= ultimaListaStr and #novosItens > 0 then
                 ultimaListaStr = atualStr
                 pcall(function()
-                    DropdownPlots:SetValues(novosItens)
+                    DropdownPlots:SetOptions(novosItens)
                 end)
             end
         end
-        task.wait(4) -- Aumentado de 3 para 4 para economizar CPU
+        [span_47](start_span)task.wait(4)[span_47](end_span)
     end
 end)
 
 ------------------------------------------------------------------------
--- THREAD PRINCIPAL: GERENCIADOR DE TAREFAS (OTIMIZADO - SEM COOLDOWN DE MEMÃ“RIA)
+-- THREAD PRINCIPAL: GERENCIADOR DE TAREFAS
 ------------------------------------------------------------------------
--- Tabela indexada previamente para evitar criaÃ§Ã£o e ordenaÃ§Ã£o dinÃ¢mica no loop
 local FilaDeAcoesFixa = {
     { nome = "Venda",      acao = Venda.Processar },
     { nome = "CollectAll", acao = CollectAll.Processar },
@@ -750,115 +715,19 @@ task.spawn(function()
     while true do
         local tarefaExecutada = false
 
-        -- Varre a lista em ordem direta de prioridade fixa prÃ©-estabelecida
-        for i = 1, #FilaDeAcoesFixa do
+        [span_48](start_span)for i = 1, #FilaDeAcoesFixa do[span_48](end_span)
             local sucesso = FilaDeAcoesFixa[i].acao()
             if sucesso then
                 tarefaExecutada = true
                 break
             end
-        end
+        [span_49](start_span)end[span_49](end_span)
 
         if tarefaExecutada then
-            task.wait(0.12) -- Janela ideal de estabilidade para farm veloz e contÃ­nuo
+            task.wait(0.12)
         else
-            task.wait(0.25) -- Reduz drasticamente o uso de CPU quando nÃ£o hÃ¡ nada para coletar
+            task.wait(0.25)
         end
-    end
-end)
-
-------------------------------------------------------------------------
--- CONFIGURAÃ‡ÃƒO DO BOTÃƒO MOBILE (TOGGLE)
-------------------------------------------------------------------------
-local function obterHubGui()
-    for _, gui in ipairs(CoreGui:GetChildren()) do
-        if gui:IsA("ScreenGui") and (gui.Name == "Fluent" or gui:FindFirstChild("Main", true)) then
-            return gui
-        end
-    end
-    for _, gui in ipairs(PlayerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") and (gui.Name == "Fluent" or gui:FindFirstChild("Main", true)) then
-            return gui
-        end
-    end
-    return nil
-end
-
-local MobileGui = Instance.new("ScreenGui")
-MobileGui.Name = "MobileToggleHub"
-MobileGui.ResetOnSpawn = false
-MobileGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local alocado, _ = pcall(function()
-    MobileGui.Parent = CoreGui
-end)
-if not alocado then
-    MobileGui.Parent = PlayerGui
-end
-
-local ToggleButton = Instance.new("TextButton")
-ToggleButton.Name = "ToggleButton"
-ToggleButton.Size = UDim2.new(0, 55, 0, 55)
-ToggleButton.Position = UDim2.new(0, 15, 0.4, 0)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-ToggleButton.Text = "HUB"
-ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.TextSize = 13
-ToggleButton.Font = Enum.Font.GothamBold
-ToggleButton.Active = true
-ToggleButton.Parent = MobileGui
-
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 99)
-Corner.Parent = ToggleButton
-
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(0, 255, 120)
-Stroke.Thickness = 2
-Stroke.Parent = ToggleButton
-
-local dragging, dragInput, dragStart, startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
-    ToggleButton.Position = UDim2.new(
-        startPos.X.Scale, 
-        startPos.X.Offset + delta.X, 
-        startPos.Y.Scale, 
-        startPos.Y.Offset + delta.Y
-    )
-end
-
-ToggleButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = ToggleButton.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-ToggleButton.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
-end)
-
-ToggleButton.MouseButton1Click:Connect(function()
-    local hub = obterHubGui()
-    if hub then
-        hub.Enabled = not hub.Enabled
     end
 end)
 
@@ -866,12 +735,3 @@ end)
 -- INICIALIZACAO COMPLETA
 ------------------------------------------------------------------------
 Plots.ResolverMeuPlot()
-
-pcall(function()
-    Window:SelectTab(1)
-    Fluent:Notify({
-        Title    = "Gardens Manager",
-        Content  = "VersÃ£o Ultra Otimizada (Anti-Lag) Inicializada com Sucesso.",
-        Duration = 5,
-    })
-end)
