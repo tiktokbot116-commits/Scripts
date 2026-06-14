@@ -1,0 +1,877 @@
+-- GardensManager.lua
+-- Executor: Delta / Xeno | Ambiente: Roblox LocalScript
+-- Versão Otimizada (Anti-Lag / Baixo uso de CPU e Memória)
+
+------------------------------------------------------------------------
+-- SERVICOS
+------------------------------------------------------------------------
+local Players           = game:GetService("Players")
+local Workspace         = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService       = game:GetService("HttpService")
+local CoreGui           = game:GetService("CoreGui")
+local UserInputService  = game:GetService("UserInputService")
+
+local VirtualInputManager
+pcall(function()
+    VirtualInputManager = game:GetService("VirtualInputManager")
+end)
+
+------------------------------------------------------------------------
+-- REFERENCIAS GLOBAIS
+------------------------------------------------------------------------
+local LocalPlayer  = Players.LocalPlayer
+local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
+local Gardens      = Workspace:WaitForChild("Gardens", 10)
+local DroppedItems = Workspace:Workspace:WaitForChild("DroppedItems", 10)
+
+local Networking = require(
+    ReplicatedStorage
+        :WaitForChild("SharedModules")
+        :WaitForChild("Networking")
+)
+
+------------------------------------------------------------------------
+-- ESTADO CENTRALIZADO E SISTEMA DE SALVAMENTO
+------------------------------------------------------------------------
+local State = {
+    autoColeta      = false,
+    autoVenda       = false,
+    quantidadeVenda = 100,
+    autoRoubo       = false,
+    autoRetorno     = false,
+    autoSeedPack    = false,
+    autoCollectAll  = false,
+    meuPlotNome     = nil,
+    plotAlvoNome    = nil,
+}
+
+local ConfigSystem = {
+    Pasta          = "GardensManagerConfigs",
+    NomeParaSalvar = "Padrao",
+    NomeParaLer    = "",
+}
+
+if isfolder and not isfolder(ConfigSystem.Pasta) then
+    pcall(makefolder, ConfigSystem.Pasta)
+end
+
+function ConfigSystem.Listar()
+    local lista = {}
+    if listfiles and isfolder(ConfigSystem.Pasta) then
+        pcall(function()
+            for _, arquivo in ipairs(listfiles(ConfigSystem.Pasta)) do
+                local nome = string.match(arquivo, "([^/\\]+)%.json$")
+                if nome then
+                    table.insert(lista, nome)
+                end
+            end
+        end)
+    end
+    if #lista == 0 then table.insert(lista, "Nenhuma config") end
+    return lista
+end
+
+------------------------------------------------------------------------
+-- MODULO: INPUT (FALLBACK)
+------------------------------------------------------------------------
+local Input = {}
+
+function Input.PressionarE()
+    if not VirtualInputManager then return end
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.02)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end)
+end
+
+------------------------------------------------------------------------
+-- MODULO: PROMPT (OTIMIZADO PARA DELTA)
+------------------------------------------------------------------------
+local Prompt = {}
+
+function Prompt.AtivarImediato(prompt)
+    if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
+
+    pcall(function() 
+        prompt.RequiresLineOfSight = false 
+        prompt.MaxActivationDistance = 999999
+    end)
+
+    if fireproximityprompt then
+        fireproximityprompt(prompt)
+        return true
+    end
+
+    pcall(function()
+        prompt.HoldDuration = 0
+        prompt:InputHoldBegin()
+        prompt:InputHoldEnd()
+    end)
+
+    Input.PressionarE()
+    return true
+end
+
+------------------------------------------------------------------------
+-- MODULO: PERSONAGEM / TELEPORTE
+------------------------------------------------------------------------
+local Char = {}
+
+function Char.Root()
+    local character = LocalPlayer.Character
+    return character and character:FindFirstChild("HumanoidRootPart")
+end
+
+function Char.Teleportar(posicao)
+    local root = Char.Root()
+    if not root then return end
+
+    root.Anchored = false
+    root.AssemblyLinearVelocity  = Vector3.zero
+    root.AssemblyAngularVelocity = Vector3.zero
+
+    root.CFrame = CFrame.new(posicao)
+end
+
+function Char.TeleportarParaPrompt(prompt)
+    if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
+
+    local parentPart = prompt.Parent
+    if parentPart and parentPart:IsA("BasePart") then
+        Char.Teleportar(parentPart.Position + Vector3.new(0, 1.5, 0))
+        return true
+    end
+
+    local model = prompt:FindFirstAncestorOfClass("Model")
+    if model then
+        local pPart = model.PrimaryPart
+        if not pPart then
+            pPart = model:FindFirstChildWhichIsA("BasePart", true)
+        end
+        if pPart then
+            Char.Teleportar(pPart.Position + Vector3.new(0, 1.5, 0))
+            return true
+        end
+    end
+
+    local cursor = prompt.Parent
+    while cursor and cursor ~= Workspace do
+        if cursor:IsA("BasePart") then
+            Char.Teleportar(cursor.Position + Vector3.new(0, 1.5, 0))
+            return true
+        end
+        cursor = cursor.Parent
+    end
+
+    return false
+end
+
+function Char.AncorarRaiz(estado)
+    local root = Char.Root()
+    if root then root.Anchored = estado end
+end
+
+------------------------------------------------------------------------
+-- MODULO: PLOTS
+------------------------------------------------------------------------
+local Plots = {}
+
+function Plots.ResolverMeuPlot()
+    local plotId = LocalPlayer:GetAttribute("PlotId")
+    if plotId then
+        local num = tonumber(plotId)
+        if num then
+            State.meuPlotNome = "Plot" .. tostring(num)
+            return
+        end
+    end
+end
+
+local CachePlayersPorPlotId = {}
+
+local function reconstruirCachePlayers()
+    table.clear(CachePlayersPorPlotId)
+    for _, p in ipairs(Players:GetPlayers()) do
+        local pid = p:GetAttribute("PlotId")
+        if pid then
+            CachePlayersPorPlotId[tonumber(pid)] = p.Name
+        end
+    end
+end
+
+reconstruirCachePlayers()
+Players.PlayerAdded:Connect(reconstruirCachePlayers)
+Players.PlayerRemoving:Connect(reconstruirCachePlayers)
+
+Players.PlayerAdded:Connect(function(p)
+    p.AttributeChanged:Connect(function(attr)
+        if attr == "PlotId" then reconstruirCachePlayers() end
+    end)
+end)
+for _, p in ipairs(Players:GetPlayers()) do
+    p.AttributeChanged:Connect(function(attr)
+        if attr == "PlotId" then reconstruirCachePlayers() end
+    end)
+end
+
+function Plots.DonoDoPlot(plot)
+    if not plot then return nil end
+    local plotNum = tonumber(string.match(plot.Name, "%d+"))
+    if not plotNum then return nil end
+    return CachePlayersPorPlotId[plotNum]
+end
+
+function Plots.ListarParaDropdown()
+    if not Gardens then return {} end
+    local itens = {}
+
+    for _, plot in ipairs(Gardens:GetChildren()) do
+        if string.match(plot.Name, "^Plot%d+$") then
+            local dono = Plots.DonoDoPlot(plot)
+            local rotulo
+
+            if dono then
+                if dono == LocalPlayer.Name then
+                    rotulo = dono .. " (meu plot)"
+                else
+                    rotulo = dono .. " (" .. plot.Name .. ")"
+                end
+            else
+                rotulo = "Sem Dono (" .. plot.Name .. ")"
+            end
+            table.insert(itens, rotulo)
+        end
+    end
+    table.sort(itens)
+    return itens
+end
+
+------------------------------------------------------------------------
+-- MODULOS DE ACAO
+------------------------------------------------------------------------
+local Acoes = {}
+
+function Acoes.ProcessarTeleporteEPrompt(prompt)
+    if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
+    local sucesso = Char.TeleportarParaPrompt(prompt)
+    if not sucesso then return false end
+    
+    -- Pausa de estabilização crucial para evitar crash/freeze no mobile
+    task.wait(0.1)
+    
+    Prompt.AtivarImediato(prompt)
+    return true
+end
+
+local Venda = {}
+function Venda.Processar()
+    if not State.autoVenda then return false end
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if not backpack then return false end
+
+    local itemCount = #backpack:GetChildren()
+    if itemCount >= State.quantidadeVenda then
+        pcall(function() Networking.NPCS.SellAll:Fire() end)
+        return true
+    end
+    return false
+end
+
+local Coleta = {}
+function Coleta.Processar()
+    if not State.autoColeta or not State.meuPlotNome then return false end
+    if not Gardens then return false end
+    local plot = Gardens:FindFirstChild(State.meuPlotNome)
+    if not plot then return false end
+
+    for _, inst in ipairs(plot:GetDescendants()) do
+        if inst:IsA("ProximityPrompt") and inst.Name == "HarvestPrompt" then
+            return Acoes.ProcessarTeleporteEPrompt(inst)
+        end
+    end
+    return false
+end
+
+local IgnoredPrompts = {}
+local Roubo = {}
+
+function Roubo.Processar()
+    if not State.autoRoubo or not State.plotAlvoNome then return false end
+    if Workspace:GetAttribute("ActivePhase") ~= "Night" then return false end
+    if not Gardens then return false end
+    
+    local plot = Gardens:FindFirstChild(State.plotAlvoNome)
+    if not plot then return false end
+
+    for _, inst in ipairs(plot:GetDescendants()) do
+        if inst:IsA("ProximityPrompt") and inst.Name == "StealPrompt" then
+            if not IgnoredPrompts[inst] then
+                local isBamboo = false
+                local ancestral = inst.Parent
+
+                while ancestral and ancestral ~= Workspace do
+                    local seedName = ancestral:GetAttribute("SeedName")
+                    if seedName ~= nil then
+                        if seedName == "Bamboo" then 
+                            isBamboo = true 
+                            IgnoredPrompts[inst] = true
+                        end
+                        break
+                    end
+                    ancestral = ancestral.Parent
+                end
+
+                if not isBamboo and not IgnoredPrompts[inst] then
+                    local executou = Acoes.ProcessarTeleporteEPrompt(inst)
+                    if executou then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local FarmMap = {}
+function FarmMap.Processar()
+    if not State.autoSeedPack then return false end
+    local mapFolder = Workspace:FindFirstChild("Map")
+    if not mapFolder then return false end
+
+    local seedFolder = mapFolder:FindFirstChild("SeedPackSpawnServerLocations")
+    if not seedFolder then return false end
+
+    for _, inst in ipairs(seedFolder:GetDescendants()) do
+        if inst:IsA("ProximityPrompt") then
+            return Acoes.ProcessarTeleporteEPrompt(inst)
+        end
+    end
+    return false
+end
+
+local CollectAll = {}
+function CollectAll.Processar()
+    if not State.autoCollectAll or not DroppedItems then return false end
+
+    for _, item in ipairs(DroppedItems:GetChildren()) do
+        local anchor = item:FindFirstChild("PromptAnchor")
+        local prompt = anchor and anchor:FindFirstChild("PickupPrompt")
+
+        if not prompt then
+            prompt = item:FindFirstChildOfClass("ProximityPrompt", true)
+        end
+
+        if prompt then
+            return Acoes.ProcessarTeleporteEPrompt(prompt)
+        end
+    end
+    return false
+end
+
+local Retorno = {}
+function Retorno.Processar()
+    if not State.autoRetorno or not State.meuPlotNome or not Gardens then return false end
+    local plot = Gardens:FindFirstChild(State.meuPlotNome)
+    local root = Char.Root()
+
+    if plot and root then
+        local destino   = plot:GetPivot().Position + Vector3.new(0, 3, 0)
+        local distancia = (root.Position - destino).Magnitude
+
+        if distancia > 35 then
+            Char.Teleportar(destino)
+            return true
+        end
+    end
+    return false
+end
+
+------------------------------------------------------------------------
+-- CARREGAMENTO DA FLUENT LIBRARY
+------------------------------------------------------------------------
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+------------------------------------------------------------------------
+-- JANELA PRINCIPAL E GUI ELEMENTS
+------------------------------------------------------------------------
+local Window = Fluent:CreateWindow({
+    Title       = "Gardens Manager",
+    SubTitle    = "by Gustavo1203888 (Anti-Lag Otimizado)",
+    TabWidth    = 160,
+    Size        = UDim2.fromOffset(480, 480),
+    Acrylic     = true,
+    Theme       = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl,
+})
+
+local Tabs = {
+    Main   = Window:AddTab({ Title = "Main",   Icon = "home"          }),
+    Farm   = Window:AddTab({ Title = "Farm",   Icon = "leaf"          }),
+    Shops  = Window:AddTab({ Title = "Shops",  Icon = "shopping-cart" }),
+    Steal  = Window:AddTab({ Title = "Steal",  Icon = "skull"         }),
+    Config = Window:AddTab({ Title = "Config", Icon = "settings"      }),
+}
+
+local Toggles = {}
+local Inputs  = {}
+
+------------------------------------------------------------------------
+-- ABA: MAIN
+------------------------------------------------------------------------
+Tabs.Main:AddSection("Gerenciamento do Plot Proprietario")
+
+Toggles.AutoColeta = Tabs.Main:AddToggle("AutoColeta", {
+    Title       = "Auto Coletar Minhas Frutas",
+    Description = "Varre seu plot buscando HarvestPrompt.",
+    Default     = false,
+    Callback    = function(v)
+        State.autoColeta = v
+        if not v then Char.AncorarRaiz(false) end
+    end,
+})
+
+local function configurarPlanta(modelo, invisivel)
+    for _, parte in ipairs(modelo:GetDescendants()) do
+        if parte:IsA("BasePart") then
+            parte.Transparency = invisivel and 1 or 0
+            parte.CanCollide = not invisivel
+        end
+    end
+end
+
+local function toggleInvisPlants(ativo)
+    local plotId = LocalPlayer:GetAttribute("PlotId")
+    if not plotId then return end
+    
+    local nomePlot = "Plot" .. tostring(plotId)
+    local meuPlot = Gardens:FindFirstChild(nomePlot)
+    
+    if not meuPlot then return end
+
+    local pastaPlants = meuPlot:FindFirstChild("Plants")
+    if not pastaPlants then return end
+
+    for _, plantaModelo in ipairs(pastaPlants:GetChildren()) do
+        configurarPlanta(plantaModelo, ativo)
+    end
+end
+
+Tabs.Main:AddToggle("InvisPlants", {
+    Title       = "Invis Plants",
+    Description = "Esconde plantas do seu plot via PlotId (Transp 1, Sem Colisão)",
+    Default     = false,
+    Callback    = function(v)
+        toggleInvisPlants(v)
+        
+        if v then
+            -- Previne memory leak limpando conexões antigas antes de recriar
+            if _G.PlantConnection then pcall(function() _G.PlantConnection:Disconnect() end) end
+            _G.PlantConnection = Gardens.DescendantAdded:Connect(function(obj)
+                local plotId = LocalPlayer:GetAttribute("PlotId")
+                if not plotId then return end
+                
+                local meuPlot = Gardens:FindFirstChild("Plot" .. tostring(plotId))
+                if meuPlot and obj:IsDescendantOf(meuPlot) then
+                    if obj:FindFirstAncestor("Plants") then
+                        configurarPlanta(obj.Parent, true)
+                    end
+                end
+            end)
+        else
+            if _G.PlantConnection then pcall(function() _G.PlantConnection:Disconnect() end) end
+        end
+    end,
+})
+
+Toggles.AutoVenda = Tabs.Main:AddToggle("AutoVenda", {
+    Title       = "Auto Vender Inventario",
+    Description = "Vende automaticamente quando atinge a meta estipulada.",
+    Default     = false,
+    Callback    = function(v)
+        State.autoVenda = v
+    end,
+})
+
+Inputs.MetaVenda = Tabs.Main:AddInput("MetaVenda", {
+    Title = "Quantidade para Vender",
+    Default = "100",
+    Numeric = true,
+    Finished = false,
+    Placeholder = "Ex: 50, 100",
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num and num > 0 then
+            State.quantidadeVenda = num
+        end
+    end
+})
+
+------------------------------------------------------------------------
+-- ABA: FARM
+------------------------------------------------------------------------
+Tabs.Farm:AddSection("Coleta pelo Mapa")
+
+Toggles.AutoSeedPack = Tabs.Farm:AddToggle("AutoSeedPack", {
+    Title       = "Auto Coletar Seed Packs do Mapa",
+    Description = "Coleta as sementes que nascem periodicamente pelo servidor.",
+    Default     = false,
+    Callback    = function(v)
+        State.autoSeedPack = v
+        if not v then Char.AncorarRaiz(false) end
+    end,
+})
+
+Toggles.CollectAllItems = Tabs.Farm:AddToggle("CollectAllItems", {
+    Title       = "Coletar Itens Soltos (DroppedItems)",
+    Description = "Coleta itens descartados ou caidos no chao.",
+    Default     = false,
+    Callback    = function(v)
+        State.autoCollectAll = v
+        if not v then Char.AncorarRaiz(false) end
+    end,
+})
+
+------------------------------------------------------------------------
+-- ABA: SHOPS
+------------------------------------------------------------------------
+Tabs.Shops:AddSection("Toggles das Lojas")
+
+Tabs.Shops:AddToggle("TggGearShop", {
+    Title       = "Abrir/Fechar Gear Shop",
+    Default     = false,
+    Callback    = function(v)
+        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if pGui then
+            local shop = pGui:FindFirstChild("GearShop")
+            if shop then shop.Enabled = v end
+        end
+    end,
+})
+
+Tabs.Shops:AddToggle("TggSeedShop", {
+    Title       = "Abrir/Fechar Seed Shop",
+    Default     = false,
+    Callback    = function(v)
+        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if pGui then
+            local shop = pGui:FindFirstChild("SeedShop")
+            if shop then shop.Enabled = v end
+        end
+    end,
+})
+
+------------------------------------------------------------------------
+-- ABA: STEAL
+------------------------------------------------------------------------
+Tabs.Steal:AddSection("Configuracoes de Roubo Alheio")
+
+local LabelPlot = Tabs.Steal:AddParagraph({
+    Title   = "Plot selecionado: NENHUM",
+    Content = "Escolha um terrain mapeado na lista abaixo.",
+})
+
+local DropdownPlots = Tabs.Steal:AddDropdown("DropdownPlots", {
+    Title         = "Selecionar Plot Oponente",
+    Values        = { "Carregando terrenos..." },
+    CurrentOption = "",
+    Multiple      = false,
+    Callback      = function(valor)
+        if not valor or valor == "" or string.find(valor, "meu plot") then return end
+        local nomeReal = string.match(valor, "%((Plot%d+)%)")
+        if not nomeReal then return end
+
+        State.plotAlvoNome = nomeReal
+        LabelPlot:SetTitle("Plot selecionado: " .. valor)
+    end,
+})
+
+Toggles.AutoRoubo = Tabs.Steal:AddToggle("AutoRoubo", {
+    Title       = "Auto Roubar Plot Selecionado (so de noite)",
+    Description = "Ignora plantas Bamboo.",
+    Default     = false,
+    Callback    = function(v)
+        State.autoRoubo = v
+        if not v then Char.AncorarRaiz(false) end
+    end,
+})
+
+Toggles.AutoRetorno = Tabs.Steal:AddToggle("AutoRetorno", {
+    Title       = "Retornar ao Meu Plot Quando Ocioso",
+    Description = "Retorna para a sua base caso nao haja nenhuma outra tarefa na frente da fila sendo executada.",
+    Default     = false,
+    Callback    = function(v)
+        State.autoRetorno = v
+    end,
+})
+
+------------------------------------------------------------------------
+-- ABA: CONFIG
+------------------------------------------------------------------------
+Tabs.Config:AddSection("Salvar ConfiguraÃ§Ã£o")
+
+Tabs.Config:AddInput("ConfigSaveName", {
+    Title       = "Nome da ConfiguraÃ§Ã£o (Salvar)",
+    Default     = ConfigSystem.NomeParaSalvar,
+    Numeric     = false,
+    Finished    = false,
+    Placeholder = "Digite o nome aqui",
+    Callback    = function(texto)
+        ConfigSystem.NomeParaSalvar = texto
+    end
+})
+
+Tabs.Config:AddButton({
+    Title    = "Salvar ConfiguraÃ§Ã£o",
+    Description = "Salva o estado atual das abas na pasta do seu executor.",
+    Callback = function()
+        if not writefile then
+            Fluent:Notify({Title="Erro", Content="Seu executor nÃ£o suporta salvar arquivos.", Duration=3})
+            return
+        end
+        if ConfigSystem.NomeParaSalvar == "" then return end
+        
+        local data = {
+            autoColeta      = State.autoColeta,
+            autoVenda       = State.autoVenda,
+            quantidadeVenda = State.quantidadeVenda,
+            autoSeedPack    = State.autoSeedPack,
+            autoCollectAll  = State.autoCollectAll,
+            autoRoubo       = State.autoRoubo,
+            autoRetorno     = State.autoRetorno
+        }
+        
+        local success, encoded = pcall(HttpService.JSONEncode, HttpService, data)
+        if success then
+            local path = ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaSalvar .. ".json"
+            pcall(writefile, path, encoded)
+            Fluent:Notify({Title="Sucesso", Content="ConfiguraÃ§Ã£o '" .. ConfigSystem.NomeParaSalvar .. "' salva!", Duration=3})
+        end
+    end
+})
+
+Tabs.Config:AddSection("Carregar ConfiguraÃ§Ã£o")
+
+local DropdownConfigs = Tabs.Config:AddDropdown("ConfigLoadSelect", {
+    Title         = "Selecionar ConfiguraÃ§Ã£o (Ler)",
+    Values        = ConfigSystem.Listar(),
+    CurrentOption = "",
+    Multiple      = false,
+    Callback      = function(valor)
+        if valor and valor ~= "Nenhuma config" then
+            ConfigSystem.NomeParaLer = valor
+        end
+    end,
+})
+
+Tabs.Config:AddButton({
+    Title    = "Atualizar Lista",
+    Description = "Atualiza os arquivos da pasta.",
+    Callback = function()
+        DropdownConfigs:SetValues(ConfigSystem.Listar())
+    end
+})
+
+Tabs.Config:AddButton({
+    Title    = "Aplicar ConfiguraÃ§Ã£o",
+    Description = "Carrega e aplica os toggles salvos no arquivo selecionado.",
+    Callback = function()
+        if not readfile then
+            Fluent:Notify({Title="Erro", Content="Seu executor nÃ£o suporta ler arquivos.", Duration=3})
+            return
+        end
+        if ConfigSystem.NomeParaLer == "" or ConfigSystem.NomeParaLer == "Nenhuma config" then return end
+        
+        local path = ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaLer .. ".json"
+        
+        if isfile and not isfile(path) then
+            Fluent:Notify({Title="Erro", Content="Arquivo nÃ£o encontrado.", Duration=3})
+            return
+        end
+        
+        local success, content = pcall(readfile, path)
+        if success then
+            local successDec, data = pcall(HttpService.JSONDecode, HttpService, content)
+            if successDec then
+                if data.autoColeta ~= nil then Toggles.AutoColeta:SetValue(data.autoColeta) end
+                if data.autoVenda ~= nil then Toggles.AutoVenda:SetValue(data.autoVenda) end
+                if data.quantidadeVenda ~= nil then Inputs.MetaVenda:SetValue(tostring(data.quantidadeVenda)) end
+                if data.autoSeedPack ~= nil then Toggles.AutoSeedPack:SetValue(data.autoSeedPack) end
+                if data.autoCollectAll ~= nil then Toggles.CollectAllItems:SetValue(data.autoCollectAll) end
+                if data.autoRoubo ~= nil then Toggles.AutoRoubo:SetValue(data.autoRoubo) end
+                if data.autoRetorno ~= nil then Toggles.AutoRetorno:SetValue(data.autoRetorno) end
+                
+                Fluent:Notify({Title="Sucesso", Content="ConfiguraÃ§Ã£o carregada!", Duration=3})
+            else
+                Fluent:Notify({Title="Erro", Content="Arquivo corrompido ou invalido.", Duration=3})
+            end
+        end
+    end
+})
+
+------------------------------------------------------------------------
+-- THREAD SECUNDARIA: UPDATE DA LISTA DE PLOTS
+------------------------------------------------------------------------
+task.spawn(function()
+    local ultimaListaStr = ""
+    while true do
+        Plots.ResolverMeuPlot()
+        if Gardens then
+            local novosItens = Plots.ListarParaDropdown()
+            local atualStr = table.concat(novosItens, "|")
+
+            if atualStr ~= ultimaListaStr and #novosItens > 0 then
+                ultimaListaStr = atualStr
+                pcall(function()
+                    DropdownPlots:SetValues(novosItens)
+                end)
+            end
+        end
+        task.wait(4) -- Aumentado de 3 para 4 para economizar CPU
+    end
+end)
+
+------------------------------------------------------------------------
+-- THREAD PRINCIPAL: GERENCIADOR DE TAREFAS (OTIMIZADO - SEM COOLDOWN DE MEMÃ“RIA)
+------------------------------------------------------------------------
+-- Tabela indexada previamente para evitar criaÃ§Ã£o e ordenaÃ§Ã£o dinÃ¢mica no loop
+local FilaDeAcoesFixa = {
+    { nome = "Venda",      acao = Venda.Processar },
+    { nome = "CollectAll", acao = CollectAll.Processar },
+    { nome = "SeedPack",   acao = FarmMap.Processar },
+    { nome = "Coleta",     acao = Coleta.Processar },
+    { nome = "Roubo",      acao = Roubo.Processar },
+    { nome = "Retorno",    acao = Retorno.Processar },
+}
+
+task.spawn(function()
+    while true do
+        local tarefaExecutada = false
+
+        -- Varre a lista em ordem direta de prioridade fixa prÃ©-estabelecida
+        for i = 1, #FilaDeAcoesFixa do
+            local sucesso = FilaDeAcoesFixa[i].acao()
+            if sucesso then
+                tarefaExecutada = true
+                break
+            end
+        end
+
+        if tarefaExecutada then
+            task.wait(0.12) -- Janela ideal de estabilidade para farm veloz e contÃ­nuo
+        else
+            task.wait(0.25) -- Reduz drasticamente o uso de CPU quando nÃ£o hÃ¡ nada para coletar
+        end
+    end
+end)
+
+------------------------------------------------------------------------
+-- CONFIGURAÃ‡ÃƒO DO BOTÃƒO MOBILE (TOGGLE)
+------------------------------------------------------------------------
+local function obterHubGui()
+    for _, gui in ipairs(CoreGui:GetChildren()) do
+        if gui:IsA("ScreenGui") and (gui.Name == "Fluent" or gui:FindFirstChild("Main", true)) then
+            return gui
+        end
+    end
+    for _, gui in ipairs(PlayerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") and (gui.Name == "Fluent" or gui:FindFirstChild("Main", true)) then
+            return gui
+        end
+    end
+    return nil
+end
+
+local MobileGui = Instance.new("ScreenGui")
+MobileGui.Name = "MobileToggleHub"
+MobileGui.ResetOnSpawn = false
+MobileGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local alocado, _ = pcall(function()
+    MobileGui.Parent = CoreGui
+end)
+if not alocado then
+    MobileGui.Parent = PlayerGui
+end
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Size = UDim2.new(0, 55, 0, 55)
+ToggleButton.Position = UDim2.new(0, 15, 0.4, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleButton.Text = "HUB"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 13
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Active = true
+ToggleButton.Parent = MobileGui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 99)
+Corner.Parent = ToggleButton
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(0, 255, 120)
+Stroke.Thickness = 2
+Stroke.Parent = ToggleButton
+
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    ToggleButton.Position = UDim2.new(
+        startPos.X.Scale, 
+        startPos.X.Offset + delta.X, 
+        startPos.Y.Scale, 
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+ToggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = ToggleButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+ToggleButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+ToggleButton.MouseButton1Click:Connect(function()
+    local hub = obterHubGui()
+    if hub then
+        hub.Enabled = not hub.Enabled
+    end
+end)
+
+------------------------------------------------------------------------
+-- INICIALIZACAO COMPLETA
+------------------------------------------------------------------------
+Plots.ResolverMeuPlot()
+
+pcall(function()
+    Window:SelectTab(1)
+    Fluent:Notify({
+        Title    = "Gardens Manager",
+        Content  = "VersÃ£o Ultra Otimizada (Anti-Lag) Inicializada com Sucesso.",
+        Duration = 5,
+    })
+end)
