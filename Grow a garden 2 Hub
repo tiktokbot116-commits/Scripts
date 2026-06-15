@@ -1,6 +1,6 @@
 -- GardensManager.lua
 -- Executor: Delta / Xeno | Ambiente: Roblox LocalScript
--- Versão Otimizada (Anti-Lag / Baixo uso de CPU e Memória) + Custom UI Animada + Cache de Plantas
+-- Tema: Dark Monochrome + Correção de Erro no Shatter UI + Cache de Plantas
 
 ------------------------------------------------------------------------
 -- SERVICOS E VARIAVEIS
@@ -35,7 +35,7 @@ pcall(function()
 end)
 
 ------------------------------------------------------------------------
--- ESTADO CENTRALIZADO E SISTEMA DE SALVAMENTO [CÓDIGO ORIGINAL MANTIDO]
+-- ESTADO CENTRALIZADO E SISTEMA DE SALVAMENTO
 ------------------------------------------------------------------------
 local State = {
     autoColeta      = false,
@@ -72,7 +72,7 @@ function ConfigSystem.Listar()
 end
 
 ------------------------------------------------------------------------
--- MODULO: INPUT (FALLBACK) [CÓDIGO ORIGINAL MANTIDO]
+-- MODULO: INPUT (FALLBACK)
 ------------------------------------------------------------------------
 local Input = {}
 function Input.PressionarE()
@@ -85,7 +85,7 @@ function Input.PressionarE()
 end
 
 ------------------------------------------------------------------------
--- MODULO: PROMPT (OTIMIZADO) [CÓDIGO ORIGINAL MANTIDO]
+-- MODULO: PROMPT (OTIMIZADO)
 ------------------------------------------------------------------------
 local Prompt = {}
 function Prompt.AtivarImediato(prompt)
@@ -98,7 +98,7 @@ function Prompt.AtivarImediato(prompt)
 end
 
 ------------------------------------------------------------------------
--- MODULO: PERSONAGEM / TELEPORTE [CÓDIGO ORIGINAL MANTIDO]
+-- MODULO: PERSONAGEM / TELEPORTE
 ------------------------------------------------------------------------
 local Char = {}
 function Char.Root()
@@ -135,7 +135,7 @@ function Char.AncorarRaiz(estado)
 end
 
 ------------------------------------------------------------------------
--- MODULO: PLOTS [CÓDIGO ORIGINAL MANTIDO]
+-- MODULO: PLOTS
 ------------------------------------------------------------------------
 local Plots = {}
 function Plots.ResolverMeuPlot()
@@ -191,7 +191,7 @@ function Plots.ListarParaDropdown()
 end
 
 ------------------------------------------------------------------------
--- MODULOS DE ACAO [CÓDIGO ORIGINAL MANTIDO]
+-- MODULOS DE ACAO
 ------------------------------------------------------------------------
 local Acoes = {}
 function Acoes.ProcessarTeleporteEPrompt(prompt)
@@ -295,7 +295,7 @@ function Retorno.Processar()
 end
 
 ------------------------------------------------------------------------
--- CUSTOM UI LIBRARY (TRANSPARENTE, ANIMADA, FRAGMENTADA)
+-- CUSTOM UI LIBRARY (MONOCHROME THEME + SHATTER BUG FIX)
 ------------------------------------------------------------------------
 local Library = {}
 local ActiveWindow = nil
@@ -323,26 +323,26 @@ function Library:MakeWindow(config)
     local alocado = pcall(function() ScreenGui.Parent = CoreGui end)
     if not alocado then ScreenGui.Parent = PlayerGui end
 
-    -- MainFrame "Meio Invisível" (Acrylic Effect)
+    -- MainFrame "Meio Invisível"
     local MainFrame = Create("Frame", {
-        Name = "MainFrame", Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(15, 15, 18),
+        Name = "MainFrame", Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(15, 15, 15),
         BackgroundTransparency = 0.35, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 0, 0, 0), ClipsDescendants = true
     })
     Create("UICorner", { Parent = MainFrame, CornerRadius = UDim.new(0, 12) })
-    Create("UIStroke", { Parent = MainFrame, Color = Color3.fromRGB(60, 60, 65), Thickness = 1 })
+    Create("UIStroke", { Parent = MainFrame, Color = Color3.fromRGB(50, 50, 50), Thickness = 1 })
 
     -- Topbar
     local Topbar = Create("Frame", {
-        Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(10, 10, 12),
+        Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(10, 10, 10),
         BackgroundTransparency = 0.5, Size = UDim2.new(1, 0, 0, 40), BorderSizePixel = 0
     })
     Create("UICorner", { Parent = Topbar, CornerRadius = UDim.new(0, 12) })
-    Create("Frame", { Parent = Topbar, BackgroundColor3 = Color3.fromRGB(10, 10, 12), BackgroundTransparency = 0.5, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0, 0, 1, -10), BorderSizePixel = 0 })
+    Create("Frame", { Parent = Topbar, BackgroundColor3 = Color3.fromRGB(10, 10, 10), BackgroundTransparency = 0.5, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0, 0, 1, -10), BorderSizePixel = 0 })
 
     Create("TextLabel", {
         Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(0, 15, 0, 0), Size = UDim2.new(1, -100, 1, 0),
-        Font = Enum.Font.GothamBold, Text = config.Title, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left
+        Font = Enum.Font.GothamBold, Text = config.Title, TextColor3 = Color3.fromRGB(240, 240, 240), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left
     })
 
     -- Dragging System
@@ -361,9 +361,9 @@ function Library:MakeWindow(config)
         end
     end)
 
-    -- Botões de Controle (Topbar)
-    local BtnClose = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -35, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "X", TextColor3 = Color3.fromRGB(255, 70, 70), TextSize = 16 })
-    local BtnMinimize = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -70, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "-", TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 22 })
+    -- Botões de Controle (Monocromático)
+    local BtnClose = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -35, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "X", TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 16 })
+    local BtnMinimize = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -70, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "-", TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 22 })
 
     local Sidebar = Create("ScrollingFrame", { Parent = MainFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 45), Size = UDim2.new(0, 140, 1, -45), ScrollBarThickness = 0 })
     Create("UIListLayout", { Parent = Sidebar, Padding = UDim.new(0, 5), HorizontalAlignment = Enum.HorizontalAlignment.Center })
@@ -371,16 +371,24 @@ function Library:MakeWindow(config)
 
     local Content = Create("Frame", { Parent = MainFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 145, 0, 45), Size = UDim2.new(1, -150, 1, -50) })
 
-    -- ANIMAÇÃO SHATTER (Despedaçamento ao fechar)
+    -- ANIMAÇÃO SHATTER (Despedaçamento ao fechar) -- BUG CORRIGIDO AQUI
     BtnClose.MouseButton1Click:Connect(function()
         AnimateClick(BtnClose)
         local absPos, absSize = MainFrame.AbsolutePosition, MainFrame.AbsoluteSize
-        for _, child in ipairs(MainFrame:GetChildren()) do child.Visible = false end
-        MainFrame.BackgroundTransparency = 1; MainFrame.UIStroke:Destroy()
+        
+        -- Agora verifica se é um GuiObject antes de tentar ocultar (Ignora UICorner e UIStroke)
+        for _, child in ipairs(MainFrame:GetChildren()) do 
+            if child:IsA("GuiObject") then
+                child.Visible = false 
+            end
+        end
+        
+        MainFrame.BackgroundTransparency = 1
+        if MainFrame:FindFirstChild("UIStroke") then MainFrame.UIStroke:Destroy() end
         
         local rng = Random.new()
         for i = 1, 35 do
-            local frag = Create("Frame", { Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(25, 25, 30), Size = UDim2.new(0, rng:NextInteger(10, 40), 0, rng:NextInteger(10, 40)), Position = UDim2.new(0, absPos.X + rng:NextInteger(0, absSize.X), 0, absPos.Y + rng:NextInteger(0, absSize.Y)) })
+            local frag = Create("Frame", { Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(25, 25, 25), Size = UDim2.new(0, rng:NextInteger(10, 40), 0, rng:NextInteger(10, 40)), Position = UDim2.new(0, absPos.X + rng:NextInteger(0, absSize.X), 0, absPos.Y + rng:NextInteger(0, absSize.Y)) })
             Create("UICorner", { Parent = frag, CornerRadius = UDim.new(0, 4) })
             
             TweenService:Create(frag, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -414,7 +422,7 @@ function Library:MakeWindow(config)
     TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 520, 0, 360)}):Play()
 
     function ActiveWindow:AddTab(tabName)
-        local TabBtn = Create("TextButton", { Parent = Sidebar, BackgroundColor3 = Color3.fromRGB(30, 30, 35), BackgroundTransparency = 0.5, Size = UDim2.new(0, 120, 0, 32), Font = Enum.Font.GothamSemibold, Text = tabName, TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 13, AutoButtonColor = false })
+        local TabBtn = Create("TextButton", { Parent = Sidebar, BackgroundColor3 = Color3.fromRGB(25, 25, 25), BackgroundTransparency = 0.5, Size = UDim2.new(0, 120, 0, 32), Font = Enum.Font.GothamSemibold, Text = tabName, TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 13, AutoButtonColor = false })
         Create("UICorner", { Parent = TabBtn, CornerRadius = UDim.new(0, 6) })
 
         local TabPage = Create("ScrollingFrame", { Parent = Content, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 2, Visible = false })
@@ -426,49 +434,49 @@ function Library:MakeWindow(config)
             AnimateClick(TabBtn)
             for _, t in pairs(ActiveWindow.Tabs) do
                 t.Page.Visible = false
-                TweenService:Create(t.Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 35), TextColor3 = Color3.fromRGB(150, 150, 150)}):Play()
+                TweenService:Create(t.Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25, 25, 25), TextColor3 = Color3.fromRGB(150, 150, 150)}):Play()
             end
             TabPage.Visible = true
-            TweenService:Create(TabBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 255, 120), TextColor3 = Color3.fromRGB(20, 20, 20)}):Play()
+            TweenService:Create(TabBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 220, 220), TextColor3 = Color3.fromRGB(20, 20, 20)}):Play()
         end)
 
         table.insert(ActiveWindow.Tabs, {Btn = TabBtn, Page = TabPage})
-        if #ActiveWindow.Tabs == 1 then TabPage.Visible = true; TabBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 120); TabBtn.TextColor3 = Color3.fromRGB(20, 20, 20) end
+        if #ActiveWindow.Tabs == 1 then TabPage.Visible = true; TabBtn.BackgroundColor3 = Color3.fromRGB(220, 220, 220); TabBtn.TextColor3 = Color3.fromRGB(20, 20, 20) end
 
         local Elements = {}
 
         function Elements:AddSection(text)
-            Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.GothamBold, Text = " " .. text, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left })
+            Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.GothamBold, Text = " " .. text, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left })
         end
 
         function Elements:AddParagraph(cfg)
-            local lbl = Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            local lbl = Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(180, 180, 180), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
             return { SetTitle = function(self, t) lbl.Text = t end }
         end
 
         function Elements:AddButton(cfg)
-            local Btn = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(35, 35, 40), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 13, AutoButtonColor = false })
+            local Btn = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, AutoButtonColor = false })
             Create("UICorner", { Parent = Btn, CornerRadius = UDim.new(0, 6) })
             Btn.MouseButton1Click:Connect(function()
                 AnimateClick(Btn)
-                TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 255, 120), TextColor3 = Color3.fromRGB(0,0,0)}):Play()
+                TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(100, 100, 100), TextColor3 = Color3.fromRGB(255,255,255)}):Play()
                 task.wait(0.1)
-                TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40), TextColor3 = Color3.fromRGB(255,255,255)}):Play()
+                TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 30), TextColor3 = Color3.fromRGB(220,220,220)}):Play()
                 cfg.Callback()
             end)
         end
 
         function Elements:AddToggle(cfg)
             local state = cfg.Default or false
-            local TglFrame = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(35, 35, 40), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Text = "", AutoButtonColor = false })
+            local TglFrame = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Text = "", AutoButtonColor = false })
             Create("UICorner", { Parent = TglFrame, CornerRadius = UDim.new(0, 6) })
-            Create("TextLabel", { Parent = TglFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(1, -50, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
-            local Indicator = Create("Frame", { Parent = TglFrame, BackgroundColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(60, 60, 65), Position = UDim2.new(1, -30, 0.5, -8), Size = UDim2.new(0, 16, 0, 16) })
+            Create("TextLabel", { Parent = TglFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(1, -50, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            local Indicator = Create("Frame", { Parent = TglFrame, BackgroundColor3 = state and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(50, 50, 50), Position = UDim2.new(1, -30, 0.5, -8), Size = UDim2.new(0, 16, 0, 16) })
             Create("UICorner", { Parent = Indicator, CornerRadius = UDim.new(0, 4) })
 
             local function Fire(v)
                 state = v
-                TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(60, 60, 65)}):Play()
+                TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(50, 50, 50)}):Play()
                 cfg.Callback(state)
             end
             TglFrame.MouseButton1Click:Connect(function() AnimateClick(TglFrame); Fire(not state) end)
@@ -477,11 +485,11 @@ function Library:MakeWindow(config)
         end
 
         function Elements:AddInput(cfg)
-            local InpFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(35, 35, 40), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35) })
+            local InpFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35) })
             Create("UICorner", { Parent = InpFrame, CornerRadius = UDim.new(0, 6) })
-            Create("TextLabel", { Parent = InpFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0.6, 0, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            Create("TextLabel", { Parent = InpFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0.6, 0, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
             
-            local Box = Create("TextBox", { Parent = InpFrame, BackgroundColor3 = Color3.fromRGB(20, 20, 25), Position = UDim2.new(0.6, 0, 0.5, -12), Size = UDim2.new(0.4, -10, 0, 24), Font = Enum.Font.Gotham, Text = cfg.Default or "", PlaceholderText = cfg.Placeholder or "", TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 12 })
+            local Box = Create("TextBox", { Parent = InpFrame, BackgroundColor3 = Color3.fromRGB(20, 20, 20), Position = UDim2.new(0.6, 0, 0.5, -12), Size = UDim2.new(0.4, -10, 0, 24), Font = Enum.Font.Gotham, Text = cfg.Default or "", PlaceholderText = cfg.Placeholder or "", TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 12 })
             Create("UICorner", { Parent = Box, CornerRadius = UDim.new(0, 4) })
             Box.FocusLost:Connect(function() cfg.Callback(Box.Text) end)
             return { SetValue = function(self, v) Box.Text = v; cfg.Callback(v) end }
@@ -489,10 +497,10 @@ function Library:MakeWindow(config)
 
         function Elements:AddDropdown(cfg)
             local options = cfg.Values or {}
-            local DropFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(35, 35, 40), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), ClipsDescendants = true })
+            local DropFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), ClipsDescendants = true })
             Create("UICorner", { Parent = DropFrame, CornerRadius = UDim.new(0, 6) })
             
-            local MainBtn = Create("TextButton", { Parent = DropFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = "  " .. cfg.Title .. " >", TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            local MainBtn = Create("TextButton", { Parent = DropFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = "  " .. cfg.Title .. " >", TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
             local ListFrame = Create("ScrollingFrame", { Parent = DropFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 35), Size = UDim2.new(1, 0, 1, -35), CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 2 })
             local ListLayout = Create("UIListLayout", { Parent = ListFrame })
             
@@ -506,7 +514,7 @@ function Library:MakeWindow(config)
             local function Build()
                 for _, v in ipairs(ListFrame:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
                 for _, opt in ipairs(options) do
-                    local b = Create("TextButton", { Parent = ListFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.Gotham, Text = "  " .. opt, TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left })
+                    local b = Create("TextButton", { Parent = ListFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.Gotham, Text = "  " .. opt, TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left })
                     b.MouseButton1Click:Connect(function() MainBtn.Text = "  " .. cfg.Title .. " > " .. opt; toggleDrop(); cfg.Callback(opt) end)
                 end
                 ListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 25)
@@ -522,9 +530,9 @@ function Library:MakeWindow(config)
 end
 
 ------------------------------------------------------------------------
--- CONSTRUCAO DA INTERFACE (LIGANDO AO CÓDIGO ORIGINAL COM CACHE)
+-- CONSTRUCAO DA INTERFACE E SISTEMAS
 ------------------------------------------------------------------------
-local Window = Library:MakeWindow({ Title = "Gardens Manager (Custom Hub)" })
+local Window = Library:MakeWindow({ Title = "Gardens Manager (Monochrome)" })
 
 local Tabs = {
     Main   = Window:AddTab("Main"),
@@ -540,15 +548,13 @@ local Toggles, Inputs = {}, {}
 Tabs.Main:AddSection("Gerenciamento do Plot")
 Toggles.AutoColeta = Tabs.Main:AddToggle({Title = "Auto Coletar Minhas Frutas", Default = false, Callback = function(v) State.autoColeta = v; if not v then Char.AncorarRaiz(false) end end})
 
--- SISTEMA DE CACHE DE ESTADO DAS PLANTAS (PREVINE BUGS VISUAIS)
--- Usa __mode = "k" para que peças colhidas/deletadas sejam apagadas da memória automaticamente
+-- SISTEMA DE CACHE DE ESTADO DAS PLANTAS
 local CacheEstadoPlantas = setmetatable({}, {__mode = "k"})
 
 local function configurarPlanta(modelo, invisivel)
     for _, parte in ipairs(modelo:GetDescendants()) do
         if parte:IsA("BasePart") then
             if invisivel then
-                -- Salva o estado atual da parte antes de deixá-la invisível
                 if not CacheEstadoPlantas[parte] then
                     CacheEstadoPlantas[parte] = {
                         Transparency = parte.Transparency,
@@ -558,13 +564,11 @@ local function configurarPlanta(modelo, invisivel)
                 parte.Transparency = 1
                 parte.CanCollide = false
             else
-                -- Restaura o estado original exato a partir do cache
                 local estadoOriginal = CacheEstadoPlantas[parte]
                 if estadoOriginal then
                     parte.Transparency = estadoOriginal.Transparency
                     parte.CanCollide = estadoOriginal.CanCollide
                 else
-                    -- Fallback caso o cache não exista (raro)
                     parte.Transparency = 0
                     parte.CanCollide = true
                 end
@@ -652,7 +656,7 @@ Tabs.Config:AddButton({Title = "Aplicar Configuração", Callback = function()
 end})
 
 ------------------------------------------------------------------------
--- THREAD SECUNDARIA: UPDATE DA LISTA DE PLOTS [CÓDIGO ORIGINAL MANTIDO]
+-- THREAD SECUNDARIA: UPDATE DA LISTA DE PLOTS
 ------------------------------------------------------------------------
 task.spawn(function()
     local ultimaListaStr = ""
@@ -671,7 +675,7 @@ task.spawn(function()
 end)
 
 ------------------------------------------------------------------------
--- THREAD PRINCIPAL: GERENCIADOR DE TAREFAS [CÓDIGO ORIGINAL MANTIDO]
+-- THREAD PRINCIPAL: GERENCIADOR DE TAREFAS
 ------------------------------------------------------------------------
 local FilaDeAcoesFixa = {
     { acao = Venda.Processar },
@@ -693,7 +697,7 @@ task.spawn(function()
 end)
 
 ------------------------------------------------------------------------
--- BOTÃO MOBILE (SINCRONIZADO COM A NOVA GUI ANIMADA)
+-- BOTÃO MOBILE (Monocromático)
 ------------------------------------------------------------------------
 local MobileGui = Instance.new("ScreenGui")
 MobileGui.Name = "MobileToggleHubCustom"
@@ -707,10 +711,10 @@ local ToggleButton = Instance.new("TextButton")
 ToggleButton.Name = "ToggleButton"
 ToggleButton.Size = UDim2.new(0, 55, 0, 55)
 ToggleButton.Position = UDim2.new(0, 15, 0.4, 0)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 ToggleButton.BackgroundTransparency = 0.2
 ToggleButton.Text = "HUB"
-ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 120)
+ToggleButton.TextColor3 = Color3.fromRGB(220, 220, 220)
 ToggleButton.TextSize = 13
 ToggleButton.Font = Enum.Font.GothamBold
 ToggleButton.Active = true
@@ -720,7 +724,7 @@ local Corner = Instance.new("UICorner")
 Corner.CornerRadius = UDim.new(0, 99)
 Corner.Parent = ToggleButton
 local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(60, 60, 65)
+Stroke.Color = Color3.fromRGB(150, 150, 150)
 Stroke.Thickness = 2
 Stroke.Parent = ToggleButton
 
@@ -741,7 +745,6 @@ end)
 
 ToggleButton.MouseButton1Click:Connect(function()
     AnimateClick(ToggleButton)
-    -- Dispara a mesma animação de "minimizar" do botão "-" da nossa UI Customizada
     if ActiveWindow then ActiveWindow.ToggleMinimize() end
 end)
 
