@@ -1,6 +1,6 @@
 -- GardensManager.lua
 -- Executor: Delta / Xeno | Ambiente: Roblox LocalScript
--- Tema: Dark Monochrome | Bounding Box Radar, Auto Flee & Safe Destruction
+-- Tema: Dark Monochrome + Correção de Erro no Shatter UI + Cache de Plantas
 
 ------------------------------------------------------------------------
 -- SERVICOS E VARIAVEIS
@@ -20,7 +20,7 @@ pcall(function()
 end)
 
 ------------------------------------------------------------------------
--- REFERENCIAS GLOBAIS E FUNÇÕES MATEMÁTICAS
+-- REFERENCIAS GLOBAIS
 ------------------------------------------------------------------------
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
@@ -34,20 +34,6 @@ pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules", 10):WaitForChild("Networking", 10))
 end)
 
--- Pega a Posição Exata do Personagem de um Jogador
-local function GetPlayerCharacterPos(playerName)
-    local p = Players:FindFirstChild(playerName)
-    return p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.HumanoidRootPart.Position or nil
-end
-
--- Verifica com 100% de precisão se a coordenada (pos) está dentro da Bounding Box de um Modelo (model)
-local function IsInBoundingBox(model, pos)
-    if not model or not pos then return false end
-    local cf, size = model:GetBoundingBox()
-    local localPos = cf:PointToObjectSpace(pos) -- Converte posição mundial para relativa ao Plot
-    return math.abs(localPos.X) <= size.X/2 and math.abs(localPos.Y) <= size.Y/2 and math.abs(localPos.Z) <= size.Z/2
-end
-
 ------------------------------------------------------------------------
 -- ESTADO CENTRALIZADO E SISTEMA DE SALVAMENTO
 ------------------------------------------------------------------------
@@ -56,7 +42,6 @@ local State = {
     autoVenda       = false,
     quantidadeVenda = 100,
     autoRoubo       = false,
-    autoStealAll    = false, -- NOVO
     autoRetorno     = false,
     autoSeedPack    = false,
     autoCollectAll  = false,
@@ -206,7 +191,7 @@ function Plots.ListarParaDropdown()
 end
 
 ------------------------------------------------------------------------
--- MODULOS DE ACAO E AUTOMAÇÃO
+-- MODULOS DE ACAO
 ------------------------------------------------------------------------
 local Acoes = {}
 function Acoes.ProcessarTeleporteEPrompt(prompt)
@@ -243,73 +228,13 @@ end
 
 local IgnoredPrompts = {}
 local Roubo = {}
-
--- Sistema de Blacklist Noturna e Reset Diário
-local StealBlacklist = {}
-local LastOwnerCheck = 0
-
-Workspace:GetAttributeChangedSignal("ActivePhase"):Connect(function()
-    if Workspace:GetAttribute("ActivePhase") ~= "Night" then
-        table.clear(StealBlacklist)
-    end
-end)
-
 function Roubo.Processar()
-    if not State.autoRoubo and not State.autoStealAll then return false end
+    if not State.autoRoubo or not State.plotAlvoNome then return false end
     if Workspace:GetAttribute("ActivePhase") ~= "Night" then return false end
     if not Gardens then return false end
-
-    local alvoAtual = nil
-    local isAutoAll = false
-
-    if State.autoStealAll then
-        for i = 1, 8 do
-            local plotName = "Plot" .. i
-            if plotName ~= State.meuPlotNome and not StealBlacklist[plotName] then
-                local pModel = Gardens:FindFirstChild(plotName)
-                if pModel then
-                    local dono = Plots.DonoDoPlot(pModel)
-                    if dono then -- Apenas teleporta se tiver player atribuído
-                        alvoAtual = pModel
-                        isAutoAll = true
-                        break
-                    end
-                end
-            end
-        end
-    elseif State.autoRoubo and State.plotAlvoNome then
-        alvoAtual = Gardens:FindFirstChild(State.plotAlvoNome)
-    end
-
-    if not alvoAtual then return false end
-
-    local donoName = Plots.DonoDoPlot(alvoAtual)
-
-    -- Radar Avançado (Auto Flee) via Bounding Box verificado rigidamente a cada 0.5s
-    if donoName and donoName ~= LocalPlayer.Name then
-        if tick() - LastOwnerCheck >= 0.5 then
-            LastOwnerCheck = tick()
-            local donoPos = GetPlayerCharacterPos(donoName)
-            if donoPos and IsInBoundingBox(alvoAtual, donoPos) then
-                -- Dono está DENTRO da Bounding Box! Acionando Fuga!
-                StealBlacklist[alvoAtual.Name] = true
-                
-                if State.meuPlotNome then
-                    local meuPlot = Gardens:FindFirstChild(State.meuPlotNome)
-                    if meuPlot then
-                        local cf, _ = meuPlot:GetBoundingBox()
-                        -- Teleporta pro EXATO meio do MEU plot e espera 3s
-                        Char.Teleportar(cf.Position + Vector3.new(0, 3, 0))
-                        task.wait(3)
-                    end
-                end
-                return true -- Trava a thread para o delay respirar antes de repetir tudo
-            end
-        end
-    end
-
-    local executouAlgo = false
-    for _, inst in ipairs(alvoAtual:GetDescendants()) do
+    local plot = Gardens:FindFirstChild(State.plotAlvoNome)
+    if not plot then return false end
+    for _, inst in ipairs(plot:GetDescendants()) do
         if inst:IsA("ProximityPrompt") and inst.Name == "StealPrompt" then
             if not IgnoredPrompts[inst] then
                 local isBamboo, ancestral = false, inst.Parent
@@ -322,18 +247,11 @@ function Roubo.Processar()
                     ancestral = ancestral.Parent
                 end
                 if not isBamboo and not IgnoredPrompts[inst] then
-                    executouAlgo = Acoes.ProcessarTeleporteEPrompt(inst)
-                    if executouAlgo then return true end
+                    if Acoes.ProcessarTeleporteEPrompt(inst) then return true end
                 end
             end
         end
     end
-
-    -- Se é AutoStealAll e não encontrou/conseguiu roubar mais nada, limpa e bota na blacklist pra pular
-    if isAutoAll and not executouAlgo then
-        StealBlacklist[alvoAtual.Name] = true
-    end
-
     return false
 end
 
@@ -377,11 +295,9 @@ function Retorno.Processar()
 end
 
 ------------------------------------------------------------------------
--- CUSTOM UI LIBRARY (MONOCHROME THEME + SAFE DESTRUCTION)
+-- CUSTOM UI LIBRARY (MONOCHROME THEME + SHATTER BUG FIX)
 ------------------------------------------------------------------------
-local Library = {
-    AllToggles = {} -- Registro de todos os switchs ativos para segurança de destruição
-}
+local Library = {}
 local ActiveWindow = nil
 
 local function Create(className, properties)
@@ -407,6 +323,7 @@ function Library:MakeWindow(config)
     local alocado = pcall(function() ScreenGui.Parent = CoreGui end)
     if not alocado then ScreenGui.Parent = PlayerGui end
 
+    -- MainFrame "Meio Invisível"
     local MainFrame = Create("Frame", {
         Name = "MainFrame", Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(15, 15, 15),
         BackgroundTransparency = 0.35, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
@@ -415,6 +332,7 @@ function Library:MakeWindow(config)
     Create("UICorner", { Parent = MainFrame, CornerRadius = UDim.new(0, 12) })
     Create("UIStroke", { Parent = MainFrame, Color = Color3.fromRGB(50, 50, 50), Thickness = 1 })
 
+    -- Topbar
     local Topbar = Create("Frame", {
         Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(10, 10, 10),
         BackgroundTransparency = 0.5, Size = UDim2.new(1, 0, 0, 40), BorderSizePixel = 0
@@ -443,6 +361,7 @@ function Library:MakeWindow(config)
         end
     end)
 
+    -- Botões de Controle (Monocromático)
     local BtnClose = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -35, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "X", TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 16 })
     local BtnMinimize = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -70, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "-", TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 22 })
 
@@ -452,30 +371,21 @@ function Library:MakeWindow(config)
 
     local Content = Create("Frame", { Parent = MainFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 145, 0, 45), Size = UDim2.new(1, -150, 1, -50) })
 
-    -- ANIMAÇÃO SHATTER (Despedaçamento + DESTRUIR MOBILE + DESLIGAR TUDO)
+    -- ANIMAÇÃO SHATTER (Despedaçamento ao fechar) -- BUG CORRIGIDO AQUI
     BtnClose.MouseButton1Click:Connect(function()
         AnimateClick(BtnClose)
-        
-        -- 1. Desativa todos os Toggles na hora!
-        for _, tglObj in ipairs(Library.AllToggles) do
-            pcall(function() tglObj:SetValue(false) end)
-        end
-
-        -- 2. Deleta o Botão Mobile (buscando nas duas áreas pra garantir)
-        local mb1 = CoreGui:FindFirstChild("MobileToggleHubCustom")
-        local mb2 = PlayerGui:FindFirstChild("MobileToggleHubCustom")
-        if mb1 then mb1:Destroy() end
-        if mb2 then mb2:Destroy() end
-
-        -- 3. Prepara quebra
         local absPos, absSize = MainFrame.AbsolutePosition, MainFrame.AbsoluteSize
+        
+        -- Agora verifica se é um GuiObject antes de tentar ocultar (Ignora UICorner e UIStroke)
         for _, child in ipairs(MainFrame:GetChildren()) do 
-            if child:IsA("GuiObject") then child.Visible = false end
+            if child:IsA("GuiObject") then
+                child.Visible = false 
+            end
         end
+        
         MainFrame.BackgroundTransparency = 1
         if MainFrame:FindFirstChild("UIStroke") then MainFrame.UIStroke:Destroy() end
         
-        -- 4. Animação Estilhaço
         local rng = Random.new()
         for i = 1, 35 do
             local frag = Create("Frame", { Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(25, 25, 25), Size = UDim2.new(0, rng:NextInteger(10, 40), 0, rng:NextInteger(10, 40)), Position = UDim2.new(0, absPos.X + rng:NextInteger(0, absSize.X), 0, absPos.Y + rng:NextInteger(0, absSize.Y)) })
@@ -491,6 +401,7 @@ function Library:MakeWindow(config)
         ScreenGui:Destroy()
     end)
 
+    -- ANIMAÇÃO MINIMIZAR (-)
     local isMinimized = false
     local function ToggleMinimize()
         isMinimized = not isMinimized
@@ -507,6 +418,7 @@ function Library:MakeWindow(config)
         Tabs = {}, CurrentTab = nil
     }
 
+    -- ANIMAÇÃO CLEAN DE INICIALIZAÇÃO
     TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 520, 0, 360)}):Play()
 
     function ActiveWindow:AddTab(tabName)
@@ -567,14 +479,9 @@ function Library:MakeWindow(config)
                 TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(50, 50, 50)}):Play()
                 cfg.Callback(state)
             end
-            
             TglFrame.MouseButton1Click:Connect(function() AnimateClick(TglFrame); Fire(not state) end)
             if state then cfg.Callback(true) end
-            
-            -- Registra o Toggle para que o botão 'X' possa desligá-lo!
-            local toggleObj = { SetValue = function(self, v) Fire(v) end }
-            table.insert(Library.AllToggles, toggleObj)
-            return toggleObj
+            return { SetValue = function(self, v) Fire(v) end }
         end
 
         function Elements:AddInput(cfg)
@@ -641,20 +548,35 @@ local Toggles, Inputs = {}, {}
 Tabs.Main:AddSection("Gerenciamento do Plot")
 Toggles.AutoColeta = Tabs.Main:AddToggle({Title = "Auto Coletar Minhas Frutas", Default = false, Callback = function(v) State.autoColeta = v; if not v then Char.AncorarRaiz(false) end end})
 
+-- SISTEMA DE CACHE DE ESTADO DAS PLANTAS
 local CacheEstadoPlantas = setmetatable({}, {__mode = "k"})
+
 local function configurarPlanta(modelo, invisivel)
     for _, parte in ipairs(modelo:GetDescendants()) do
         if parte:IsA("BasePart") then
             if invisivel then
-                if not CacheEstadoPlantas[parte] then CacheEstadoPlantas[parte] = { Transparency = parte.Transparency, CanCollide = parte.CanCollide } end
-                parte.Transparency = 1; parte.CanCollide = false
+                if not CacheEstadoPlantas[parte] then
+                    CacheEstadoPlantas[parte] = {
+                        Transparency = parte.Transparency,
+                        CanCollide = parte.CanCollide
+                    }
+                end
+                parte.Transparency = 1
+                parte.CanCollide = false
             else
                 local estadoOriginal = CacheEstadoPlantas[parte]
-                if estadoOriginal then parte.Transparency = estadoOriginal.Transparency; parte.CanCollide = estadoOriginal.CanCollide else parte.Transparency = 0; parte.CanCollide = true end
+                if estadoOriginal then
+                    parte.Transparency = estadoOriginal.Transparency
+                    parte.CanCollide = estadoOriginal.CanCollide
+                else
+                    parte.Transparency = 0
+                    parte.CanCollide = true
+                end
             end
         end
     end
 end
+
 local function toggleInvisPlants(ativo)
     local plotId = LocalPlayer:GetAttribute("PlotId")
     if not plotId then return end
@@ -693,17 +615,15 @@ Tabs.Shops:AddToggle({Title = "Abrir Gear Shop", Default = false, Callback = fun
 Tabs.Shops:AddToggle({Title = "Abrir Seed Shop", Default = false, Callback = function(v) local pGui = LocalPlayer:FindFirstChild("PlayerGui"); if pGui and pGui:FindFirstChild("SeedShop") then pGui.SeedShop.Enabled = v end end})
 
 -- ABA STEAL
-Tabs.Steal:AddSection("Roubo Alheio (Apenas a Noite)")
-Toggles.AutoStealAll = Tabs.Steal:AddToggle({Title = "Auto Steal ALL (Avançado)", Default = false, Callback = function(v) State.autoStealAll = v; if not v then Char.AncorarRaiz(false) end end})
-
-local LabelPlot = Tabs.Steal:AddParagraph({Title = "Plot selecionado p/ Único: NENHUM"})
-local DropdownPlots = Tabs.Steal:AddDropdown({Title = "Selecionar Plot Único", Values = {"Carregando..."}, Callback = function(v)
+Tabs.Steal:AddSection("Roubo Alheio")
+local LabelPlot = Tabs.Steal:AddParagraph({Title = "Plot selecionado: NENHUM"})
+local DropdownPlots = Tabs.Steal:AddDropdown({Title = "Selecionar Plot Oponente", Values = {"Carregando..."}, Callback = function(v)
     if not v or v == "" or string.find(v, "meu plot") then return end
     local nomeReal = string.match(v, "%((Plot%d+)%)")
-    if nomeReal then State.plotAlvoNome = nomeReal; LabelPlot:SetTitle("Plot selecionado p/ Único: " .. v) end
+    if nomeReal then State.plotAlvoNome = nomeReal; LabelPlot:SetTitle("Plot selecionado: " .. v) end
 end})
 
-Toggles.AutoRoubo = Tabs.Steal:AddToggle({Title = "Auto Roubar Único", Default = false, Callback = function(v) State.autoRoubo = v; if not v then Char.AncorarRaiz(false) end end})
+Toggles.AutoRoubo = Tabs.Steal:AddToggle({Title = "Auto Roubar (ignora Bamboo)", Default = false, Callback = function(v) State.autoRoubo = v; if not v then Char.AncorarRaiz(false) end end})
 Toggles.AutoRetorno = Tabs.Steal:AddToggle({Title = "Retornar ao Meu Plot Ocioso", Default = false, Callback = function(v) State.autoRetorno = v end})
 
 -- ABA CONFIG
@@ -711,7 +631,7 @@ Tabs.Config:AddSection("Salvar / Ler")
 Tabs.Config:AddInput({Title = "Nome para Salvar", Default = ConfigSystem.NomeParaSalvar, Callback = function(t) ConfigSystem.NomeParaSalvar = t end})
 Tabs.Config:AddButton({Title = "Salvar Configuração", Callback = function()
     if not writefile or ConfigSystem.NomeParaSalvar == "" then return end
-    local data = { autoColeta = State.autoColeta, autoVenda = State.autoVenda, quantidadeVenda = State.quantidadeVenda, autoSeedPack = State.autoSeedPack, autoCollectAll = State.autoCollectAll, autoRoubo = State.autoRoubo, autoStealAll = State.autoStealAll, autoRetorno = State.autoRetorno }
+    local data = { autoColeta = State.autoColeta, autoVenda = State.autoVenda, quantidadeVenda = State.quantidadeVenda, autoSeedPack = State.autoSeedPack, autoCollectAll = State.autoCollectAll, autoRoubo = State.autoRoubo, autoRetorno = State.autoRetorno }
     local s, e = pcall(HttpService.JSONEncode, HttpService, data)
     if s then pcall(writefile, ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaSalvar .. ".json", e) end
 end})
@@ -730,7 +650,6 @@ Tabs.Config:AddButton({Title = "Aplicar Configuração", Callback = function()
             if d.autoSeedPack ~= nil then Toggles.AutoSeedPack:SetValue(d.autoSeedPack) end
             if d.autoCollectAll ~= nil then Toggles.CollectAllItems:SetValue(d.autoCollectAll) end
             if d.autoRoubo ~= nil then Toggles.AutoRoubo:SetValue(d.autoRoubo) end
-            if d.autoStealAll ~= nil then Toggles.AutoStealAll:SetValue(d.autoStealAll) end
             if d.autoRetorno ~= nil then Toggles.AutoRetorno:SetValue(d.autoRetorno) end
         end
     end
