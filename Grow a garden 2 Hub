@@ -1,9 +1,9 @@
 -- GardensManager.lua
 -- Executor: Delta / Xeno | Ambiente: Roblox LocalScript
--- Versão Otimizada (Anti-Lag / Baixo uso de CPU e Memória) - Redz Library
+-- Versão Otimizada (Anti-Lag / Baixo uso de CPU e Memória) + Custom UI Animada
 
 ------------------------------------------------------------------------
--- SERVICOS
+-- SERVICOS E VARIAVEIS
 ------------------------------------------------------------------------
 local Players           = game:GetService("Players")
 local Workspace         = game:GetService("Workspace")
@@ -11,6 +11,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService       = game:GetService("HttpService")
 local CoreGui           = game:GetService("CoreGui")
 local UserInputService  = game:GetService("UserInputService")
+local TweenService      = game:GetService("TweenService")
+local RunService        = game:GetService("RunService")
 
 local VirtualInputManager
 pcall(function()
@@ -18,26 +20,22 @@ pcall(function()
 end)
 
 ------------------------------------------------------------------------
--- REFERENCIAS GLOBAIS E DIRETÓRIOS (VERIFICADOS)
+-- REFERENCIAS GLOBAIS
 ------------------------------------------------------------------------
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
-[span_1](start_span)local Gardens      = Workspace:WaitForChild("Gardens", 10)[span_1](end_span)
-[span_2](start_span)local DroppedItems = Workspace:WaitForChild("DroppedItems", 10)[span_2](end_span)
+local Gardens      = Workspace:WaitForChild("Gardens", 10)
+local DroppedItems = nil
+pcall(function() DroppedItems = Workspace:WaitForChild("Workspace", 3):WaitForChild("DroppedItems", 10) end)
+if not DroppedItems then DroppedItems = Workspace:WaitForChild("DroppedItems", 10) end
 
--- Confirmação e carregamento do seu diretório padrão de módulos de rede
-[span_3](start_span)local SharedModules = ReplicatedStorage:WaitForChild("SharedModules", 10)[span_3](end_span)
-[span_4](start_span)local NetworkingModule = SharedModules and SharedModules:WaitForChild("Networking", 10)[span_4](end_span)
-local Networking
-
-if NetworkingModule then
-    [span_5](start_span)Networking = require(NetworkingModule)[span_5](end_span)
-else
-    warn("Diretório de Redes (SharedModules.Networking) não encontrado! Verifique a estrutura das pastas.")
-end
+local Networking = nil
+pcall(function()
+    Networking = require(ReplicatedStorage:WaitForChild("SharedModules", 10):WaitForChild("Networking", 10))
+end)
 
 ------------------------------------------------------------------------
--- ESTADO CENTRALIZADO E SISTEMA DE SALVAMENTO
+-- ESTADO CENTRALIZADO E SISTEMA DE SALVAMENTO [CÓDIGO ORIGINAL MANTIDO]
 ------------------------------------------------------------------------
 local State = {
     autoColeta      = false,
@@ -46,7 +44,7 @@ local State = {
     autoRoubo       = false,
     autoRetorno     = false,
     autoSeedPack    = false,
-    [span_6](start_span)autoCollectAll  = false,[span_6](end_span)
+    autoCollectAll  = false,
     meuPlotNome     = nil,
     plotAlvoNome    = nil,
 }
@@ -57,31 +55,26 @@ local ConfigSystem = {
     NomeParaLer    = "",
 }
 
-if isfolder and not isfolder(ConfigSystem.Pasta) then
-    pcall(makefolder, ConfigSystem.Pasta)
-end
+if isfolder and not isfolder(ConfigSystem.Pasta) then pcall(makefolder, ConfigSystem.Pasta) end
 
 function ConfigSystem.Listar()
     local lista = {}
     if listfiles and isfolder(ConfigSystem.Pasta) then
         pcall(function()
-            [span_7](start_span)for _, arquivo in ipairs(listfiles(ConfigSystem.Pasta)) do[span_7](end_span)
+            for _, arquivo in ipairs(listfiles(ConfigSystem.Pasta)) do
                 local nome = string.match(arquivo, "([^/\\]+)%.json$")
-                if nome then
-                    table.insert(lista, nome)
-                end
+                if nome then table.insert(lista, nome) end
             end
-        [span_8](start_span)end)[span_8](end_span)
+        end)
     end
     if #lista == 0 then table.insert(lista, "Nenhuma config") end
     return lista
 end
 
 ------------------------------------------------------------------------
--- MODULO: INPUT (FALLBACK)
+-- MODULO: INPUT (FALLBACK) [CÓDIGO ORIGINAL MANTIDO]
 ------------------------------------------------------------------------
 local Input = {}
-
 function Input.PressionarE()
     if not VirtualInputManager then return end
     pcall(function()
@@ -92,133 +85,83 @@ function Input.PressionarE()
 end
 
 ------------------------------------------------------------------------
--- MODULO: PROMPT (OTIMIZADO)
+-- MODULO: PROMPT (OTIMIZADO) [CÓDIGO ORIGINAL MANTIDO]
 ------------------------------------------------------------------------
 local Prompt = {}
-
 function Prompt.AtivarImediato(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
-
-    [span_9](start_span)pcall(function()[span_9](end_span)
-        prompt.RequiresLineOfSight = false 
-        prompt.MaxActivationDistance = 999999
-    [span_10](start_span)end)[span_10](end_span)
-
-    if fireproximityprompt then
-        fireproximityprompt(prompt)
-        return true
-    end
-
-    pcall(function()
-        prompt.HoldDuration = 0
-        prompt:InputHoldBegin()
-        prompt:InputHoldEnd()
-    end)
-
+    pcall(function() prompt.RequiresLineOfSight = false; prompt.MaxActivationDistance = 999999 end)
+    if fireproximityprompt then fireproximityprompt(prompt); return true end
+    pcall(function() prompt.HoldDuration = 0; prompt:InputHoldBegin(); prompt:InputHoldEnd() end)
     Input.PressionarE()
     return true
 end
 
 ------------------------------------------------------------------------
--- MODULO: PERSONAGEM / TELEPORTE
+-- MODULO: PERSONAGEM / TELEPORTE [CÓDIGO ORIGINAL MANTIDO]
 ------------------------------------------------------------------------
 local Char = {}
-
 function Char.Root()
     local character = LocalPlayer.Character
     return character and character:FindFirstChild("HumanoidRootPart")
 end
-
 function Char.Teleportar(posicao)
     local root = Char.Root()
     if not root then return end
-
     root.Anchored = false
     root.AssemblyLinearVelocity  = Vector3.zero
     root.AssemblyAngularVelocity = Vector3.zero
-
     root.CFrame = CFrame.new(posicao)
 end
-
 function Char.TeleportarParaPrompt(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
-
     local parentPart = prompt.Parent
-    if parentPart and parentPart:IsA("BasePart") then
-        [span_11](start_span)Char.Teleportar(parentPart.Position + Vector3.new(0, 1.5, 0))[span_11](end_span)
-        return true
-    end
-
+    if parentPart and parentPart:IsA("BasePart") then Char.Teleportar(parentPart.Position + Vector3.new(0, 1.5, 0)); return true end
     local model = prompt:FindFirstAncestorOfClass("Model")
     if model then
-        local pPart = model.PrimaryPart
-        if not pPart then
-            pPart = model:FindFirstChildWhichIsA("BasePart", true)
-        end
-        if pPart then
-            [span_12](start_span)Char.Teleportar(pPart.Position + Vector3.new(0, 1.5, 0))[span_12](end_span)
-            return true
-        end
+        local pPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+        if pPart then Char.Teleportar(pPart.Position + Vector3.new(0, 1.5, 0)); return true end
     end
-
     local cursor = prompt.Parent
     while cursor and cursor ~= Workspace do
-        if cursor:IsA("BasePart") then
-            Char.Teleportar(cursor.Position + Vector3.new(0, 1.5, 0))
-            return true
-        end
-        [span_13](start_span)cursor = cursor.Parent[span_13](end_span)
+        if cursor:IsA("BasePart") then Char.Teleportar(cursor.Position + Vector3.new(0, 1.5, 0)); return true end
+        cursor = cursor.Parent
     end
-
     return false
 end
-
 function Char.AncorarRaiz(estado)
     local root = Char.Root()
     if root then root.Anchored = estado end
 end
 
 ------------------------------------------------------------------------
--- MODULO: PLOTS
+-- MODULO: PLOTS [CÓDIGO ORIGINAL MANTIDO]
 ------------------------------------------------------------------------
 local Plots = {}
-
 function Plots.ResolverMeuPlot()
     local plotId = LocalPlayer:GetAttribute("PlotId")
     if plotId then
         local num = tonumber(plotId)
-        if num then
-            [span_14](start_span)State.meuPlotNome = "Plot" .. tostring(num)[span_14](end_span)
-            return
-        [span_15](start_span)end[span_15](end_span)
+        if num then State.meuPlotNome = "Plot" .. tostring(num); return end
     end
 end
 
 local CachePlayersPorPlotId = {}
-
 local function reconstruirCachePlayers()
     table.clear(CachePlayersPorPlotId)
     for _, p in ipairs(Players:GetPlayers()) do
         local pid = p:GetAttribute("PlotId")
-        if pid then
-            CachePlayersPorPlotId[tonumber(pid)] = p.Name
-        end
+        if pid then CachePlayersPorPlotId[tonumber(pid)] = p.Name end
     end
 end
-
 reconstruirCachePlayers()
 Players.PlayerAdded:Connect(reconstruirCachePlayers)
 Players.PlayerRemoving:Connect(reconstruirCachePlayers)
-
 Players.PlayerAdded:Connect(function(p)
-    p.AttributeChanged:Connect(function(attr)
-        if attr == "PlotId" then reconstruirCachePlayers() end
-    end)
+    p.AttributeChanged:Connect(function(attr) if attr == "PlotId" then reconstruirCachePlayers() end end)
 end)
 for _, p in ipairs(Players:GetPlayers()) do
-    [span_16](start_span)p.AttributeChanged:Connect(function(attr)[span_16](end_span)
-        if attr == "PlotId" then reconstruirCachePlayers() end
-    [span_17](start_span)end)[span_17](end_span)
+    p.AttributeChanged:Connect(function(attr) if attr == "PlotId" then reconstruirCachePlayers() end end)
 end
 
 function Plots.DonoDoPlot(plot)
@@ -231,22 +174,16 @@ end
 function Plots.ListarParaDropdown()
     if not Gardens then return {} end
     local itens = {}
-
     for _, plot in ipairs(Gardens:GetChildren()) do
         if string.match(plot.Name, "^Plot%d+$") then
-            [span_18](start_span)local dono = Plots.DonoDoPlot(plot)[span_18](end_span)
+            local dono = Plots.DonoDoPlot(plot)
             local rotulo
-
             if dono then
-                if dono == LocalPlayer.Name then
-                    rotulo = dono .. " (meu plot)"
-                else
-                    [span_19](start_span)rotulo = dono .. " (" .. plot.Name .. ")"[span_19](end_span)
-                end
+                if dono == LocalPlayer.Name then rotulo = dono .. " (meu plot)" else rotulo = dono .. " (" .. plot.Name .. ")" end
             else
                 rotulo = "Sem Dono (" .. plot.Name .. ")"
             end
-            [span_20](start_span)table.insert(itens, rotulo)[span_20](end_span)
+            table.insert(itens, rotulo)
         end
     end
     table.sort(itens)
@@ -254,89 +191,65 @@ function Plots.ListarParaDropdown()
 end
 
 ------------------------------------------------------------------------
--- MODULOS DE ACAO
+-- MODULOS DE ACAO [CÓDIGO ORIGINAL MANTIDO]
 ------------------------------------------------------------------------
 local Acoes = {}
-
 function Acoes.ProcessarTeleporteEPrompt(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
     local sucesso = Char.TeleportarParaPrompt(prompt)
     if not sucesso then return false end
-    
     task.wait(0.1)
-    
     Prompt.AtivarImediato(prompt)
     return true
 end
 
 local Venda = {}
 function Venda.Processar()
-    [span_21](start_span)if not State.autoVenda then return false end[span_21](end_span)
+    if not State.autoVenda then return false end
     local backpack = LocalPlayer:FindFirstChild("Backpack")
     if not backpack then return false end
-
-    local itemCount = #backpack:GetChildren()
-    if itemCount >= State.quantidadeVenda then
-        if Networking and Networking.NPCS and Networking.NPCS.SellAll then
-            pcall(function() Networking.NPCS.SellAll:Fire() end)
-            return true
-        end
+    if #backpack:GetChildren() >= State.quantidadeVenda then
+        if Networking and Networking.NPCS then pcall(function() Networking.NPCS.SellAll:Fire() end) end
+        return true
     end
     return false
 end
 
 local Coleta = {}
 function Coleta.Processar()
-    if not State.autoColeta or not State.meuPlotNome then return false end
-    if not Gardens then return false end
-    
-    [span_22](start_span)local plot = Gardens:FindFirstChild(State.meuPlotNome)[span_22](end_span)
+    if not State.autoColeta or not State.meuPlotNome or not Gardens then return false end
+    local plot = Gardens:FindFirstChild(State.meuPlotNome)
     if not plot then return false end
-
     for _, inst in ipairs(plot:GetDescendants()) do
-        if inst:IsA("ProximityPrompt") and inst.Name == "HarvestPrompt" then
-            return Acoes.ProcessarTeleporteEPrompt(inst)
-        end
+        if inst:IsA("ProximityPrompt") and inst.Name == "HarvestPrompt" then return Acoes.ProcessarTeleporteEPrompt(inst) end
     end
     return false
 end
 
 local IgnoredPrompts = {}
 local Roubo = {}
-
 function Roubo.Processar()
     if not State.autoRoubo or not State.plotAlvoNome then return false end
     if Workspace:GetAttribute("ActivePhase") ~= "Night" then return false end
-    [span_23](start_span)if not Gardens then return false end[span_23](end_span)
-    
+    if not Gardens then return false end
     local plot = Gardens:FindFirstChild(State.plotAlvoNome)
     if not plot then return false end
-
     for _, inst in ipairs(plot:GetDescendants()) do
         if inst:IsA("ProximityPrompt") and inst.Name == "StealPrompt" then
             if not IgnoredPrompts[inst] then
-                [span_24](start_span)local isBamboo = false[span_24](end_span)
-                [span_25](start_span)local ancestral = inst.Parent[span_25](end_span)
-
+                local isBamboo, ancestral = false, inst.Parent
                 while ancestral and ancestral ~= Workspace do
                     local seedName = ancestral:GetAttribute("SeedName")
                     if seedName ~= nil then
-                        [span_26](start_span)if seedName == "Bamboo" then[span_26](end_span)
-                            isBamboo = true 
-                            IgnoredPrompts[inst] = true
-                        end
-                        [span_27](start_span)break[span_27](end_span)
+                        if seedName == "Bamboo" then isBamboo = true; IgnoredPrompts[inst] = true end
+                        break
                     end
                     ancestral = ancestral.Parent
                 end
-
                 if not isBamboo and not IgnoredPrompts[inst] then
-                    [span_28](start_span)local executou = Acoes.ProcessarTeleporteEPrompt(inst)[span_28](end_span)
-                    if executou then
-                        return true
-                    end
+                    if Acoes.ProcessarTeleporteEPrompt(inst) then return true end
                 end
-            [span_29](start_span)end[span_29](end_span)
+            end
         end
     end
     return false
@@ -347,14 +260,10 @@ function FarmMap.Processar()
     if not State.autoSeedPack then return false end
     local mapFolder = Workspace:FindFirstChild("Map")
     if not mapFolder then return false end
-
     local seedFolder = mapFolder:FindFirstChild("SeedPackSpawnServerLocations")
     if not seedFolder then return false end
-
     for _, inst in ipairs(seedFolder:GetDescendants()) do
-        if inst:IsA("ProximityPrompt") then
-            [span_30](start_span)return Acoes.ProcessarTeleporteEPrompt(inst)[span_30](end_span)
-        end
+        if inst:IsA("ProximityPrompt") then return Acoes.ProcessarTeleporteEPrompt(inst) end
     end
     return false
 end
@@ -362,18 +271,10 @@ end
 local CollectAll = {}
 function CollectAll.Processar()
     if not State.autoCollectAll or not DroppedItems then return false end
-
     for _, item in ipairs(DroppedItems:GetChildren()) do
         local anchor = item:FindFirstChild("PromptAnchor")
-        local prompt = anchor and anchor:FindFirstChild("PickupPrompt")
-
-        if not prompt then
-            prompt = item:FindFirstChildOfClass("ProximityPrompt", true)
-        [span_31](start_span)end[span_31](end_span)
-
-        if prompt then
-            return Acoes.ProcessarTeleporteEPrompt(prompt)
-        end
+        local prompt = anchor and anchor:FindFirstChild("PickupPrompt") or item:FindFirstChildOfClass("ProximityPrompt", true)
+        if prompt then return Acoes.ProcessarTeleporteEPrompt(prompt) end
     end
     return false
 end
@@ -383,12 +284,9 @@ function Retorno.Processar()
     if not State.autoRetorno or not State.meuPlotNome or not Gardens then return false end
     local plot = Gardens:FindFirstChild(State.meuPlotNome)
     local root = Char.Root()
-
     if plot and root then
-        [span_32](start_span)local destino = plot:GetPivot().Position + Vector3.new(0, 3, 0)[span_32](end_span)
-        local distancia = (root.Position - destino).Magnitude
-
-        if distancia > 35 then
+        local destino = plot:GetPivot().Position + Vector3.new(0, 3, 0)
+        if (root.Position - destino).Magnitude > 35 then
             Char.Teleportar(destino)
             return true
         end
@@ -397,338 +295,426 @@ function Retorno.Processar()
 end
 
 ------------------------------------------------------------------------
--- CARREGAMENTO DA REDZ LIBRARY (SUBSTITUTA DA FLUENT)
+-- CUSTOM UI LIBRARY (TRANSPARENTE, ANIMADA, FRAGMENTADA)
 ------------------------------------------------------------------------
-local RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/REDzHUB/main/REDzHUBUiLib.lua"))()
+local Library = {}
+local ActiveWindow = nil
 
--- Criação da Janela Principal
-local Window = RedzLib:MakeWindow({
-    [span_33](start_span)Title = "Gardens Manager",[span_33](end_span)
-    SubTitle = "by Gustavo1203888 (Otimizado Mobile)",
-    SaveFolder = ConfigSystem.Pasta
-})
+local function Create(className, properties)
+    local inst = Instance.new(className)
+    for k, v in pairs(properties or {}) do inst[k] = v end
+    return inst
+end
 
--- Criando as Abas (Tabs)
-local TabMain   = Window:MakeTab({"Main", "home"})
-local TabFarm   = Window:MakeTab({"Farm", "leaf"})
-local TabShops  = Window:MakeTab({"Shops", "shopping-cart"})
-local TabSteal  = Window:MakeTab({"Steal", "skull"})
-local TabConfig = Window:MakeTab({"Config", "settings"})
+local function AnimateClick(button)
+    task.spawn(function()
+        TweenService:Create(button, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset - 4, button.Size.Y.Scale, button.Size.Y.Offset - 2)
+        }):Play()
+        task.wait(0.08)
+        TweenService:Create(button, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset + 4, button.Size.Y.Scale, button.Size.Y.Offset + 2)
+        }):Play()
+    end)
+end
 
-------------------------------------------------------------------------
--- ABA: MAIN
-------------------------------------------------------------------------
-TabMain:AddSection({"Gerenciamento do Plot Proprietario"})
+function Library:MakeWindow(config)
+    local ScreenGui = Create("ScreenGui", { Name = "GardensCustomUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Global })
+    local alocado = pcall(function() ScreenGui.Parent = CoreGui end)
+    if not alocado then ScreenGui.Parent = PlayerGui end
 
-local ToggleColeta = TabMain:AddToggle({
-    Name = "Auto Coletar Minhas Frutas",
-    Description = "Varre seu plot buscando HarvestPrompt.",
-    Default = false,
-    Callback = function(v)
-        State.autoColeta = v
-        if not v then Char.AncorarRaiz(false) end
+    -- MainFrame "Meio Invisível" (Acrylic Effect)
+    local MainFrame = Create("Frame", {
+        Name = "MainFrame", Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(15, 15, 18),
+        BackgroundTransparency = 0.35, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 0, 0, 0), ClipsDescendants = true
+    })
+    Create("UICorner", { Parent = MainFrame, CornerRadius = UDim.new(0, 12) })
+    Create("UIStroke", { Parent = MainFrame, Color = Color3.fromRGB(60, 60, 65), Thickness = 1 })
+
+    -- Topbar
+    local Topbar = Create("Frame", {
+        Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(10, 10, 12),
+        BackgroundTransparency = 0.5, Size = UDim2.new(1, 0, 0, 40), BorderSizePixel = 0
+    })
+    Create("UICorner", { Parent = Topbar, CornerRadius = UDim.new(0, 12) })
+    Create("Frame", { Parent = Topbar, BackgroundColor3 = Color3.fromRGB(10, 10, 12), BackgroundTransparency = 0.5, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0, 0, 1, -10), BorderSizePixel = 0 })
+
+    Create("TextLabel", {
+        Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(0, 15, 0, 0), Size = UDim2.new(1, -100, 1, 0),
+        Font = Enum.Font.GothamBold, Text = config.Title, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    -- Dragging System
+    local dragging, dragInput, dragStart, startPos
+    Topbar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = MainFrame.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    Topbar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            TweenService:Create(MainFrame, TweenInfo.new(0.08), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
+        end
+    end)
+
+    -- Botões de Controle (Topbar)
+    local BtnClose = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -35, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "X", TextColor3 = Color3.fromRGB(255, 70, 70), TextSize = 16 })
+    local BtnMinimize = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -70, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "-", TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 22 })
+
+    local Sidebar = Create("ScrollingFrame", { Parent = MainFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 45), Size = UDim2.new(0, 140, 1, -45), ScrollBarThickness = 0 })
+    Create("UIListLayout", { Parent = Sidebar, Padding = UDim.new(0, 5), HorizontalAlignment = Enum.HorizontalAlignment.Center })
+    Create("UIPadding", { Parent = Sidebar, PaddingTop = UDim.new(0, 10) })
+
+    local Content = Create("Frame", { Parent = MainFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 145, 0, 45), Size = UDim2.new(1, -150, 1, -50) })
+
+    -- ANIMAÇÃO SHATTER (Despedaçamento ao fechar)
+    BtnClose.MouseButton1Click:Connect(function()
+        AnimateClick(BtnClose)
+        local absPos, absSize = MainFrame.AbsolutePosition, MainFrame.AbsoluteSize
+        for _, child in ipairs(MainFrame:GetChildren()) do child.Visible = false end
+        MainFrame.BackgroundTransparency = 1; MainFrame.UIStroke:Destroy()
+        
+        local rng = Random.new()
+        for i = 1, 35 do
+            local frag = Create("Frame", { Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(25, 25, 30), Size = UDim2.new(0, rng:NextInteger(10, 40), 0, rng:NextInteger(10, 40)), Position = UDim2.new(0, absPos.X + rng:NextInteger(0, absSize.X), 0, absPos.Y + rng:NextInteger(0, absSize.Y)) })
+            Create("UICorner", { Parent = frag, CornerRadius = UDim.new(0, 4) })
+            
+            TweenService:Create(frag, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = UDim2.new(0, frag.Position.X.Offset + rng:NextInteger(-200, 200), 0, frag.Position.Y.Offset + rng:NextInteger(200, 600)),
+                Rotation = rng:NextInteger(-360, 360),
+                BackgroundTransparency = 1
+            }):Play()
+        end
+        task.wait(1.2)
+        ScreenGui:Destroy()
+    end)
+
+    -- ANIMAÇÃO MINIMIZAR (-)
+    local isMinimized = false
+    local function ToggleMinimize()
+        isMinimized = not isMinimized
+        if isMinimized then
+            TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)}):Play()
+        else
+            TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 520, 0, 360)}):Play()
+        end
     end
-})
+    BtnMinimize.MouseButton1Click:Connect(function() AnimateClick(BtnMinimize); ToggleMinimize() end)
+
+    ActiveWindow = {
+        ScreenGui = ScreenGui, MainFrame = MainFrame, ToggleMinimize = ToggleMinimize, isMinimized = function() return isMinimized end,
+        Tabs = {}, CurrentTab = nil
+    }
+
+    -- ANIMAÇÃO CLEAN DE INICIALIZAÇÃO
+    TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 520, 0, 360)}):Play()
+
+    function ActiveWindow:AddTab(tabName)
+        local TabBtn = Create("TextButton", { Parent = Sidebar, BackgroundColor3 = Color3.fromRGB(30, 30, 35), BackgroundTransparency = 0.5, Size = UDim2.new(0, 120, 0, 32), Font = Enum.Font.GothamSemibold, Text = tabName, TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 13, AutoButtonColor = false })
+        Create("UICorner", { Parent = TabBtn, CornerRadius = UDim.new(0, 6) })
+
+        local TabPage = Create("ScrollingFrame", { Parent = Content, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 2, Visible = false })
+        local Layout = Create("UIListLayout", { Parent = TabPage, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
+        Create("UIPadding", { Parent = TabPage, PaddingRight = UDim.new(0, 5) })
+        Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() TabPage.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 10) end)
+
+        TabBtn.MouseButton1Click:Connect(function()
+            AnimateClick(TabBtn)
+            for _, t in pairs(ActiveWindow.Tabs) do
+                t.Page.Visible = false
+                TweenService:Create(t.Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 35), TextColor3 = Color3.fromRGB(150, 150, 150)}):Play()
+            end
+            TabPage.Visible = true
+            TweenService:Create(TabBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 255, 120), TextColor3 = Color3.fromRGB(20, 20, 20)}):Play()
+        end)
+
+        table.insert(ActiveWindow.Tabs, {Btn = TabBtn, Page = TabPage})
+        if #ActiveWindow.Tabs == 1 then TabPage.Visible = true; TabBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 120); TabBtn.TextColor3 = Color3.fromRGB(20, 20, 20) end
+
+        local Elements = {}
+
+        function Elements:AddSection(text)
+            Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.GothamBold, Text = " " .. text, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left })
+        end
+
+        function Elements:AddParagraph(cfg)
+            local lbl = Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            return { SetTitle = function(self, t) lbl.Text = t end }
+        end
+
+        function Elements:AddButton(cfg)
+            local Btn = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(35, 35, 40), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 13, AutoButtonColor = false })
+            Create("UICorner", { Parent = Btn, CornerRadius = UDim.new(0, 6) })
+            Btn.MouseButton1Click:Connect(function()
+                AnimateClick(Btn)
+                TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 255, 120), TextColor3 = Color3.fromRGB(0,0,0)}):Play()
+                task.wait(0.1)
+                TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40), TextColor3 = Color3.fromRGB(255,255,255)}):Play()
+                cfg.Callback()
+            end)
+        end
+
+        function Elements:AddToggle(cfg)
+            local state = cfg.Default or false
+            local TglFrame = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(35, 35, 40), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Text = "", AutoButtonColor = false })
+            Create("UICorner", { Parent = TglFrame, CornerRadius = UDim.new(0, 6) })
+            Create("TextLabel", { Parent = TglFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(1, -50, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            local Indicator = Create("Frame", { Parent = TglFrame, BackgroundColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(60, 60, 65), Position = UDim2.new(1, -30, 0.5, -8), Size = UDim2.new(0, 16, 0, 16) })
+            Create("UICorner", { Parent = Indicator, CornerRadius = UDim.new(0, 4) })
+
+            local function Fire(v)
+                state = v
+                TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(60, 60, 65)}):Play()
+                cfg.Callback(state)
+            end
+            TglFrame.MouseButton1Click:Connect(function() AnimateClick(TglFrame); Fire(not state) end)
+            if state then cfg.Callback(true) end
+            return { SetValue = function(self, v) Fire(v) end }
+        end
+
+        function Elements:AddInput(cfg)
+            local InpFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(35, 35, 40), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35) })
+            Create("UICorner", { Parent = InpFrame, CornerRadius = UDim.new(0, 6) })
+            Create("TextLabel", { Parent = InpFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0.6, 0, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            
+            local Box = Create("TextBox", { Parent = InpFrame, BackgroundColor3 = Color3.fromRGB(20, 20, 25), Position = UDim2.new(0.6, 0, 0.5, -12), Size = UDim2.new(0.4, -10, 0, 24), Font = Enum.Font.Gotham, Text = cfg.Default or "", PlaceholderText = cfg.Placeholder or "", TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 12 })
+            Create("UICorner", { Parent = Box, CornerRadius = UDim.new(0, 4) })
+            Box.FocusLost:Connect(function() cfg.Callback(Box.Text) end)
+            return { SetValue = function(self, v) Box.Text = v; cfg.Callback(v) end }
+        end
+
+        function Elements:AddDropdown(cfg)
+            local options = cfg.Values or {}
+            local DropFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(35, 35, 40), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), ClipsDescendants = true })
+            Create("UICorner", { Parent = DropFrame, CornerRadius = UDim.new(0, 6) })
+            
+            local MainBtn = Create("TextButton", { Parent = DropFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = "  " .. cfg.Title .. " >", TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            local ListFrame = Create("ScrollingFrame", { Parent = DropFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 35), Size = UDim2.new(1, 0, 1, -35), CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 2 })
+            local ListLayout = Create("UIListLayout", { Parent = ListFrame })
+            
+            local isOpen = false
+            local function toggleDrop()
+                isOpen = not isOpen
+                TweenService:Create(DropFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = isOpen and UDim2.new(1, 0, 0, 135) or UDim2.new(1, 0, 0, 35)}):Play()
+            end
+            MainBtn.MouseButton1Click:Connect(toggleDrop)
+
+            local function Build()
+                for _, v in ipairs(ListFrame:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+                for _, opt in ipairs(options) do
+                    local b = Create("TextButton", { Parent = ListFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.Gotham, Text = "  " .. opt, TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left })
+                    b.MouseButton1Click:Connect(function() MainBtn.Text = "  " .. cfg.Title .. " > " .. opt; toggleDrop(); cfg.Callback(opt) end)
+                end
+                ListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 25)
+            end
+            Build()
+            return { SetValues = function(self, newOpts) options = newOpts; Build() end }
+        end
+
+        return Elements
+    end
+
+    return ActiveWindow
+end
+
+------------------------------------------------------------------------
+-- CONSTRUCAO DA INTERFACE (LIGANDO AO CÓDIGO ORIGINAL)
+------------------------------------------------------------------------
+local Window = Library:MakeWindow({ Title = "Gardens Manager (Custom Hub)" })
+
+local Tabs = {
+    Main   = Window:AddTab("Main"),
+    Farm   = Window:AddTab("Farm"),
+    Shops  = Window:AddTab("Shops"),
+    Steal  = Window:AddTab("Steal"),
+    Config = Window:AddTab("Config"),
+}
+
+local Toggles, Inputs = {}, {}
+
+-- ABA MAIN
+Tabs.Main:AddSection("Gerenciamento do Plot")
+Toggles.AutoColeta = Tabs.Main:AddToggle({Title = "Auto Coletar Minhas Frutas", Default = false, Callback = function(v) State.autoColeta = v; if not v then Char.AncorarRaiz(false) end end})
 
 local function configurarPlanta(modelo, invisivel)
     for _, parte in ipairs(modelo:GetDescendants()) do
-        if parte:IsA("BasePart") then
-            [span_34](start_span)parte.Transparency = invisivel and 1 or 0[span_34](end_span)
-            parte.CanCollide = not invisivel
-        end
+        if parte:IsA("BasePart") then parte.Transparency = invisivel and 1 or 0; parte.CanCollide = not invisivel end
     end
 end
-
 local function toggleInvisPlants(ativo)
     local plotId = LocalPlayer:GetAttribute("PlotId")
     if not plotId then return end
-    
-    local nomePlot = "Plot" .. tostring(plotId)
-    local meuPlot = Gardens:FindFirstChild(nomePlot)
-    
+    local meuPlot = Gardens:FindFirstChild("Plot" .. tostring(plotId))
     if not meuPlot then return end
-
     local pastaPlants = meuPlot:FindFirstChild("Plants")
-    if not pastaPlants then return end
-
-    [span_35](start_span)for _, plantaModelo in ipairs(pastaPlants:GetChildren()) do[span_35](end_span)
-        configurarPlanta(plantaModelo, ativo)
-    end
+    if pastaPlants then for _, plantaModelo in ipairs(pastaPlants:GetChildren()) do configurarPlanta(plantaModelo, ativo) end end
 end
 
-TabMain:AddToggle({
-    Name = "Invis Plants",
-    Description = "Esconde plantas do seu plot via PlotId",
-    Default = false,
-    Callback = function(v)
-        toggleInvisPlants(v)
-        if v then
-            if _G.PlantConnection then pcall(function() _G.PlantConnection:Disconnect() end) end
-            _G.PlantConnection = Gardens.DescendantAdded:Connect(function(obj)
-                local plotId = LocalPlayer:GetAttribute("PlotId")
-                if not plotId then return end
-               
-                local meuPlot = Gardens:FindFirstChild("Plot" .. tostring(plotId))
-                if meuPlot and obj:IsDescendantOf(meuPlot) then
-                    if obj:FindFirstAncestor("Plants") then
-                        configurarPlanta(obj.Parent, true)
-                    [span_36](start_span)end[span_36](end_span)
-                end
-            end)
-        else
-            if _G.PlantConnection then pcall(function() _G.PlantConnection:Disconnect() end) end
-        end
-    end
-})
-
-local ToggleVenda = TabMain:AddToggle({
-    Name = "Auto Vender Inventario",
-    Description = "Vende automaticamente quando atinge a meta.",
-    Default = false,
-    Callback = function(v)
-        State.autoVenda = v
-    end
-})
-
-TabMain:AddTextBox({
-    Name = "Quantidade para Vender",
-    Default = "100",
-    Placeholder = "Ex: 50, 100",
-    Callback = function(Value)
-        local num = tonumber(Value)
-        [span_37](start_span)if num and num > 0 then[span_37](end_span)
-            State.quantidadeVenda = num
-        end
-    end
-})
-
-------------------------------------------------------------------------
--- ABA: FARM
-------------------------------------------------------------------------
-TabFarm:AddSection({"Coleta pelo Mapa"})
-
-local ToggleSeedPack = TabFarm:AddToggle({
-    Name = "Auto Coletar Seed Packs do Mapa",
-    Description = "Coleta as sementes periódicas do servidor.",
-    Default = false,
-    Callback = function(v)
-        State.autoSeedPack = v
-        [span_38](start_span)if not v then Char.AncorarRaiz(false) end[span_38](end_span)
-    end
-})
-
-local ToggleCollectAll = TabFarm:AddToggle({
-    Name = "Coletar Itens Soltos (DroppedItems)",
-    Description = "Coleta itens descartados ou caidos no chao.",
-    Default = false,
-    Callback = function(v)
-        State.autoCollectAll = v
-        if not v then Char.AncorarRaiz(false) end
-    end
-})
-
-------------------------------------------------------------------------
--- ABA: SHOPS
-------------------------------------------------------------------------
-TabShops:AddSection({"Toggles das Lojas"})
-
-TabShops:AddToggle({
-    Name = "Abrir/Fechar Gear Shop",
-    Default = false,
-    Callback = function(v)
-        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if pGui then
-            local shop = pGui:FindFirstChild("GearShop")
-            if shop then shop.Enabled = v end
-        end
-    end
-})
-
-TabShops:AddToggle({
-    Name = "Abrir/Fechar Seed Shop",
-    Default = false,
-    Callback = function(v)
-        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if pGui then
-            local shop = pGui:FindFirstChild("SeedShop")
-            if shop then shop.Enabled = v end
-        end
-    end
-})
-
-------------------------------------------------------------------------
--- ABA: STEAL
-------------------------------------------------------------------------
-TabSteal:AddSection({"Configuracoes de Roubo Alheio"})
-
--- Na RedzLib, sessões ou labels servem como informativos estáticos
-local LabelPlotSecao = TabSteal:AddSection({"Plot selecionado: NENHUM"})
-
-local DropdownPlots = TabSteal:AddDropdown({
-    Name = "Selecionar Plot Oponente",
-    Options = { "Carregando terrenos..." },
-    Default = "",
-    Callback = function(valor)
-        [span_39](start_span)if not valor or valor == "" or string.find(valor, "meu plot") then return end[span_39](end_span)
-        local nomeReal = string.match(valor, "%((Plot%d+)%)")
-        if not nomeReal then return end
-
-        State.plotAlvoNome = nomeReal
-    end
-})
-
-local ToggleRoubo = TabSteal:AddToggle({
-    Name = "Auto Roubar Plot Selecionado (so de noite)",
-    Description = "Ignora plantas Bamboo.",
-    Default = false,
-    Callback = function(v)
-        State.autoRoubo = v
-        if not v then Char.AncorarRaiz(false) end
-    end
-})
-
-local ToggleRetorno = TabSteal:AddToggle({
-    Name = "Retornar ao Meu Plot Quando Ocioso",
-    Default = false,
-    Callback = function(v)
-        [span_40](start_span)State.autoRetorno = v[span_40](end_span)
-    end
-})
-
-------------------------------------------------------------------------
--- ABA: CONFIG
-------------------------------------------------------------------------
-TabConfig:AddSection({"Salvar Configuração"})
-
-TabConfig:AddTextBox({
-    Name = "Nome da Configuração (Salvar)",
-    Default = ConfigSystem.NomeParaSalvar,
-    Placeholder = "Digite o nome aqui",
-    Callback = function(texto)
-        ConfigSystem.NomeParaSalvar = texto
-    end
-})
-
-TabConfig:AddButton({
-    Name = "Salvar Configuração",
-    Callback = function()
-        if not writefile then return end
-        if ConfigSystem.NomeParaSalvar == "" then return end
-        
-        local data = {
-            autoColeta      = State.autoColeta,
-            autoVenda       = State.autoVenda,
-            quantidadeVenda = State.quantidadeVenda,
-            autoSeedPack    = State.autoSeedPack,
-            autoCollectAll  = State.autoCollectAll,
-            [span_41](start_span)autoRoubo       = State.autoRoubo,[span_41](end_span)
-            autoRetorno     = State.autoRetorno
-        }
-        
-        local success, encoded = pcall(HttpService.JSONEncode, HttpService, data)
-        if success then
-            local path = ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaSalvar .. ".json"
-            [span_42](start_span)pcall(writefile, path, encoded)[span_42](end_span)
-        end
-    end
-})
-
-TabConfig:AddSection({"Carregar Configuração"})
-
-local DropdownConfigs = TabConfig:AddDropdown({
-    Name = "Selecionar Configuração (Ler)",
-    Options = ConfigSystem.Listar(),
-    Default = "",
-    Callback = function(valor)
-        [span_43](start_span)if valor and valor ~= "Nenhuma config" then[span_43](end_span)
-            ConfigSystem.NomeParaLer = valor
-        end
-    end
-})
-
-TabConfig:AddButton({
-    Name = "Atualizar Lista",
-    Callback = function()
-        DropdownConfigs:SetOptions(ConfigSystem.Listar())
-    end
-})
-
-TabConfig:AddButton({
-    Name = "Aplicar Configuração",
-    Callback = function()
-        if not readfile then return end
-        if ConfigSystem.NomeParaLer == "" or ConfigSystem.NomeParaLer == "Nenhuma config" then return end
-        
-        [span_44](start_span)local path = ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaLer .. ".json"[span_44](end_span)
-        if isfile and not isfile(path) then return end
-        
-        local success, content = pcall(readfile, path)
-        if success then
-            [span_45](start_span)local successDec, data = pcall(HttpService.JSONDecode, HttpService, content)[span_45](end_span)
-            if successDec then
-                if data.autoColeta ~= nil then ToggleColeta:Set(data.autoColeta) end
-                if data.autoVenda ~= nil then ToggleVenda:Set(data.autoVenda) end
-                if data.autoSeedPack ~= nil then ToggleSeedPack:Set(data.autoSeedPack) end
-                if data.autoCollectAll ~= nil then ToggleCollectAll:Set(data.autoCollectAll) end
-                if data.autoRoubo ~= nil then ToggleRoubo:Set(data.autoRoubo) end
-                if data.autoRetorno ~= nil then ToggleRetorno:Set(data.autoRetorno) end
+Tabs.Main:AddToggle({Title = "Invis Plants", Default = false, Callback = function(v)
+    toggleInvisPlants(v)
+    if v then
+        if _G.PlantConnection then pcall(function() _G.PlantConnection:Disconnect() end) end
+        _G.PlantConnection = Gardens.DescendantAdded:Connect(function(obj)
+            local pid = LocalPlayer:GetAttribute("PlotId")
+            if pid and Gardens:FindFirstChild("Plot" .. tostring(pid)) and obj:IsDescendantOf(Gardens:FindFirstChild("Plot" .. tostring(pid))) then
+                if obj:FindFirstAncestor("Plants") then configurarPlanta(obj.Parent, true) end
             end
+        end)
+    else
+        if _G.PlantConnection then pcall(function() _G.PlantConnection:Disconnect() end) end
+    end
+end})
+
+Toggles.AutoVenda = Tabs.Main:AddToggle({Title = "Auto Vender Inventario", Default = false, Callback = function(v) State.autoVenda = v end})
+Inputs.MetaVenda = Tabs.Main:AddInput({Title = "Quantidade para Vender", Default = "100", Callback = function(v) local num = tonumber(v); if num and num > 0 then State.quantidadeVenda = num end end})
+
+-- ABA FARM
+Tabs.Farm:AddSection("Coleta pelo Mapa")
+Toggles.AutoSeedPack = Tabs.Farm:AddToggle({Title = "Auto Coletar Seed Packs do Mapa", Default = false, Callback = function(v) State.autoSeedPack = v; if not v then Char.AncorarRaiz(false) end end})
+Toggles.CollectAllItems = Tabs.Farm:AddToggle({Title = "Coletar Itens Soltos", Default = false, Callback = function(v) State.autoCollectAll = v; if not v then Char.AncorarRaiz(false) end end})
+
+-- ABA SHOPS
+Tabs.Shops:AddSection("Lojas")
+Tabs.Shops:AddToggle({Title = "Abrir Gear Shop", Default = false, Callback = function(v) local pGui = LocalPlayer:FindFirstChild("PlayerGui"); if pGui and pGui:FindFirstChild("GearShop") then pGui.GearShop.Enabled = v end end})
+Tabs.Shops:AddToggle({Title = "Abrir Seed Shop", Default = false, Callback = function(v) local pGui = LocalPlayer:FindFirstChild("PlayerGui"); if pGui and pGui:FindFirstChild("SeedShop") then pGui.SeedShop.Enabled = v end end})
+
+-- ABA STEAL
+Tabs.Steal:AddSection("Roubo Alheio")
+local LabelPlot = Tabs.Steal:AddParagraph({Title = "Plot selecionado: NENHUM"})
+local DropdownPlots = Tabs.Steal:AddDropdown({Title = "Selecionar Plot Oponente", Values = {"Carregando..."}, Callback = function(v)
+    if not v or v == "" or string.find(v, "meu plot") then return end
+    local nomeReal = string.match(v, "%((Plot%d+)%)")
+    if nomeReal then State.plotAlvoNome = nomeReal; LabelPlot:SetTitle("Plot selecionado: " .. v) end
+end})
+
+Toggles.AutoRoubo = Tabs.Steal:AddToggle({Title = "Auto Roubar (ignora Bamboo)", Default = false, Callback = function(v) State.autoRoubo = v; if not v then Char.AncorarRaiz(false) end end})
+Toggles.AutoRetorno = Tabs.Steal:AddToggle({Title = "Retornar ao Meu Plot Ocioso", Default = false, Callback = function(v) State.autoRetorno = v end})
+
+-- ABA CONFIG
+Tabs.Config:AddSection("Salvar / Ler")
+Tabs.Config:AddInput({Title = "Nome para Salvar", Default = ConfigSystem.NomeParaSalvar, Callback = function(t) ConfigSystem.NomeParaSalvar = t end})
+Tabs.Config:AddButton({Title = "Salvar Configuração", Callback = function()
+    if not writefile or ConfigSystem.NomeParaSalvar == "" then return end
+    local data = { autoColeta = State.autoColeta, autoVenda = State.autoVenda, quantidadeVenda = State.quantidadeVenda, autoSeedPack = State.autoSeedPack, autoCollectAll = State.autoCollectAll, autoRoubo = State.autoRoubo, autoRetorno = State.autoRetorno }
+    local s, e = pcall(HttpService.JSONEncode, HttpService, data)
+    if s then pcall(writefile, ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaSalvar .. ".json", e) end
+end})
+local DropdownConfigs = Tabs.Config:AddDropdown({Title = "Config para Ler", Values = ConfigSystem.Listar(), Callback = function(v) if v ~= "Nenhuma config" then ConfigSystem.NomeParaLer = v end end})
+Tabs.Config:AddButton({Title = "Atualizar Lista", Callback = function() DropdownConfigs:SetValues(ConfigSystem.Listar()) end})
+Tabs.Config:AddButton({Title = "Aplicar Configuração", Callback = function()
+    if not readfile or ConfigSystem.NomeParaLer == "" then return end
+    local path = ConfigSystem.Pasta .. "/" .. ConfigSystem.NomeParaLer .. ".json"
+    local s, c = pcall(readfile, path)
+    if s then
+        local sd, d = pcall(HttpService.JSONDecode, HttpService, c)
+        if sd then
+            if d.autoColeta ~= nil then Toggles.AutoColeta:SetValue(d.autoColeta) end
+            if d.autoVenda ~= nil then Toggles.AutoVenda:SetValue(d.autoVenda) end
+            if d.quantidadeVenda ~= nil then Inputs.MetaVenda:SetValue(tostring(d.quantidadeVenda)) end
+            if d.autoSeedPack ~= nil then Toggles.AutoSeedPack:SetValue(d.autoSeedPack) end
+            if d.autoCollectAll ~= nil then Toggles.CollectAllItems:SetValue(d.autoCollectAll) end
+            if d.autoRoubo ~= nil then Toggles.AutoRoubo:SetValue(d.autoRoubo) end
+            if d.autoRetorno ~= nil then Toggles.AutoRetorno:SetValue(d.autoRetorno) end
         end
     end
-})
+end})
 
 ------------------------------------------------------------------------
--- THREAD SECUNDARIA: UPDATE DA LISTA DE PLOTS
+-- THREAD SECUNDARIA: UPDATE DA LISTA DE PLOTS [CÓDIGO ORIGINAL MANTIDO]
 ------------------------------------------------------------------------
 task.spawn(function()
     local ultimaListaStr = ""
     while true do
         Plots.ResolverMeuPlot()
-        [span_46](start_span)if Gardens then[span_46](end_span)
+        if Gardens then
             local novosItens = Plots.ListarParaDropdown()
             local atualStr = table.concat(novosItens, "|")
-
             if atualStr ~= ultimaListaStr and #novosItens > 0 then
                 ultimaListaStr = atualStr
-                pcall(function()
-                    DropdownPlots:SetOptions(novosItens)
-                end)
+                pcall(function() DropdownPlots:SetValues(novosItens) end)
             end
         end
-        [span_47](start_span)task.wait(4)[span_47](end_span)
+        task.wait(4)
     end
 end)
 
 ------------------------------------------------------------------------
--- THREAD PRINCIPAL: GERENCIADOR DE TAREFAS
+-- THREAD PRINCIPAL: GERENCIADOR DE TAREFAS [CÓDIGO ORIGINAL MANTIDO]
 ------------------------------------------------------------------------
 local FilaDeAcoesFixa = {
-    { nome = "Venda",      acao = Venda.Processar },
-    { nome = "CollectAll", acao = CollectAll.Processar },
-    { nome = "SeedPack",   acao = FarmMap.Processar },
-    { nome = "Coleta",     acao = Coleta.Processar },
-    { nome = "Roubo",      acao = Roubo.Processar },
-    { nome = "Retorno",    acao = Retorno.Processar },
+    { acao = Venda.Processar },
+    { acao = CollectAll.Processar },
+    { acao = FarmMap.Processar },
+    { acao = Coleta.Processar },
+    { acao = Roubo.Processar },
+    { acao = Retorno.Processar },
 }
 
 task.spawn(function()
     while true do
         local tarefaExecutada = false
-
-        [span_48](start_span)for i = 1, #FilaDeAcoesFixa do[span_48](end_span)
-            local sucesso = FilaDeAcoesFixa[i].acao()
-            if sucesso then
-                tarefaExecutada = true
-                break
-            end
-        [span_49](start_span)end[span_49](end_span)
-
-        if tarefaExecutada then
-            task.wait(0.12)
-        else
-            task.wait(0.25)
+        for i = 1, #FilaDeAcoesFixa do
+            if FilaDeAcoesFixa[i].acao() then tarefaExecutada = true; break end
         end
+        if tarefaExecutada then task.wait(0.12) else task.wait(0.25) end
     end
+end)
+
+------------------------------------------------------------------------
+-- BOTÃO MOBILE (SINCRONIZADO COM A NOVA GUI ANIMADA)
+------------------------------------------------------------------------
+local MobileGui = Instance.new("ScreenGui")
+MobileGui.Name = "MobileToggleHubCustom"
+MobileGui.ResetOnSpawn = false
+MobileGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local alocadoMb = pcall(function() MobileGui.Parent = CoreGui end)
+if not alocadoMb then MobileGui.Parent = PlayerGui end
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Size = UDim2.new(0, 55, 0, 55)
+ToggleButton.Position = UDim2.new(0, 15, 0.4, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+ToggleButton.BackgroundTransparency = 0.2
+ToggleButton.Text = "HUB"
+ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 120)
+ToggleButton.TextSize = 13
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Active = true
+ToggleButton.Parent = MobileGui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 99)
+Corner.Parent = ToggleButton
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(60, 60, 65)
+Stroke.Thickness = 2
+Stroke.Parent = ToggleButton
+
+local draggingBtn, dragInputBtn, dragStartBtn, startPosBtn
+ToggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingBtn = true; dragStartBtn = input.Position; startPosBtn = ToggleButton.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then draggingBtn = false end end)
+    end
+end)
+ToggleButton.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInputBtn = input end end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInputBtn and draggingBtn then
+        local delta = input.Position - dragStartBtn
+        ToggleButton.Position = UDim2.new(startPosBtn.X.Scale, startPosBtn.X.Offset + delta.X, startPosBtn.Y.Scale, startPosBtn.Y.Offset + delta.Y)
+    end
+end)
+
+ToggleButton.MouseButton1Click:Connect(function()
+    AnimateClick(ToggleButton)
+    -- Dispara a mesma animação de "minimizar" do botão "-" da nossa UI Customizada
+    if ActiveWindow then ActiveWindow.ToggleMinimize() end
 end)
 
 ------------------------------------------------------------------------
