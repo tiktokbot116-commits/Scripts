@@ -1,6 +1,6 @@
 -- GardensManager.lua
 -- Executor: Delta / Xeno | Ambiente: Roblox LocalScript
--- Versão Otimizada (Anti-Lag / Baixo uso de CPU e Memória) + Custom UI Animada
+-- Versão Otimizada (Anti-Lag / Baixo uso de CPU e Memória) + Custom UI Animada + Cache de Plantas
 
 ------------------------------------------------------------------------
 -- SERVICOS E VARIAVEIS
@@ -522,7 +522,7 @@ function Library:MakeWindow(config)
 end
 
 ------------------------------------------------------------------------
--- CONSTRUCAO DA INTERFACE (LIGANDO AO CÓDIGO ORIGINAL)
+-- CONSTRUCAO DA INTERFACE (LIGANDO AO CÓDIGO ORIGINAL COM CACHE)
 ------------------------------------------------------------------------
 local Window = Library:MakeWindow({ Title = "Gardens Manager (Custom Hub)" })
 
@@ -540,11 +540,39 @@ local Toggles, Inputs = {}, {}
 Tabs.Main:AddSection("Gerenciamento do Plot")
 Toggles.AutoColeta = Tabs.Main:AddToggle({Title = "Auto Coletar Minhas Frutas", Default = false, Callback = function(v) State.autoColeta = v; if not v then Char.AncorarRaiz(false) end end})
 
+-- SISTEMA DE CACHE DE ESTADO DAS PLANTAS (PREVINE BUGS VISUAIS)
+-- Usa __mode = "k" para que peças colhidas/deletadas sejam apagadas da memória automaticamente
+local CacheEstadoPlantas = setmetatable({}, {__mode = "k"})
+
 local function configurarPlanta(modelo, invisivel)
     for _, parte in ipairs(modelo:GetDescendants()) do
-        if parte:IsA("BasePart") then parte.Transparency = invisivel and 1 or 0; parte.CanCollide = not invisivel end
+        if parte:IsA("BasePart") then
+            if invisivel then
+                -- Salva o estado atual da parte antes de deixá-la invisível
+                if not CacheEstadoPlantas[parte] then
+                    CacheEstadoPlantas[parte] = {
+                        Transparency = parte.Transparency,
+                        CanCollide = parte.CanCollide
+                    }
+                end
+                parte.Transparency = 1
+                parte.CanCollide = false
+            else
+                -- Restaura o estado original exato a partir do cache
+                local estadoOriginal = CacheEstadoPlantas[parte]
+                if estadoOriginal then
+                    parte.Transparency = estadoOriginal.Transparency
+                    parte.CanCollide = estadoOriginal.CanCollide
+                else
+                    -- Fallback caso o cache não exista (raro)
+                    parte.Transparency = 0
+                    parte.CanCollide = true
+                end
+            end
+        end
     end
 end
+
 local function toggleInvisPlants(ativo)
     local plotId = LocalPlayer:GetAttribute("PlotId")
     if not plotId then return end
