@@ -336,12 +336,19 @@ Library.Flags[id] = cfg.Default or (cfg.Multiple and {} or "")
             end
             MainBtn.MouseButton1Click:Connect(toggleDrop)
 
+            local function FormatMulti(tbl)
+                if #tbl == 0 then return "(nenhum)"
+                elseif #tbl == 1 then return tbl[1]
+                elseif #tbl == 2 then return tbl[1] .. ", " .. tbl[2]
+                else return tbl[1] .. ", " .. tbl[2] .. " +" .. (#tbl - 2) end
+            end
+
             local function Fire(v)
                 if cfg.Multiple then
                     local tbl = Library.Flags[id]
                     local foundIdx = table.find(tbl, v)
                     if foundIdx then table.remove(tbl, foundIdx) else table.insert(tbl, v) end
-                    MainBtn.Text = "  " .. cfg.Title .. " > (" .. #tbl .. " sel)"
+                    MainBtn.Text = "  " .. cfg.Title .. " > " .. FormatMulti(tbl)
                     cfg.Callback(tbl)
                 else
                     Library.Flags[id] = v; MainBtn.Text = "  " .. cfg.Title .. " > " .. v; cfg.Callback(v)
@@ -360,7 +367,9 @@ Library.Flags[id] = cfg.Default or (cfg.Multiple and {} or "")
             Build()
 
             local elementObj = { Type = "Dropdown", SetValue = function(self, v) 
-                if cfg.Multiple and type(v) == "table" then Library.Flags[id] = v; MainBtn.Text = "  " .. cfg.Title .. " > (" .. #v .. " sel)"
+                if cfg.Multiple and type(v) == "table" then
+                    Library.Flags[id] = v
+                    MainBtn.Text = "  " .. cfg.Title .. " > " .. FormatMulti(v)
                 elseif not cfg.Multiple then Library.Flags[id] = v; MainBtn.Text = "  " .. cfg.Title .. " > " .. v end
                 cfg.Callback(v)
             end, SetValues = function(self, newOpts) options = newOpts; Build() end }
@@ -525,9 +534,77 @@ Tabs.Main:AddToggle("AutoColeta", {Title = "Auto Coletar Minhas Frutas", Default
 Tabs.Main:AddToggle("AutoVenda", {Title = "Auto Vender Inventario", Default = false, Callback = function(v) end})
 Tabs.Main:AddInput("QtdVenda", {Title = "Quantidade para Vender", Default = "100", Callback = function(v) end})
 
+-- Helper: aplica transparência APENAS nos Models de plantas
+-- (identificados pelo HarvestPrompt dentro deles, igual ao Auto Coletar)
+local function SetTransparenciaPlantasDoPlot(plotModel, transparencia)
+    local jaProcessado = {}
+    for _, desc in ipairs(plotModel:GetDescendants()) do
+        if desc:IsA("ProximityPrompt") and desc.Name == "HarvestPrompt" then
+            local plantModel = desc:FindFirstAncestorOfClass("Model")
+            if plantModel and not jaProcessado[plantModel] then
+                jaProcessado[plantModel] = true
+                for _, part in ipairs(plantModel:GetDescendants()) do
+                    if part:IsA("BasePart") or part:IsA("MeshPart") then
+                        pcall(function() part.Transparency = transparencia end)
+                    end
+                    if part:IsA("Decal") or part:IsA("Texture") then
+                        pcall(function() part.Transparency = transparencia end)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Lê os SeedName únicos das plantas do meu plot (mesmo atributo do filtro de Bamboo)
+local function ObterPlantasDoMeuPlot()
+    local tipos, seen = {}, {}
+    local mP = Plots.GetMeuPlot()
+    if not mP or not Gardens or not Gardens:FindFirstChild(mP) then return tipos end
+    for _, desc in ipairs(Gardens[mP]:GetDescendants()) do
+        if desc:IsA("ProximityPrompt") and desc.Name == "HarvestPrompt" then
+            local plantModel = desc:FindFirstAncestorOfClass("Model")
+            if plantModel then
+                local sName = plantModel:GetAttribute("SeedName")
+                if sName and not seen[sName] then
+                    seen[sName] = true
+                    table.insert(tipos, sName)
+                end
+            end
+        end
+    end
+    table.sort(tipos)
+    return tipos
+end
+
+-- Equipa o Shovel (move do Backpack para o Character)
+local function EquiparShovel()
+    local meuChar = LocalPlayer.Character
+    if not meuChar then return nil end
+    local shovel = meuChar:FindFirstChild("Shovel")
+    if not shovel then
+        shovel = LocalPlayer.Backpack:FindFirstChild("Shovel")
+        if shovel then
+            pcall(function() shovel.Parent = meuChar end)
+            task.wait(0.05)
+            shovel = meuChar:FindFirstChild("Shovel")
+        end
+    end
+    return shovel
+end
+
+-- Simula clique esquerdo para atacar com a ferramenta equipada
+local function AtacarComShovel()
+    if VirtualInputManager then
+        pcall(function()
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            task.wait(0.08)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        end)
+    end
+end
 Tabs.Main:AddSection("Anti-Roubo")
-Tabs.Main:AddToggle("PlantasInvisivel", {Title = "Plantas Invisíveis (Anti-Roubo)", Default = false, Callback = function(v)
-    -- Ao desligar: restaura só as plantas (não mexe no chão/plataforma do plot)
+Tabs.Main:AddToggle("PlantasInvisivel", {Title = "Plantas Invisíveis", Default = false, Callback = function(v)
     if not v then
         local mP = Plots.GetMeuPlot()
         if mP and Gardens and Gardens:FindFirstChild(mP) then
@@ -535,10 +612,17 @@ Tabs.Main:AddToggle("PlantasInvisivel", {Title = "Plantas Invisíveis (Anti-Roub
         end
     end
 end})
+Tabs.Main:AddToggle("AntiStealShovel", {Title = "Pá Attack (Expulsar Invasor)", Default = false, Callback = function(v) end})
 
 Tabs.Farm:AddSection("Mapa (Itens Aleatórios)")
 Tabs.Farm:AddToggle("AutoSeedMap", {Title = "Auto Coletar Seed Packs", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
 Tabs.Farm:AddToggle("AutoCollectAll", {Title = "Auto Coletar Soltos", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
+
+Tabs.Farm:AddSection("Filtro de Plantas")
+local DropIgnorar = Tabs.Farm:AddDropdown("PlantsIgnorar", {Title = "Ignorar Tipo (Multi)", Multiple = true, Values = {"Carregando..."}, Callback = function(v) end})
+Tabs.Farm:AddButton({Title = "Ler Plantas do Meu Plot", Callback = function()
+    DropIgnorar:SetValues(ObterPlantasDoMeuPlot())
+end})
 
 Tabs.Shops:AddSection("Lojas")
 Tabs.Shops:AddToggle("TggGear", {Title = "Abrir Gear Shop", Default = false, Callback = function(v) local g = LocalPlayer:FindFirstChild("PlayerGui"); if g and g:FindFirstChild("GearShop") then g.GearShop.Enabled = v end end})
@@ -620,7 +704,44 @@ task.spawn(function()
     end
 end)
 
--- Loop Principal - Executa as Tarefas
+-- Anti-Steal Pá Attack
+-- Detecta invasor no meu plot → equipa Shovel → teleporta em cima → ataca até sair
+task.spawn(function()
+    while task.wait(0.15) do
+        if not Library.Flags["AntiStealShovel"] then continue end
+        local mP = Plots.GetMeuPlot()
+        if not mP or not Gardens or not Gardens:FindFirstChild(mP) then continue end
+        local meuPlot = Gardens[mP]
+
+        -- Procura o primeiro invasor dentro do meu plot
+        local invasor = nil
+        for _, pl in ipairs(game:GetService("Players"):GetPlayers()) do
+            if pl == LocalPlayer then continue end
+            local ch = pl.Character
+            if not ch then continue end
+            local rt = ch:FindFirstChild("HumanoidRootPart")
+            if rt and IsInPlotArea2D(meuPlot, rt.Position) then
+                invasor = pl; break
+            end
+        end
+        if not invasor then continue end
+
+        -- Equipa o Shovel antes de agir
+        local shovel = EquiparShovel()
+        if not shovel then continue end
+
+        -- Confirma que invasor ainda está no plot antes de teleportar
+        local iChar = invasor.Character
+        if not iChar then continue end
+        local iRoot = iChar:FindFirstChild("HumanoidRootPart")
+        if not iRoot or not IsInPlotArea2D(meuPlot, iRoot.Position) then continue end
+
+        -- Teleporta em cima e ataca
+        pcall(Char.Teleportar, iRoot.Position + Vector3.new(0, 1, 0))
+        task.wait(0.05)
+        AtacarComShovel()
+    end
+end)
 task.spawn(function()
     while task.wait(0.1) do
         local executou = false
@@ -643,19 +764,20 @@ task.spawn(function()
                     local needEscape = false
                     
                     if not isNight then
-                        needEscape = true
+                        needEscape = true -- Ficou de Dia! Foge imediatamente!
                     else
                         local dName = Plots.DonoDoPlot(currentPlot)
                         local dPos = GetPlayerCharacterPos(dName)
                         if dPos and IsInPlotArea2D(currentPlot, dPos) then
                             BlacklistSteal[currentPlot.Name] = true
-                            needEscape = true
+                            needEscape = true -- Dono entrou! Foge!
                         end
                     end
 
                     if needEscape then
                         local mP = Plots.GetMeuPlot()
                         if mP and Gardens:FindFirstChild(mP) then 
+                            -- Teleporta EXATAMENTE no meio do meu plot e espera 1 segundo
                             Char.Teleportar(Gardens[mP]:GetPivot().Position + Vector3.new(0,5,0)) 
                             task.wait(1) 
                         end
@@ -694,8 +816,12 @@ task.spawn(function()
         if Library.Flags["AutoColeta"] then
             local mP = Plots.GetMeuPlot()
             if mP and Gardens:FindFirstChild(mP) then
+                local ignorar = Library.Flags["PlantsIgnorar"] or {}
                 for _, i in ipairs(Gardens[mP]:GetDescendants()) do
                     if i:IsA("ProximityPrompt") and i.Name == "HarvestPrompt" and i.Enabled then
+                        local plantModel = i:FindFirstAncestorOfClass("Model")
+                        local sName = plantModel and plantModel:GetAttribute("SeedName")
+                        if sName and table.find(ignorar, sName) then continue end
                         if Char.TeleportarParaPrompt(i) then task.wait(0.05); Prompt.AtivarImediato(i); executou = true; break end
                     end
                 end
@@ -730,19 +856,15 @@ task.spawn(function()
                 else
                     for _, i in ipairs(alvo:GetDescendants()) do
                         if i:IsA("ProximityPrompt") and i.Name == "StealPrompt" and i.Enabled then
-                            local par, isB = i.Parent, false
-                            while par and par ~= Workspace do
-                                if par:GetAttribute("SeedName") == "Bamboo" then isB = true break end
-                                par = par.Parent
-                            end
-                            if not isB then
-                                -- TELEPORTE JUNTADO NO ROUBO
-                                if Char.TeleportarParaPrompt(i) then 
-                                    task.wait(0.05)
-                                    Prompt.AtivarImediato(i)
-                                    executou = true 
-                                    break 
-                                end
+                            local plantModel = i:FindFirstAncestorOfClass("Model")
+                            local sName = plantModel and plantModel:GetAttribute("SeedName")
+                            local ignorar = Library.Flags["PlantsIgnorar"] or {}
+                            if sName and table.find(ignorar, sName) then continue end
+                            if Char.TeleportarParaPrompt(i) then 
+                                task.wait(0.05)
+                                Prompt.AtivarImediato(i)
+                                executou = true 
+                                break 
                             end
                         end
                     end
