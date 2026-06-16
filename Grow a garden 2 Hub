@@ -19,7 +19,7 @@ pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") en
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
 local Gardens      = Workspace:WaitForChild("Gardens", 10)
-local DroppedItems = Workspace:FindFirstChild("Workspace") and Workspace.Workspace:FindFirstChild("DroppedItems") or Workspace:WaitForChild("DroppedItems", 10)
+local DroppedItems = Workspace:WaitForChild("DroppedItems", 10)
 
 local Networking = nil
 pcall(function()
@@ -389,19 +389,51 @@ end
 ------------------------------------------------------------------------
 local StockCooldowns = {}
 
+-- Verifica se um frame de semente tem estoque >= 1
+local function VerificarEstoque(itemFrame)
+    local stockLabel = itemFrame:FindFirstChild("Main_Frame") and itemFrame.Main_Frame:FindFirstChild("Stock_Text")
+    if not stockLabel then return true end -- sem label = assume que tem estoque
+    local txt = string.lower(stockLabel.Text)
+    -- Sem estoque: "sold out", "out of stock", "0", "0/X", "0 "
+    if string.find(txt, "sold out")
+    or string.find(txt, "out of stock")
+    or txt == "0"
+    or string.find(txt, "^0/")
+    or string.find(txt, "^0%s") then
+        return false
+    end
+    -- Tenta extrair número: "5/10" ou "5" → pega o primeiro número
+    local n = tonumber(string.match(txt, "^(%d+)"))
+    if n and n <= 0 then return false end
+    return true
+end
+
 local function ObterListaDeSementes()
     local sementes = {}
     local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if pGui and pGui:FindFirstChild("SeedShop") then
-        local normalShop = pGui.SeedShop:FindFirstChild("Frame") and pGui.SeedShop.Frame:FindFirstChild("NormalShop")
-        if normalShop then
-            for _, item in ipairs(normalShop:GetChildren()) do
-                if item:IsA("Frame") and item.Name ~= "ItemTemplate" and item.Name ~= "Padding" and item.Name ~= "Robux & Sheckels_Shelf" then
+    if not pGui or not pGui:FindFirstChild("SeedShop") then return sementes end
+
+    local shopGui   = pGui.SeedShop
+    local wasEnabled = shopGui.Enabled
+    shopGui.Enabled = true   -- habilita temporariamente para ler os labels de estoque
+    task.wait(0.05)
+
+    local normalShop = shopGui:FindFirstChild("Frame") and shopGui.Frame:FindFirstChild("NormalShop")
+    if normalShop then
+        for _, item in ipairs(normalShop:GetChildren()) do
+            if item:IsA("Frame")
+            and item.Name ~= "ItemTemplate"
+            and item.Name ~= "Padding"
+            and item.Name ~= "Robux & Sheckels_Shelf" then
+                -- Só adiciona se tiver estoque >= 1
+                if VerificarEstoque(item) then
                     table.insert(sementes, item.Name)
                 end
             end
         end
     end
+
+    shopGui.Enabled = wasEnabled  -- restaura estado original
     table.sort(sementes)
     return sementes
 end
@@ -414,6 +446,7 @@ local function ComprarSemente(nomeDaSemente)
     local normalShop = shopGui:FindFirstChild("Frame") and shopGui.Frame:FindFirstChild("NormalShop")
     if not normalShop then return false end
 
+    -- Verificação de Estoque — usa a mesma lógica do dropdown
     local sementeFrame = normalShop:FindFirstChild(nomeDaSemente)
     if not sementeFrame then return false end
 
@@ -422,19 +455,22 @@ local function ComprarSemente(nomeDaSemente)
         return false 
     end
 
-    -- Verificação de Estoque na raiz que você enviou
-    local stockLabel = sementeFrame:FindFirstChild("Main_Frame") and sementeFrame.Main_Frame:FindFirstChild("Stock_Text")
-    if stockLabel then
-        local txt = string.lower(stockLabel.Text)
-        if string.find(txt, "sold out") or string.find(txt, "out of stock") or txt == "0" or string.find(txt, "^0/") then
-            StockCooldowns[nomeDaSemente] = tick() -- Inicia o delay de 20s
-            return false
-        end
-    end
-
-    -- Tem estoque! Ocultamente torna a GUI visível para a simulação de botões não falhar
+    -- Habilita temporariamente para leitura e verificação
+    local wasEnabled = shopGui.Enabled
     shopGui.Enabled = true
     task.wait(0.05)
+
+    if not VerificarEstoque(sementeFrame) then
+        StockCooldowns[nomeDaSemente] = tick()
+        shopGui.Enabled = wasEnabled
+        -- Remove semente sem estoque do dropdown automaticamente
+        local targets = Library.Flags["SementesAlvo"]
+        if type(targets) == "table" then
+            local idx = table.find(targets, nomeDaSemente)
+            if idx then table.remove(targets, idx) end
+        end
+        return false
+    end
 
     -- Caminhos exatos para Clicar
     local seedBtn = sementeFrame:FindFirstChild("Main_Frame") and sementeFrame.Main_Frame:FindFirstChild("TextButton")
@@ -466,7 +502,7 @@ local function ComprarSemente(nomeDaSemente)
     end
     
     GuiService.SelectedObject = nil
-    shopGui.Enabled = false
+    shopGui.Enabled = wasEnabled  -- restaura estado original
     return true
 end
 
@@ -488,6 +524,17 @@ Tabs.Main:AddSection("Gerenciamento do Plot")
 Tabs.Main:AddToggle("AutoColeta", {Title = "Auto Coletar Minhas Frutas", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
 Tabs.Main:AddToggle("AutoVenda", {Title = "Auto Vender Inventario", Default = false, Callback = function(v) end})
 Tabs.Main:AddInput("QtdVenda", {Title = "Quantidade para Vender", Default = "100", Callback = function(v) end})
+
+Tabs.Main:AddSection("Anti-Roubo")
+Tabs.Main:AddToggle("PlantasInvisivel", {Title = "Plantas Invisíveis (Anti-Roubo)", Default = false, Callback = function(v)
+    -- Ao desligar: restaura só as plantas (não mexe no chão/plataforma do plot)
+    if not v then
+        local mP = Plots.GetMeuPlot()
+        if mP and Gardens and Gardens:FindFirstChild(mP) then
+            SetTransparenciaPlantasDoPlot(Gardens[mP], 0)
+        end
+    end
+end})
 
 Tabs.Farm:AddSection("Mapa (Itens Aleatórios)")
 Tabs.Farm:AddToggle("AutoSeedMap", {Title = "Auto Coletar Seed Packs", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
@@ -551,6 +598,28 @@ task.spawn(function()
     end
 end)
 
+-- Auto-refresh do dropdown de sementes (remove itens sem estoque a cada 30s)
+task.spawn(function()
+    while task.wait(30) do
+        if Library.Flags["AutoBuyToggle"] then
+            task.spawn(function() DropSementes:SetValues(ObterListaDeSementes()) end)
+        end
+    end
+end)
+
+-- Manutenção de Plantas Invisíveis
+-- Roda a cada 1s para cobrir plantas que crescem enquanto o toggle está ativo.
+-- Usa SetTransparenciaPlantasDoPlot → age APENAS nos Models com HarvestPrompt,
+-- sem tocar no chão, plataforma ou outros objetos do plot.
+task.spawn(function()
+    while task.wait(1) do
+        if not Library.Flags["PlantasInvisivel"] then continue end
+        local mP = Plots.GetMeuPlot()
+        if not mP or not Gardens or not Gardens:FindFirstChild(mP) then continue end
+        SetTransparenciaPlantasDoPlot(Gardens[mP], 1)
+    end
+end)
+
 -- Loop Principal - Executa as Tarefas
 task.spawn(function()
     while task.wait(0.1) do
@@ -574,20 +643,19 @@ task.spawn(function()
                     local needEscape = false
                     
                     if not isNight then
-                        needEscape = true -- Ficou de Dia! Foge imediatamente!
+                        needEscape = true
                     else
                         local dName = Plots.DonoDoPlot(currentPlot)
                         local dPos = GetPlayerCharacterPos(dName)
                         if dPos and IsInPlotArea2D(currentPlot, dPos) then
                             BlacklistSteal[currentPlot.Name] = true
-                            needEscape = true -- Dono entrou! Foge!
+                            needEscape = true
                         end
                     end
 
                     if needEscape then
                         local mP = Plots.GetMeuPlot()
                         if mP and Gardens:FindFirstChild(mP) then 
-                            -- Teleporta EXATAMENTE no meio do meu plot e espera 1 segundo
                             Char.Teleportar(Gardens[mP]:GetPivot().Position + Vector3.new(0,5,0)) 
                             task.wait(1) 
                         end
