@@ -1,4 +1,4 @@
--- GardensManager.lua | Versão: Fix Absolute (Prompts, Buy & Day Escape)
+-- GardensManager.lua | Versão: Stable & Hardened (Anti-Crash)
 -- Executor: Mobile/PC | UI: Custom Dynamic Monochrome
 
 ------------------------------------------------------------------------
@@ -17,17 +17,15 @@ local VirtualInputManager
 pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") end)
 
 local LocalPlayer  = Players.LocalPlayer
-local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
+local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui", 10)
 local Gardens      = Workspace:WaitForChild("Gardens", 10)
-local DroppedItems = Workspace:WaitForChild("DroppedItems", 10)
+local DroppedItems = Workspace:FindFirstChild("DroppedItems") or Workspace:WaitForChild("DroppedItems", 10)
 
 local Networking = nil
 pcall(function()
     local shared = ReplicatedStorage:WaitForChild("SharedModules", 10)
     Networking = require(shared:WaitForChild("Networking", 10))
 end)
-
-local IsPerformingAction = false -- Trava de estado absoluto para prevenção de conflito AFK
 
 ------------------------------------------------------------------------
 -- FUNCOES MATEMATICAS E DE DETECCAO
