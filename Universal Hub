@@ -367,7 +367,89 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
+end)CreateToggle(TabVisuals, "Bônus: Fullbright", function(state)
+    if state then
+        game.Lighting.Ambient = Color3.new(1, 1, 1)
+        game.Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+        game.Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+    else
+        game.Lighting.Ambient = Color3.fromRGB(128, 128, 128) -- Default genérico
+    end
+end)
+
+-- =====================================================================
+-- ABA: UTILIDADES (BÔNUS APROVADOS)
+-- =====================================================================
+local TabMisc = CreateTab("Utilidades")
+
+-- Bônus 2: Spectate
+local playerNames = {}
+for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(playerNames, p.Name) end end
+local UpdateSpectateDropdown = CreateDropdown(TabMisc, "Bônus: Spectate", playerNames, function(selectedName)
+    local target = Players:FindFirstChild(selectedName)
+    if target and target.Character then Camera.CameraSubject = target.Character:FindFirstChild("Humanoid") end
+end)
+CreateButton(TabMisc, "Parar Spectate", function()
+    if LocalPlayer.Character then Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid") end
+end)
+Players.PlayerAdded:Connect(function(p) table.insert(playerNames, p.Name); UpdateSpectateDropdown(playerNames) end)
+Players.PlayerRemoving:Connect(function(p) for i, v in ipairs(playerNames) do if v == p.Name then table.remove(playerNames, i) end end; UpdateSpectateDropdown(playerNames) end)
+
+-- Bônus 3: Server Hopper
+CreateButton(TabMisc, "Bônus: Server Hopper (Pular Servidor)", function()
+    local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+    local success, result = pcall(function() return HttpService:JSONDecode(game:HttpGet(url)) end)
+    if success and result.data then
+        for _, server in pairs(result.data) do
+            if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
+                break
+            end
+        end
+    end
+end)
+
+-- Bônus 4: Anti-Fling
+CreateToggle(TabMisc, "Bônus: Anti-Fling", function(state)
+    -- Remove colisão apenas de jogadores com velocidades suspeitas
+    RunService.Stepped:Connect(function()
+        if not state then return end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local root = p.Character.HumanoidRootPart
+                if root.Velocity.Magnitude > 80 or root.RotVelocity.Magnitude > 30 then
+                    for _, part in pairs(p.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+-- Bônus 5: Auto-Clicker
+CreateToggle(TabMisc, "Bônus: Auto-Clicker", function(state) Features.AutoClicker = state end)
+RunService.RenderStepped:Connect(function()
+    if Features.AutoClicker and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+        mouse1click()
+        task.wait(0.01) -- Previne crash do cliente
+    end
+end)
+
+-- Bônus 6: Instant Proximity Prompt
+CreateToggle(TabMisc, "Bônus: Instant Proximity Prompt", function(state)
+    if state then
+        -- Quando a tecla é pressionada, dispara a função nativa do exploit imediatamente
+        ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
+            fireproximityprompt(prompt)
+        end)
+    end
+end)
+
+-- Botão de Destruição
+CreateButton(TabMisc, "[ Fechar e Destruir Hub ]", function()
+    HubUI:Destroy()
+    Features = {} -- Limpa as funções ativas
 end)
 
 -- Bônus 1: Fullbright
-CreateToggle(TabVisuals, "Bônus: Fullbright
