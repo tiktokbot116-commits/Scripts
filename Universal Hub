@@ -1,5 +1,5 @@
 -- =====================================================================
--- HUB UNIVERSAL CUSTOMIZADO (100% Instance.new)
+-- HUB UNIVERSAL CUSTOMIZADO (100% Instance.new) + Botão de Minimizar
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -36,12 +36,50 @@ local HubUI = create("ScreenGui", {
 local success = pcall(function() HubUI.Parent = CoreGui end)
 if not success then HubUI.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
+-- BOTÃO DE MINIMIZAR (50x50, Flutuante e Arrastável)
+local MinimizeBtn = create("TextButton", {
+    Parent = HubUI, Size = UDim2.new(0, 50, 0, 50),
+    Position = UDim2.new(0, 20, 0, 20), BackgroundColor3 = Color3.fromRGB(30, 30, 35),
+    Text = "-", TextColor3 = Color3.fromRGB(255, 255, 255),
+    Font = Enum.Font.GothamBold, TextSize = 24, BorderSizePixel = 0
+})
+create("UICorner", { Parent = MinimizeBtn, CornerRadius = UDim.new(0, 8) })
+
+-- Arraste do Botão de Minimizar
+local minDragging, minDragInput, minDragStart, minStartPos
+MinimizeBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        minDragging = true; minDragStart = input.Position; minStartPos = MinimizeBtn.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then minDragging = false end end)
+    end
+end)
+MinimizeBtn.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then minDragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == minDragInput and minDragging then
+        local delta = input.Position - minDragStart
+        MinimizeBtn.Position = UDim2.new(minStartPos.X.Scale, minStartPos.X.Offset + delta.X, minStartPos.Y.Scale, minStartPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- FRAME PRINCIPAL
 local MainFrame = create("Frame", {
     Parent = HubUI, Size = UDim2.new(0, 600, 0, 400),
     Position = UDim2.new(0.5, -300, 0.5, -200), BackgroundColor3 = Color3.fromRGB(20, 20, 25),
     BorderSizePixel = 0, ClipsDescendants = true
 })
 create("UICorner", { Parent = MainFrame, CornerRadius = UDim.new(0, 8) })
+
+-- Lógica de Minimizar
+MinimizeBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    if MainFrame.Visible then
+        MinimizeBtn.Text = "-"
+    else
+        MinimizeBtn.Text = "+"
+    end
+end)
 
 local Header = create("Frame", {
     Parent = MainFrame, Size = UDim2.new(1, 0, 0, 40),
@@ -53,7 +91,7 @@ create("TextLabel", {
     Font = Enum.Font.GothamBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left
 })
 
--- Sistema de Arraste (Drag)
+-- Sistema de Arraste (Drag) do MainFrame
 local dragging, dragInput, dragStart, startPos
 Header.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -180,7 +218,7 @@ local function CreateDropdown(parent, text, options, callback)
         end
     end
     populate(options)
-    return populate -- Retorna função para atualizar lista dinamicamente
+    return populate
 end
 
 -- =====================================================================
@@ -199,7 +237,6 @@ local Features = {
 -- =====================================================================
 local TabPlayer = CreateTab("Movimentação")
 
--- Loop Dinâmico para Speed e Jump (Bypass básico)
 RunService.Stepped:Connect(function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("Humanoid") then
@@ -211,9 +248,7 @@ end)
 CreateSlider(TabPlayer, "WalkSpeed", 16, 500, 16, function(val) Features.WalkSpeed = val end)
 CreateSlider(TabPlayer, "JumpPower", 50, 500, 50, function(val) Features.JumpPower = val end)
 
-CreateToggle(TabPlayer, "Noclip Avançado", function(state)
-    Features.Noclip = state
-end)
+CreateToggle(TabPlayer, "Noclip Avançado", function(state) Features.Noclip = state end)
 RunService.Stepped:Connect(function()
     if Features.Noclip and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
@@ -223,10 +258,8 @@ RunService.Stepped:Connect(function()
 end)
 
 CreateButton(TabPlayer, "Invisibilidade Funcional (Local)", function()
-    -- Desconecta a RootPart mantendo o controle da câmera. Não gera LoadAsset.
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
-        local clone = char:Clone()
         char.Archivable = true
         local root = char.HumanoidRootPart
         local joint = root:FindFirstChildOfClass("Motor6D") or char:FindFirstChild("Torso") and char.Torso:FindFirstChild("Neck")
@@ -240,7 +273,7 @@ end)
 -- =====================================================================
 local TabCombat = CreateTab("Combate")
 
-CreateToggle(TabCombat, "Aimbot (Virar Corpo & Mirar na Cabeça)", function(state) Features.Aimbot = state end)
+CreateToggle(TabCombat, "Aimbot (Mirar na Cabeça)", function(state) Features.Aimbot = state end)
 local function getClosestPlayer()
     local closest, maxDist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
@@ -261,9 +294,7 @@ RunService.RenderStepped:Connect(function()
         if target and target.Character and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local tHead = target.Character.Head
             local myRoot = LocalPlayer.Character.HumanoidRootPart
-            -- Mira a câmera
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, tHead.Position)
-            -- Vira o corpo (mantendo eixo Y nivelado)
             myRoot.CFrame = CFrame.new(myRoot.Position, Vector3.new(tHead.Position.X, myRoot.Position.Y, tHead.Position.Z))
         end
     end
@@ -303,7 +334,6 @@ CreateToggle(TabCombat, "Auto Executar Tools", function(state) Features.AutoTool
 task.spawn(function()
     while task.wait(0.1) do
         if Features.AutoTool and LocalPlayer.Character then
-            -- Ativa tools na mochila e no personagem
             for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
                 if tool:IsA("Tool") then tool.Parent = LocalPlayer.Character end
             end
@@ -328,16 +358,10 @@ RunService.RenderStepped:Connect(function()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
             if not ESP_Instances[p] then
-                ESP_Instances[p] = {
-                    Box = Drawing.new("Square"), Name = Drawing.new("Text"), Tracer = Drawing.new("Line")
-                }
-                ESP_Instances[p].Box.Color = Color3.fromRGB(255, 50, 50)
-                ESP_Instances[p].Box.Thickness = 1
-                ESP_Instances[p].Name.Color = Color3.new(1, 1, 1)
-                ESP_Instances[p].Name.Size = 16
-                ESP_Instances[p].Name.Center = true
-                ESP_Instances[p].Tracer.Color = Color3.fromRGB(255, 50, 50)
-                ESP_Instances[p].Tracer.Thickness = 1
+                ESP_Instances[p] = { Box = Drawing.new("Square"), Name = Drawing.new("Text"), Tracer = Drawing.new("Line") }
+                ESP_Instances[p].Box.Color = Color3.fromRGB(255, 50, 50); ESP_Instances[p].Box.Thickness = 1
+                ESP_Instances[p].Name.Color = Color3.new(1, 1, 1); ESP_Instances[p].Name.Size = 16; ESP_Instances[p].Name.Center = true
+                ESP_Instances[p].Tracer.Color = Color3.fromRGB(255, 50, 50); ESP_Instances[p].Tracer.Thickness = 1
             end
 
             local esp = ESP_Instances[p]
@@ -347,18 +371,10 @@ RunService.RenderStepped:Connect(function()
                 local legPos = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position - Vector3.new(0, 3, 0))
 
                 if onScreen then
-                    -- Box
-                    esp.Box.Visible = Features.ESP_Box
-                    esp.Box.Size = Vector2.new(2000 / rootPos.Z, headPos.Y - legPos.Y)
+                    esp.Box.Visible = Features.ESP_Box; esp.Box.Size = Vector2.new(2000 / rootPos.Z, headPos.Y - legPos.Y)
                     esp.Box.Position = Vector2.new(rootPos.X - esp.Box.Size.X / 2, rootPos.Y - esp.Box.Size.Y / 2)
-                    -- Name
-                    esp.Name.Visible = Features.ESP_Name
-                    esp.Name.Position = Vector2.new(rootPos.X, headPos.Y - 25)
-                    esp.Name.Text = p.Name
-                    -- Tracer
-                    esp.Tracer.Visible = Features.ESP_Tracer
-                    esp.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                    esp.Tracer.To = Vector2.new(rootPos.X, legPos.Y)
+                    esp.Name.Visible = Features.ESP_Name; esp.Name.Position = Vector2.new(rootPos.X, headPos.Y - 25); esp.Name.Text = p.Name
+                    esp.Tracer.Visible = Features.ESP_Tracer; esp.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y); esp.Tracer.To = Vector2.new(rootPos.X, legPos.Y)
                 else
                     esp.Box.Visible = false; esp.Name.Visible = false; esp.Tracer.Visible = false
                 end
@@ -367,13 +383,13 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-end)CreateToggle(TabVisuals, "Bônus: Fullbright", function(state)
+end)
+
+CreateToggle(TabVisuals, "Bônus: Fullbright", function(state)
     if state then
-        game.Lighting.Ambient = Color3.new(1, 1, 1)
-        game.Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-        game.Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+        game.Lighting.Ambient = Color3.new(1, 1, 1); game.Lighting.ColorShift_Bottom = Color3.new(1, 1, 1); game.Lighting.ColorShift_Top = Color3.new(1, 1, 1)
     else
-        game.Lighting.Ambient = Color3.fromRGB(128, 128, 128) -- Default genérico
+        game.Lighting.Ambient = Color3.fromRGB(128, 128, 128)
     end
 end)
 
@@ -382,7 +398,6 @@ end)
 -- =====================================================================
 local TabMisc = CreateTab("Utilidades")
 
--- Bônus 2: Spectate
 local playerNames = {}
 for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(playerNames, p.Name) end end
 local UpdateSpectateDropdown = CreateDropdown(TabMisc, "Bônus: Spectate", playerNames, function(selectedName)
@@ -395,7 +410,6 @@ end)
 Players.PlayerAdded:Connect(function(p) table.insert(playerNames, p.Name); UpdateSpectateDropdown(playerNames) end)
 Players.PlayerRemoving:Connect(function(p) for i, v in ipairs(playerNames) do if v == p.Name then table.remove(playerNames, i) end end; UpdateSpectateDropdown(playerNames) end)
 
--- Bônus 3: Server Hopper
 CreateButton(TabMisc, "Bônus: Server Hopper (Pular Servidor)", function()
     local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
     local success, result = pcall(function() return HttpService:JSONDecode(game:HttpGet(url)) end)
@@ -409,9 +423,7 @@ CreateButton(TabMisc, "Bônus: Server Hopper (Pular Servidor)", function()
     end
 end)
 
--- Bônus 4: Anti-Fling
 CreateToggle(TabMisc, "Bônus: Anti-Fling", function(state)
-    -- Remove colisão apenas de jogadores com velocidades suspeitas
     RunService.Stepped:Connect(function()
         if not state then return end
         for _, p in pairs(Players:GetPlayers()) do
@@ -427,29 +439,23 @@ CreateToggle(TabMisc, "Bônus: Anti-Fling", function(state)
     end)
 end)
 
--- Bônus 5: Auto-Clicker
 CreateToggle(TabMisc, "Bônus: Auto-Clicker", function(state) Features.AutoClicker = state end)
 RunService.RenderStepped:Connect(function()
     if Features.AutoClicker and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
         mouse1click()
-        task.wait(0.01) -- Previne crash do cliente
+        task.wait(0.01)
     end
 end)
 
--- Bônus 6: Instant Proximity Prompt
 CreateToggle(TabMisc, "Bônus: Instant Proximity Prompt", function(state)
     if state then
-        -- Quando a tecla é pressionada, dispara a função nativa do exploit imediatamente
         ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
             fireproximityprompt(prompt)
         end)
     end
 end)
 
--- Botão de Destruição
 CreateButton(TabMisc, "[ Fechar e Destruir Hub ]", function()
     HubUI:Destroy()
-    Features = {} -- Limpa as funções ativas
+    Features = {}
 end)
-
--- Bônus 1: Fullbright
