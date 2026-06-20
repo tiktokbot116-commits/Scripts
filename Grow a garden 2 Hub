@@ -372,7 +372,6 @@ function Library:MakeWindow(config)
         function Elements:AddSection(text) Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.GothamBold, Text = " " .. text, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left }) end
 
         function Elements:AddToggle(id, cfg)
-            function Elements:AddToggle(id, cfg)
             Library.Flags[id] = cfg.Default or false
             local TglFrame = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Text = "", AutoButtonColor = false })
             Create("UICorner", { Parent = TglFrame, CornerRadius = UDim.new(0, 6) })
