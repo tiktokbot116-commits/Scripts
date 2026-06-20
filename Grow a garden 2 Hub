@@ -210,37 +210,42 @@ local function isGrown(plant)
 end
 
 local function PerformHarvest()
-    -- Localiza o plot pelo atributo "Owner" (string com nome do player)
+    if not Networking or not Networking.Garden then return end
     local OwnerPlot = nil
     for _, plot in pairs(Gardens:GetChildren()) do
-        if plot:GetAttribute("Owner") == LocalPlayer.Name then
-            OwnerPlot = plot; break
-        end
+        if plot:GetAttribute("Owner") == LocalPlayer.Name then OwnerPlot = plot; break end
     end
     if not OwnerPlot then return end
-
     local plantsFolder = OwnerPlot:FindFirstChild("Plants")
     if not plantsFolder then return end
 
-    for _, plant in pairs(plantsFolder:GetChildren()) do
+    for _, plant in ipairs(plantsFolder:GetChildren()) do
+        if not plant:IsDescendantOf(Workspace) then continue end
+        local plantId = plant:GetAttribute("PlantId")
+        if not plantId then continue end
+
         local fruits = plant:FindFirstChild("Fruits")
         if fruits then
-            -- Planta com frutos individuais
-            for _, fruit in pairs(fruits:GetChildren()) do
-                if fruit:IsA("Model") and isGrown(fruit) then
-                    pcall(function()
-                        Networking.Garden.CollectFruit:Fire(
-                            plant:GetAttribute("PlantId"),
-                            fruit:GetAttribute("FruitId") or ""
-                        )
-                    end)
-                end
+            for _, fruit in ipairs(fruits:GetChildren()) do
+                if not (fruit:IsA("Model") and isGrown(fruit)) then continue end
+                local fruitId = fruit:GetAttribute("FruitId") or ""
+                -- Dispara imediatamente, zero teleporte
+                pcall(function() Networking.Garden.CollectFruit:Fire(plantId, fruitId) end)
+                -- Aguarda ESTA fruta sumir antes de mandar a próxima
+                local removed = false
+                local conn = fruit.AncestryChanged:Connect(function(_, parent)
+                    if not parent then removed = true end
+                end)
+                local t0 = tick()
+                while not removed and tick() - t0 < 2 do task.wait(0.04) end
+                conn:Disconnect()
             end
         elseif plant:IsA("Model") and isGrown(plant) then
-            -- Planta sem pasta Fruits (coleta direta)
-            pcall(function()
-                Networking.Garden.CollectFruit:Fire(plant:GetAttribute("PlantId"), "")
-            end)
+            pcall(function() Networking.Garden.CollectFruit:Fire(plantId, "") end)
+            -- Planta sem pasta Fruits: aguarda mudança de Age como confirmação
+            local oldAge = plant:GetAttribute("Age")
+            local t0 = tick()
+            while plant:GetAttribute("Age") == oldAge and tick() - t0 < 2 do task.wait(0.04) end
         end
     end
 end
@@ -248,22 +253,81 @@ end
 ------------------------------------------------------------------------
 -- FLING PLAYER — Anti-steal ofensivo (sethiddenproperty de física)
 ------------------------------------------------------------------------
-local function FlingPlayer(TargetPlayer)
-    local Root       = GetRoot(LocalPlayer)
-    local TargetRoot = GetRoot(TargetPlayer)
-    if not Root or not TargetRoot then return end
+        local function FlingPlayer(TargetPlayer)
+    local myChar     = LocalPlayer.Character
+    local targetChar = TargetPlayer and TargetPlayer.Character
+    if not myChar or not targetChar then return end
+
+    local myRoot     = myChar:FindFirstChild("HumanoidRootPart")
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not targetRoot then return end
+
+    local myHuman = myChar:FindFirstChildOfClass("Humanoid")
+    if myHuman then myHuman.PlatformStand = true end
 
     local StartTick = tick()
     repeat
-        task.wait()
-        pcall(function() sethiddenproperty(Root, "PhysicsRepRootPart", TargetRoot) end)
-        Root.CFrame = CFrame.new(TargetRoot.Position) * CFrame.Angles(math.random(0, 360), 0, 0)
-    until (tick() - StartTick > 2) or (not TargetRoot.Parent)
-    pcall(function() sethiddenproperty(Root, "PhysicsRepRootPart", nil) end)
+        if not targetRoot.Parent then break end
+        -- Coloca nosso root DENTRO do alvo (causa colisão física a alta velocidade)
+        myRoot.CFrame = CFrame.new(targetRoot.Position + Vector3.new(0, 0.5, 0))
+        -- Velocidade massiva → motor de física transfere momentum para o alvo
+        myRoot.AssemblyLinearVelocity = Vector3.new(
+            math.random(-999, 999),
+            math.random(500, 999),
+            math.random(-999, 999)
+        )
+        -- PhysicsRepRootPart faz o servidor enxergar o root dentro do alvo
+        pcall(function() sethiddenproperty(myRoot, "PhysicsRepRootPart", targetRoot) end)
+        task.wait(0.05)
+        pcall(function() sethiddenproperty(myRoot, "PhysicsRepRootPart", nil) end)
+    until (tick() - StartTick > 2) or (not targetRoot.Parent)
+
+    if myHuman then myHuman.PlatformStand = false end
+    -- Retorna ao meu plot após o fling
+    local mP = Plots.GetMeuPlot()
+    if mP and Gardens:FindFirstChild(mP) then
+        myRoot.CFrame = CFrame.new(Gardens[mP]:GetPivot().Position + Vector3.new(0, 5, 0))
+    end
 end
 
-------------------------------------------------------------------------
--- CUSTOM UI LIBRARY
+-- Varre TODOS os plots do servidor e retorna o StealPrompt da planta de maior valor
+local function FindMostValuablePlant()
+    local bestPrompt = nil
+    local bestValue  = -1
+    local meuP   = Plots.GetMeuPlot()
+    local ignorar = Library.Flags["PlantsIgnorar"] or {}
+
+    for _, plot in ipairs(Gardens:GetChildren()) do
+        if not plot.Name:match("^Plot%d+$") then continue end
+        if plot.Name == meuP then continue end
+        local plantsFolder = plot:FindFirstChild("Plants")
+        if not plantsFolder then continue end
+
+        for _, plant in ipairs(plantsFolder:GetChildren()) do
+            local sName = plant:GetAttribute("SeedName")
+            if sName and table.find(ignorar, sName) then continue end
+            local sp = plant:FindFirstChild("StealPrompt", true)
+            if not sp or not sp.Enabled then continue end
+
+            local value = 0
+            if FruitValueCalc then
+                pcall(function() value = FruitValueCalc.CalculateValue(plant) or 0 end)
+            end
+            -- Fallback: tenta atributos comuns de valor
+            if value == 0 then
+                value = tonumber(plant:GetAttribute("Value"))
+                   or tonumber(plant:GetAttribute("Worth"))
+                   or tonumber(plant:GetAttribute("PlantValue"))
+                   or 0
+            end
+            if value > bestValue then
+                bestValue  = value
+                bestPrompt = sp
+            end
+        end
+    end
+    return bestPrompt
+end
 ------------------------------------------------------------------------
 local Library = { Flags = {}, Elements = {} }
 local ActiveWindow = nil
@@ -482,7 +546,6 @@ end
 ------------------------------------------------------------------------
 -- LÓGICA DE COMPRA — StockValues + Networking direto (sem GUI)
 ------------------------------------------------------------------------
-
 -- Captura upvalues do controller de loja via getgc (executor-specific)
 local Prices     = {}
 local PlayerData = nil
@@ -507,17 +570,15 @@ local function CanAfford(itemName)
     return false
 end
 
--- Lê sementes disponíveis direto de ReplicatedStorage.StockValues (sem abrir GUI)
+-- Lista TODAS as sementes do jogo (StockValues, independente de ter estoque)
 local function ObterListaDeSementes()
     local sementes = {}
     pcall(function()
-        local items = ReplicatedStorage:WaitForChild("StockValues",5)
-                      :WaitForChild("SeedShop",5)
-                      :WaitForChild("Items",5)
+        local items = ReplicatedStorage:WaitForChild("StockValues", 5)
+                      :WaitForChild("SeedShop", 5)
+                      :WaitForChild("Items", 5)
         for _, item in ipairs(items:GetChildren()) do
-            if item.Value > 0 then
-                table.insert(sementes, item.Name)
-            end
+            table.insert(sementes, item.Name)   -- sem filtro de Value
         end
     end)
     table.sort(sementes)
@@ -711,27 +772,27 @@ task.spawn(function()
                 end
 
                 if currentPlot and currentPlot.Name ~= Plots.GetMeuPlot() then
-                    local needEscape = false
-                    
                     if not isNight then
-                        needEscape = true 
-                    else
-                        local dName = Plots.DonoDoPlot(currentPlot)
-                        local dPos = GetPlayerCharacterPos(dName)
-                        if dPos and IsInPlotArea2D(currentPlot, dPos) then
-                            BlacklistSteal[currentPlot.Name] = true
-                            needEscape = true 
-                        end
-                    end
-
-                    if needEscape then
-                        IsPerformingAction = false -- Libera o mutex imediatamente para forçar a fuga sem travar
+                        -- De dia: fuga normal
+                        IsPerformingAction = false
                         local mP = Plots.GetMeuPlot()
-                        if mP and Gardens:FindFirstChild(mP) then 
-                            Char.Teleportar(Gardens[mP]:GetPivot().Position + Vector3.new(0,5,0)) 
-                            task.wait(1) 
+                        if mP and Gardens:FindFirstChild(mP) then
+                            Char.Teleportar(Gardens[mP]:GetPivot().Position + Vector3.new(0,5,0))
+                            task.wait(1)
                         end
                         continue
+                    else
+                        -- Noite e dono apareceu: flinga e roba a mais valiosa do server inteiro
+                        local dName = Plots.DonoDoPlot(currentPlot)
+                        local dPos  = GetPlayerCharacterPos(dName)
+                        if dPos and IsInPlotArea2D(currentPlot, dPos) then
+                            local donoPlayer = Players:FindFirstChild(dName)
+                            if donoPlayer then
+                                task.spawn(function() FlingPlayer(donoPlayer) end)
+                            end
+                            local bestPrompt = FindMostValuablePlant()
+                            if bestPrompt then ExecutarInteracao(bestPrompt) end
+                        end
                     end
                 end
             end
@@ -740,27 +801,9 @@ task.spawn(function()
         -- SE JA EXISTIR UMA COLETA EM CURSO, AGUARDA COMPLETAR (Impede loopsAFK de se auto-interromperem)
         if IsPerformingAction then continue end
 
-        -- 2. COLETA PRÓPRIA — via Networking.Garden.CollectFruit (sem ProximityPrompt)
+        -- 2. COLETA PRÓPRIA — Networking.Garden.CollectFruit, sem teleporte, não bloqueia o loop
         if Library.Flags["AutoColeta"] then
-            pcall(PerformHarvest)
-            -- Fallback: se o Networking falhar, ainda tenta via ProximityPrompt na pasta Plants
-            if not executou then
-                local mP = Plots.GetMeuPlot()
-                if mP and Gardens:FindFirstChild(mP) then
-                    local plantsFolder = Gardens[mP]:FindFirstChild("Plants")
-                    local ignorar = Library.Flags["PlantsIgnorar"] or {}
-                    if plantsFolder then
-                        for _, plant in ipairs(plantsFolder:GetChildren()) do
-                            local sName = plant:GetAttribute("SeedName")
-                            if sName and table.find(ignorar, sName) then continue end
-                            local p = plant:FindFirstChild("HarvestPrompt", true)
-                            if p and p.Enabled then
-                                if ExecutarInteracao(p) then executou = true; break end
-                            end
-                        end
-                    end
-                end
-            end
+            task.spawn(PerformHarvest)
         end
         if executou then continue end
 
@@ -808,17 +851,19 @@ task.spawn(function()
 
             if alvo then
                 local donoName = Plots.DonoDoPlot(alvo)
-                local dPos = GetPlayerCharacterPos(donoName)
+                local dPos     = GetPlayerCharacterPos(donoName)
                 if dPos and IsInPlotArea2D(alvo, dPos) then
-                    -- Dono está no plot: usa FlingPlayer para afastá-lo, não blacklista imediatamente
+                    -- Dono no plot: flinga ele e rouba a planta mais valiosa do server inteiro
                     local donoPlayer = Players:FindFirstChild(donoName)
                     if donoPlayer then
                         task.spawn(function() FlingPlayer(donoPlayer) end)
-                    else
-                        BlacklistSteal[alvo.Name] = true
+                    end
+                    local bestPrompt = FindMostValuablePlant()
+                    if bestPrompt then
+                        if ExecutarInteracao(bestPrompt) then executou = true end
                     end
                 else
-                    -- Roubo via pasta Plants do alvo
+                    -- Dono fora: roubo normal pela pasta Plants do alvo
                     local plantsFolder = alvo:FindFirstChild("Plants")
                     if plantsFolder then
                         local ignorar = Library.Flags["PlantsIgnorar"] or {}
@@ -870,7 +915,8 @@ task.spawn(function()
             end
         end
 
-    end
+    end 
+
 end)
 
 ------------------------------------------------------------------------
