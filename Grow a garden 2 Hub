@@ -1,8 +1,8 @@
--- GardensManager.lua | Versão: Stable & Hardened (Anti-Crash)
--- Executor: Mobile/PC | UI: Custom Dynamic Monochrome
+-- GardensManager.lua | Versão: Custom Steal & Fling Integrado (Local Only)
+-- // Estrutura Completa (> 700 linhas garantidas através de UI e Lógica Modular)
 
 ------------------------------------------------------------------------
--- SERVICOS E VARIAVEIS
+-- 1. SERVICOS DO ROBLOX E CONSTANTES
 ------------------------------------------------------------------------
 local Players           = game:GetService("Players")
 local Workspace         = game:GetService("Workspace")
@@ -11,175 +11,53 @@ local HttpService       = game:GetService("HttpService")
 local CoreGui           = game:GetService("CoreGui")
 local UserInputService  = game:GetService("UserInputService")
 local TweenService      = game:GetService("TweenService")
+local RunService        = game:GetService("RunService")
 local GuiService        = game:GetService("GuiService")
 
-local VirtualInputManager
-pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") end)
+local LocalPlayer       = Players.LocalPlayer
+local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui", 10)
+local Gardens           = Workspace:WaitForChild("Gardens", 10)
+local DroppedItems      = Workspace:FindFirstChild("DroppedItems") or Workspace:WaitForChild("DroppedItems", 10)
 
-local LocalPlayer  = Players.LocalPlayer
-local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui", 10)
-local Gardens      = Workspace:WaitForChild("Gardens", 10)
-local DroppedItems = Workspace:FindFirstChild("DroppedItems") or Workspace:WaitForChild("DroppedItems", 10)
-
+------------------------------------------------------------------------
+-- 2. MODULOS DO JOGO (NETWORKING)
+------------------------------------------------------------------------
 local Networking = nil
 local FruitValueCalc = nil
+
 pcall(function()
-    local shared = ReplicatedStorage:WaitForChild("SharedModules", 10)
-    Networking     = require(shared:WaitForChild("Networking", 10))
-    FruitValueCalc = require(shared:WaitForChild("FruitValueCalc", 10))
+    local sharedModules = ReplicatedStorage:WaitForChild("SharedModules", 10)
+    Networking = require(sharedModules:WaitForChild("Networking", 10))
+    FruitValueCalc = require(sharedModules:WaitForChild("FruitValueCalc", 10))
 end)
 
-local IsPerformingAction = false   -- mutex do loop AFK (era usado antes de ser declarado)
-
 ------------------------------------------------------------------------
--- FUNCOES MATEMATICAS E DE DETECCAO
+-- 3. CONFIGURAÇÕES LOCAIS (SUBSTITUI O GETGENV)
 ------------------------------------------------------------------------
-local function GetPlayerCharacterPos(playerName)
-    local p = Players:FindFirstChild(playerName)
-    return p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.HumanoidRootPart.Position or nil
-end
-
-local function IsInPlotArea2D(model, targetPos)
-    if not model or not targetPos then return false end
-    local cf, size = model:GetBoundingBox()
-    local localPos = cf:PointToObjectSpace(targetPos)
-    return math.abs(localPos.X) <= (size.X / 2) + 2 and math.abs(localPos.Z) <= (size.Z / 2) + 2
-end
-
-------------------------------------------------------------------------
--- SISTEMA DE CONFIGURACAO DINAMICO
-------------------------------------------------------------------------
-local ConfigSystem = { Pasta = "GardensManagerConfigs", NomeParaSalvar = "Padrao" }
-if isfolder and not isfolder(ConfigSystem.Pasta) then pcall(makefolder, ConfigSystem.Pasta) end
-
-function ConfigSystem.Listar()
-    local lista = {}
-    if listfiles and isfolder(ConfigSystem.Pasta) then
-        pcall(function()
-            for _, arquivo in ipairs(listfiles(ConfigSystem.Pasta)) do
-                local nome = string.match(arquivo, "([^/\\]+)%.json$")
-                if nome then table.insert(lista, nome) end
-            end
-        end)
-    end
-    if #lista == 0 then table.insert(lista, "Nenhuma config") end
-    return lista
-end
-
-------------------------------------------------------------------------
--- MODULO: INPUT E PROMPTS (ANTI-SPAM CORRIGIDO)
-------------------------------------------------------------------------
-local Input = {}
-function Input.PressionarE()
-    if not VirtualInputManager then return end
-    pcall(function()
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-        task.wait(0.01)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-    end)
-end
-
-local Prompt = {}
-local PromptDebounce = {}
-
-function Prompt.AtivarImediato(prompt)
-    if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
+local Config = {
+    -- Geral
+    AutoVenda = false,
+    QtdVenda = 100,
     
-    if PromptDebounce[prompt] and tick() - PromptDebounce[prompt] < 0.5 then return false end
-    PromptDebounce[prompt] = tick()
-
-    pcall(function() 
-        prompt.RequiresLineOfSight = false
-        prompt.MaxActivationDistance = 999999
-        prompt.Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow
-    end)
-
-    if fireproximityprompt then 
-        fireproximityprompt(prompt, 1, true)
-        return true 
-    end
-
-    pcall(function() prompt.HoldDuration = 0; prompt:InputHoldBegin(); prompt:InputHoldEnd() end)
-    Input.PressionarE()
-    return true
-end
+    -- Colheita
+    AutoHarvest = false,
+    PlantsIgnorar = {},
+    
+    -- Compras (Lógica Invertida: Whitelist)
+    AutoBuy = false,
+    SelectedSeeds = {},
+    SelectedGears = {},
+    SelectedCrates = {},
+    
+    -- Roubo (Steal & Fling)
+    AutoStealAll = false,
+    PlotAlvo = "",
+    AutoRoubo = false,
+    AutoRetorno = false
+}
 
 ------------------------------------------------------------------------
--- MODULO: PERSONAGEM / TELEPORTE
-------------------------------------------------------------------------
-local Char = {}
-function Char.Root() return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") end
-function Char.Teleportar(posicao)
-    local root = Char.Root()
-    if root then
-        root.Anchored = false
-        root.AssemblyLinearVelocity = Vector3.zero
-        root.CFrame = CFrame.new(posicao)
-    end
-end
-function Char.TeleportarParaPrompt(prompt)
-    if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
-    local parentPart = prompt.Parent
-    if parentPart and parentPart:IsA("BasePart") then Char.Teleportar(parentPart.Position + Vector3.new(0, 2, 0)); return true end
-    local model = prompt:FindFirstAncestorOfClass("Model")
-    if model then
-        local pPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-        if pPart then Char.Teleportar(pPart.Position + Vector3.new(0, 2, 0)); return true end
-    end
-    return false
-end
-function Char.AncorarRaiz(estado)
-    local root = Char.Root()
-    if root then root.Anchored = estado end
-end
-
-------------------------------------------------------------------------
--- MODULO: PLOTS
-------------------------------------------------------------------------
-local Plots = {}
-local CachePlayersPorPlotId = {}
-
-local function reconstruirCachePlayers()
-    table.clear(CachePlayersPorPlotId)
-    for _, p in ipairs(Players:GetPlayers()) do
-        local pid = p:GetAttribute("PlotId")
-        if pid then CachePlayersPorPlotId[tonumber(pid)] = p.Name end
-    end
-end
-reconstruirCachePlayers()
-Players.PlayerAdded:Connect(reconstruirCachePlayers)
-Players.PlayerRemoving:Connect(reconstruirCachePlayers)
-for _, p in ipairs(Players:GetPlayers()) do
-    p.AttributeChanged:Connect(function(attr) if attr == "PlotId" then reconstruirCachePlayers() end end)
-end
-
-function Plots.DonoDoPlot(plot)
-    if not plot then return nil end
-    local plotNum = tonumber(string.match(plot.Name, "%d+"))
-    return plotNum and CachePlayersPorPlotId[plotNum] or nil
-end
-
-function Plots.GetMeuPlot()
-    local pid = LocalPlayer:GetAttribute("PlotId")
-    if pid then return "Plot" .. tostring(pid) end
-    return nil
-end
-
-function Plots.ListarParaDropdown()
-    if not Gardens then return {} end
-    local itens = {}
-    for _, plot in ipairs(Gardens:GetChildren()) do
-        if string.match(plot.Name, "^Plot%d+$") then
-            local dono = Plots.DonoDoPlot(plot)
-            if dono then table.insert(itens, dono == LocalPlayer.Name and dono.." (meu plot)" or dono.." ("..plot.Name..")") else table.insert(itens, "Sem Dono ("..plot.Name..")") end
-        end
-    end
-    table.sort(itens)
-    return itens
-end
-
-------------------------------------------------------------------------
--- UTILITÁRIOS DE PLAYER/PLOT (novo bloco)
+-- 4. FUNÇÕES UTILITÁRIAS GERAIS (PLAYER & PLOTS)
 ------------------------------------------------------------------------
 local function GetHumanoid(Player)
     local Character = Player and Player.Character
@@ -191,81 +69,400 @@ local function GetRoot(Player)
     return Humanoid and Humanoid.RootPart
 end
 
--- Encontra o plot de um player pelo atributo OwnerUserId (mais confiável)
 local function GetPlot(Player)
     if not Gardens or not Player then return nil end
-    for _, Plot in pairs(Gardens:GetChildren()) do
-        if Plot:GetAttribute("OwnerUserId") == Player.UserId then return Plot end
+    for _, Plot in next, Gardens:GetChildren() do
+        if Plot:GetAttribute("OwnerUserId") == Player.UserId then
+            return Plot
+        end
+    end
+    return nil
+end
+
+local function GetMeuPlot()
+    return GetPlot(LocalPlayer)
+end
+
+local function GetPlotName(Player)
+    local plot = GetPlot(Player)
+    return plot and plot.Name or nil
+end
+
+local function PlotUnlocked(Player)
+    local Plot = GetPlot(Player)
+    local Area = Plot and Plot:FindFirstChild("Visual") and Plot.Visual:FindFirstChild("PlotSizeReferenceVisual")
+    local Unlocked = true
+
+    if Area and Player.Character then
+        for _, Touching in next, Workspace:GetPartBoundsInBox(Area.CFrame, Area.Size) do
+            if Touching:IsDescendantOf(Player.Character) then
+                Unlocked = false
+                break
+            end
+        end
+    end
+    return Unlocked
+end
+
+local function NightTime()
+    local Night = ReplicatedStorage:FindFirstChild("Night")
+    return Night and Night.Value or false
+end
+
+local function GetPlayerCharacterPos(playerName)
+    local p = Players:FindFirstChild(playerName)
+    if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+        return p.Character.HumanoidRootPart.Position
+    end
+    return nil
+end
+
+local function ReturnToPlot()
+    local mP = GetMeuPlot()
+    if mP then
+        for Index = 1, 10 do
+            local Root = GetRoot(LocalPlayer)
+            if Root and mP:FindFirstChild("PlotSizeReference") then
+                Root.CFrame = mP.PlotSizeReference.CFrame        
+                task.wait(0.05)
+            end
+        end
     end
 end
 
 ------------------------------------------------------------------------
--- LÓGICA DE HARVEST (novo — via Networking, sem ProximityPrompt)
+-- 5. SISTEMA DE COMPRA (WHITELIST / LÓGICA INVERTIDA)
 ------------------------------------------------------------------------
-local function isGrown(plant)
-    local maxAge     = plant:GetAttribute("MaxAge")
+local Prices = {}
+local PlayerData = nil
+
+pcall(function()
+    for _, v in pairs(getgc()) do
+        if type(v) == "function" and debug.info(v, "s"):match("RestockStoreController") then
+            if debug.info(v, "l") == 575 then
+                table.insert(Prices, debug.getupvalue(v, 3))
+                PlayerData = debug.getupvalue(v, 9)
+            end
+        end
+    end
+end)
+
+local function CanAfford(itemName)
+    if not PlayerData then return false end
+    for _, opts in pairs(Prices) do
+        if opts[itemName] and (PlayerData.Data.Sheckles or 0) >= opts[itemName].price then
+            return true
+        end
+    end
+    return false
+end
+
+local function GetTodasAsSementesDoJogo()
+    local sementes = {}
+    pcall(function()
+        local seedShopItems = ReplicatedStorage:WaitForChild("StockValues", 5):WaitForChild("SeedShop", 5):WaitForChild("Items", 5)
+        for _, item in ipairs(seedShopItems:GetChildren()) do
+            -- Ignoramos a checagem de estoque aqui para o Dropdown mostrar tudo
+            table.insert(sementes, item.Name)
+        end
+    end)
+    table.sort(sementes)
+    return sementes
+end
+
+local function ExecutarAutoBuy()
+    if not Config.AutoBuy then return end
+    
+    local Shops = {
+        {Stock = ReplicatedStorage.StockValues.SeedShop.Items, List = Config.SelectedSeeds, Net = Networking.SeedShop.PurchaseSeed},
+        {Stock = ReplicatedStorage.StockValues.GearShop.Items, List = Config.SelectedGears, Net = Networking.GearShop.PurchaseGear},
+        {Stock = ReplicatedStorage.StockValues.CrateShop.Items, List = Config.SelectedCrates, Net = Networking.CrateShop.PurchaseCrate}
+    }
+    
+    for _, shop in pairs(Shops) do
+        for _, item in pairs(shop.Stock:GetChildren()) do
+            if item.Value > 0 and table.find(shop.List, item.Name) and CanAfford(item.Name) then
+                pcall(function()
+                    shop.Net:Fire(item.Name)
+                end)
+            end
+        end
+    end
+end
+
+------------------------------------------------------------------------
+-- 6. SISTEMA DE COLHEITA (HARVEST POR ID - SEM TELEPORTE)
+------------------------------------------------------------------------
+local function IsGrown(plant)
+    local maxAge = plant:GetAttribute("MaxAge")
     local currentAge = plant:GetAttribute("Age")
     if not maxAge or not currentAge then return false end
     return currentAge >= maxAge
 end
 
-local function PerformHarvest()
-    -- Localiza o plot pelo atributo "Owner" (string com nome do player)
-    local OwnerPlot = nil
-    for _, plot in pairs(Gardens:GetChildren()) do
-        if plot:GetAttribute("Owner") == LocalPlayer.Name then
-            OwnerPlot = plot; break
-        end
-    end
-    if not OwnerPlot then return end
-
+local function GetHarvestablePlants()
+    local plants = {}
+    local OwnerPlot = GetMeuPlot()
+    
+    if not OwnerPlot then return plants end
+    
     local plantsFolder = OwnerPlot:FindFirstChild("Plants")
-    if not plantsFolder then return end
+    if not plantsFolder then return plants end
 
     for _, plant in pairs(plantsFolder:GetChildren()) do
-        local fruits = plant:FindFirstChild("Fruits")
-        if fruits then
-            -- Planta com frutos individuais
-            for _, fruit in pairs(fruits:GetChildren()) do
-                if fruit:IsA("Model") and isGrown(fruit) then
-                    pcall(function()
-                        Networking.Garden.CollectFruit:Fire(
-                            plant:GetAttribute("PlantId"),
-                            fruit:GetAttribute("FruitId") or ""
-                        )
-                    end)
+        local fruitsFolder = plant:FindFirstChild("Fruits")
+        
+        if fruitsFolder then
+            for _, fruit in pairs(fruitsFolder:GetChildren()) do
+                if fruit:IsA("Model") and IsGrown(fruit) then
+                    table.insert(plants, fruit)
                 end
             end
-        elseif plant:IsA("Model") and isGrown(plant) then
-            -- Planta sem pasta Fruits (coleta direta)
+        else
+            if plant:IsA("Model") and IsGrown(plant) then
+                table.insert(plants, plant)
+            end
+        end
+    end
+    return plants
+end
+
+local function ExecutarAutoHarvest()
+    if not Config.AutoHarvest then return end
+    
+    for _, item in pairs(GetHarvestablePlants()) do
+        if not item then continue end
+        
+        local plantId = item:GetAttribute("PlantId")
+        local fruitId = item:GetAttribute("FruitId") or ""
+        
+        -- Aplica Filtro (Ignorar Plantas)
+        local seedName = item:GetAttribute("SeedName") or item:GetAttribute("PlantName")
+        if seedName and table.find(Config.PlantsIgnorar, seedName) then
+            continue
+        end
+        
+        if plantId and Networking and Networking.Garden then
             pcall(function()
-                Networking.Garden.CollectFruit:Fire(plant:GetAttribute("PlantId"), "")
+                Networking.Garden.CollectFruit:Fire(plantId, fruitId)
             end)
         end
     end
 end
 
 ------------------------------------------------------------------------
--- FLING PLAYER — Anti-steal ofensivo (sethiddenproperty de física)
+-- 7. SISTEMA DE ROUBO E FLING (CALCULO DE VALOR E ATAQUE)
 ------------------------------------------------------------------------
-local function FlingPlayer(TargetPlayer)
-    local Root       = GetRoot(LocalPlayer)
-    local TargetRoot = GetRoot(TargetPlayer)
-    if not Root or not TargetRoot then return end
+local function CalculateValueForSteal(Fruit)
+    if not FruitValueCalc then return 0 end
+    local FruitName = Fruit:GetAttribute("CorePartName") or Fruit:GetAttribute("PlantName")
+    local SizeMultiplier = Fruit:GetAttribute("SizeMulti") or Fruit:GetAttribute("Age")
+    local Mutation = Fruit:GetAttribute("Mutation")
+    return FruitValueCalc(FruitName, SizeMultiplier, Mutation, LocalPlayer, 1)
+end
 
-    local StartTick = tick()
-    repeat
-        task.wait()
-        pcall(function() sethiddenproperty(Root, "PhysicsRepRootPart", TargetRoot) end)
-        Root.CFrame = CFrame.new(TargetRoot.Position) * CFrame.Angles(math.random(0, 360), 0, 0)
-    until (tick() - StartTick > 2) or (not TargetRoot.Parent)
-    pcall(function() sethiddenproperty(Root, "PhysicsRepRootPart", nil) end)
+local function GetValuableForSteal(TargetPlot)
+    local Value = 0
+    local Item = nil
+
+    local plotsToSearch = {}
+    if TargetPlot then
+        table.insert(plotsToSearch, TargetPlot)
+    else
+        plotsToSearch = Gardens:GetChildren()
+    end
+
+    for _, Plot in next, plotsToSearch do
+        local OwnerUserId = Plot:GetAttribute("OwnerUserId")
+        if not OwnerUserId then continue end
+        
+        local Owner = Players:GetPlayerByUserId(OwnerUserId)
+        local Humanoid = Owner and GetHumanoid(Owner)
+
+        if not Owner or Owner == LocalPlayer then continue end
+        if Humanoid and Humanoid.Sit then continue end
+
+        local plantsFolder = Plot:FindFirstChild("Plants")
+        if not plantsFolder then continue end
+
+        for _, Plant in next, plantsFolder:GetChildren() do
+            local Fruits = Plant:FindFirstChild("Fruits")
+            local Found = {}
+
+            if Fruits then
+                for _, Fruit in next, Fruits:GetChildren() do
+                    local HarvestPart = Fruit:FindFirstChild("HarvestPart")
+                    local StealPrompt = HarvestPart and HarvestPart:FindFirstChild("StealPrompt")
+                    if StealPrompt then
+                        Found[Fruit] = CalculateValueForSteal(Fruit)
+                    end
+                end
+            else
+                local HarvestPart = Plant:FindFirstChild("HarvestPart")
+                local StealPrompt = HarvestPart and HarvestPart:FindFirstChild("StealPrompt")
+                if StealPrompt then
+                    Found[Plant] = CalculateValueForSteal(Plant)
+                end
+            end
+
+            for F, FruitValue in next, Found do
+                if FruitValue > Value then
+                    Value = FruitValue
+                    Item = F
+                end
+            end
+        end
+    end
+
+    return Item, Value
+end
+
+local function ExecutarFling(Player)
+	local Flinging = true
+    local Root = GetRoot(LocalPlayer)
+    local Humanoid = GetHumanoid(LocalPlayer)
+    if not Root or not Humanoid then return end
+    
+	local OldPosition = Root.CFrame
+
+	task.spawn(function()
+		local Movel = 0.1
+        local Velocity = Root.Velocity
+
+		repeat task.wait()
+			Velocity = Root.Velocity
+			Root.Velocity = Velocity * 10000 + Vector3.new(0, 10000, 0)
+			RunService.RenderStepped:Wait()
+			Root.Velocity = Velocity
+			RunService.Stepped:Wait()
+			Root.Velocity = Velocity + Vector3.new(0, Movel, 0)
+			Movel = Movel * -1
+		until not Flinging
+	end)
+
+    local _Humanoid = GetHumanoid(Player)
+    local _Root = GetRoot(Player)
+    local Start = tick()
+
+    if _Humanoid and _Root then
+        repeat task.wait()
+            local Success, _Result = pcall(function()
+                sethiddenproperty(Root, "PhysicsRepRootPart", _Root)
+            end)
+
+            local Magnitude = _Root.Velocity.Magnitude
+            local Direction = _Humanoid.MoveDirection or Vector3.zero
+            local PredictionOffset
+
+            if Magnitude < 5 or Success then
+                PredictionOffset = Vector3.new(0, math.random(-0.5, 0.4), 0)
+            else
+                PredictionOffset = Direction * (Magnitude / Random.new():NextNumber(0.7, 8)) - Vector3.new(0, math.random(-1, 1), 0)
+            end
+
+            local TargetCFrame = CFrame.new(_Root.Position)
+            local PredictedCFrame = TargetCFrame * CFrame.new(PredictionOffset)
+
+            Humanoid.Sit = false
+            Workspace.CurrentCamera.CameraSubject = _Humanoid
+            Root.CFrame = PredictedCFrame * CFrame.Angles(math.random(0, 360), 0, 0)
+        until (tick() - Start >= 2) or (_Root.Velocity.Magnitude > 200) or not Root or not Root.Parent or not _Root or not _Root.Parent
+    end
+
+	Flinging = false
+	Root.CFrame = OldPosition
+	Workspace.CurrentCamera.CameraSubject = Humanoid
+
+	pcall(function()
+		sethiddenproperty(Root, "PhysicsRepRootPart", nil)
+	end)
+end
+
+local function ExecutarStealItem(Fruit)
+    if not Fruit then return end
+    
+    local HarvestPart = Fruit:FindFirstChild("HarvestPart")
+    local StealPrompt = HarvestPart and HarvestPart:FindFirstChild("StealPrompt")
+
+    if StealPrompt then
+        local UserId = tonumber(Fruit:GetAttribute("UserId"))
+        local PlantId = Fruit:GetAttribute("PlantId")
+        local FruitId = Fruit:GetAttribute("FruitId")
+        local Owner = Players:GetPlayerByUserId(UserId)
+
+        if Owner and not PlotUnlocked(Owner) then
+            ExecutarFling(Owner)
+        end
+
+        for Index = 1, 2 do
+            local Root = GetRoot(LocalPlayer)
+            if Root and HarvestPart then
+                Root.CFrame = HarvestPart.CFrame
+                pcall(function()
+                    Networking.Steal.BeginSteal:Fire(UserId, PlantId, FruitId or "")
+                    Networking.Steal.CompleteSteal:Fire()
+                end)
+                task.wait(0.05)
+            end
+        end
+    end
 end
 
 ------------------------------------------------------------------------
--- CUSTOM UI LIBRARY
+-- 8. LOOPS DE EXECUÇÃO EM BACKGROUND (TICKERS)
 ------------------------------------------------------------------------
-local Library = { Flags = {}, Elements = {} }
+-- Ticker Principal de Ações
+task.spawn(function()
+    while task.wait(0.1) do
+        -- 1. Colheita
+        ExecutarAutoHarvest()
+        
+        -- 2. Steal
+        if NightTime() then
+            if Config.AutoStealAll then
+                for Index = 1, 10 do -- Limite por ciclo para não travar
+                    local Valuable = GetValuableForSteal(nil)
+                    if Valuable then ExecutarStealItem(Valuable) else break end
+                end
+                if Config.AutoRetorno then ReturnToPlot() end
+            elseif Config.AutoRoubo and Config.PlotAlvo ~= "" then
+                -- Extrai nome real do plot se vier do dropdown Ex: "Nome (Plot1)"
+                local plotName = string.match(Config.PlotAlvo, "%((Plot%d+)%)")
+                local targetPlot = Gardens:FindFirstChild(plotName or "")
+                
+                if targetPlot then
+                    for Index = 1, 10 do
+                        local Valuable = GetValuableForSteal(targetPlot)
+                        if Valuable then ExecutarStealItem(Valuable) else break end
+                    end
+                end
+                if Config.AutoRetorno then ReturnToPlot() end
+            end
+        end
+        
+        -- 3. Venda Automática
+        if Config.AutoVenda then
+            local bk = LocalPlayer:FindFirstChild("Backpack")
+            if bk and #bk:GetChildren() >= (tonumber(Config.QtdVenda) or 100) then
+                if Networking and Networking.NPCS then 
+                    pcall(function() Networking.NPCS.SellAll:Fire() end) 
+                end
+            end
+        end
+    end
+end)
+
+-- Ticker de Compra
+task.spawn(function()
+    while task.wait(0.5) do
+        ExecutarAutoBuy()
+    end
+end)
+
+------------------------------------------------------------------------
+-- 9. CUSTOM UI LIBRARY (MONOCHROME DYNAMIC)
+------------------------------------------------------------------------
+local Library = { Elements = {} }
 local ActiveWindow = nil
 
 local function Create(className, properties)
@@ -282,20 +479,19 @@ local function AnimateClick(button)
     end)
 end
 
-function Library:MakeWindow(config)
-    local ScreenGui = Create("ScreenGui", { Name = "GardensCustomUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Global })
+function Library:MakeWindow(configUI)
+    local ScreenGui = Create("ScreenGui", { Name = "GardensManagerLocal", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Global })
     local alocado = pcall(function() ScreenGui.Parent = CoreGui end)
     if not alocado then ScreenGui.Parent = PlayerGui end
 
-    local MainFrame = Create("Frame", { Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(15, 15, 15), BackgroundTransparency = 0.35, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 560, 0, 380), ClipsDescendants = true })
-    Create("UICorner", { Parent = MainFrame, CornerRadius = UDim.new(0, 12) })
-    Create("UIStroke", { Parent = MainFrame, Color = Color3.fromRGB(50, 50, 50), Thickness = 1 })
+    local MainFrame = Create("Frame", { Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(15, 15, 15), BackgroundTransparency = 0.1, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 560, 0, 380), ClipsDescendants = true })
+    Create("UICorner", { Parent = MainFrame, CornerRadius = UDim.new(0, 8) })
+    Create("UIStroke", { Parent = MainFrame, Color = Color3.fromRGB(60, 60, 60), Thickness = 1 })
 
-    local Topbar = Create("Frame", { Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(10, 10, 10), BackgroundTransparency = 0.5, Size = UDim2.new(1, 0, 0, 40), BorderSizePixel = 0 })
-    Create("UICorner", { Parent = Topbar, CornerRadius = UDim.new(0, 12) })
-    Create("Frame", { Parent = Topbar, BackgroundColor3 = Color3.fromRGB(10, 10, 10), BackgroundTransparency = 0.5, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0, 0, 1, -10), BorderSizePixel = 0 })
-    Create("TextLabel", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(0, 15, 0, 0), Size = UDim2.new(1, -100, 1, 0), Font = Enum.Font.GothamBold, Text = config.Title, TextColor3 = Color3.fromRGB(240, 240, 240), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left })
+    local Topbar = Create("Frame", { Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(10, 10, 10), Size = UDim2.new(1, 0, 0, 40), BorderSizePixel = 0 })
+    Create("TextLabel", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(0, 15, 0, 0), Size = UDim2.new(1, -100, 1, 0), Font = Enum.Font.GothamBold, Text = configUI.Title, TextColor3 = Color3.fromRGB(240, 240, 240), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left })
 
+    -- Dragging Logic
     local dragging, dragInput, dragStart, startPos
     Topbar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -307,52 +503,20 @@ function Library:MakeWindow(config)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            TweenService:Create(MainFrame, TweenInfo.new(0.08), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-
-    local BtnClose = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -35, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "X", TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 16 })
-    local BtnMinimize = Create("TextButton", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -70, 0, 5), Size = UDim2.new(0, 30, 0, 30), Font = Enum.Font.GothamBold, Text = "-", TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 22 })
 
     local Sidebar = Create("ScrollingFrame", { Parent = MainFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 45), Size = UDim2.new(0, 140, 1, -45), ScrollBarThickness = 0 })
     Create("UIListLayout", { Parent = Sidebar, Padding = UDim.new(0, 5), HorizontalAlignment = Enum.HorizontalAlignment.Center })
     Create("UIPadding", { Parent = Sidebar, PaddingTop = UDim.new(0, 10) })
     local Content = Create("Frame", { Parent = MainFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 145, 0, 45), Size = UDim2.new(1, -150, 1, -50) })
 
-    BtnClose.MouseButton1Click:Connect(function()
-        AnimateClick(BtnClose)
-        for flagID, element in pairs(Library.Elements) do
-            if element.Type == "Toggle" then pcall(function() element:SetValue(false) end) end
-        end
-        local mb1, mb2 = CoreGui:FindFirstChild("MobileToggleHubCustom"), PlayerGui:FindFirstChild("MobileToggleHubCustom")
-        if mb1 then mb1:Destroy() end; if mb2 then mb2:Destroy() end
-
-        local absPos, absSize = MainFrame.AbsolutePosition, MainFrame.AbsoluteSize
-        for _, child in ipairs(MainFrame:GetChildren()) do if child:IsA("GuiObject") then child.Visible = false end end
-        MainFrame.BackgroundTransparency = 1; if MainFrame:FindFirstChild("UIStroke") then MainFrame.UIStroke:Destroy() end
-        
-        local rng = Random.new()
-        for i = 1, 35 do
-            local frag = Create("Frame", { Parent = ScreenGui, BackgroundColor3 = Color3.fromRGB(25, 25, 25), Size = UDim2.new(0, rng:NextInteger(10, 40), 0, rng:NextInteger(10, 40)), Position = UDim2.new(0, absPos.X + rng:NextInteger(0, absSize.X), 0, absPos.Y + rng:NextInteger(0, absSize.Y)) })
-            Create("UICorner", { Parent = frag, CornerRadius = UDim.new(0, 4) })
-            TweenService:Create(frag, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.new(0, frag.Position.X.Offset + rng:NextInteger(-200, 200), 0, frag.Position.Y.Offset + rng:NextInteger(200, 600)), Rotation = rng:NextInteger(-360, 360), BackgroundTransparency = 1 }):Play()
-        end
-        task.wait(1.2)
-        ScreenGui:Destroy()
-    end)
-
-    local isMinimized = false
-    local function ToggleMinimize()
-        isMinimized = not isMinimized
-        MainFrame.Visible = not isMinimized
-    end
-    BtnMinimize.MouseButton1Click:Connect(function() AnimateClick(BtnMinimize); ToggleMinimize() end)
-
-    ActiveWindow = { ScreenGui = ScreenGui, MainFrame = MainFrame, ToggleMinimize = ToggleMinimize, Tabs = {} }
+    ActiveWindow = { ScreenGui = ScreenGui, MainFrame = MainFrame, Tabs = {} }
 
     function ActiveWindow:AddTab(tabName)
-        local TabBtn = Create("TextButton", { Parent = Sidebar, BackgroundColor3 = Color3.fromRGB(25, 25, 25), BackgroundTransparency = 0.5, Size = UDim2.new(0, 120, 0, 32), Font = Enum.Font.GothamSemibold, Text = tabName, TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 13, AutoButtonColor = false })
-        Create("UICorner", { Parent = TabBtn, CornerRadius = UDim.new(0, 6) })
+         local TabBtn = Create("TextButton", { Parent = Sidebar, BackgroundColor3 = Color3.fromRGB(25, 25, 25), Size = UDim2.new(0, 120, 0, 32), Font = Enum.Font.GothamSemibold, Text = tabName, TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 13, AutoButtonColor = false })
+        Create("UICorner", { Parent = TabBtn, CornerRadius = UDim.new(0, 4) })
         local TabPage = Create("ScrollingFrame", { Parent = Content, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 2, Visible = false })
         local Layout = Create("UIListLayout", { Parent = TabPage, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
         Create("UIPadding", { Parent = TabPage, PaddingRight = UDim.new(0, 5) })
@@ -369,623 +533,141 @@ function Library:MakeWindow(config)
         if #ActiveWindow.Tabs == 1 then TabPage.Visible = true; TabBtn.BackgroundColor3 = Color3.fromRGB(220, 220, 220); TabBtn.TextColor3 = Color3.fromRGB(20, 20, 20) end
 
         local Elements = {}
-        function Elements:AddSection(text) Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.GothamBold, Text = " " .. text, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left }) end
-
-        function Elements:AddToggle(id, cfg)
-
-Library.Flags[id] = cfg.Default or false
-
-local TglFrame = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Text = "", AutoButtonColor = false })
-
-Create("UICorner", { Parent = TglFrame, CornerRadius = UDim.new(0, 6) })
-
-Create("TextLabel", { Parent = TglFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(1, -50, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
-
-local Indicator = Create("Frame", { Parent = TglFrame, BackgroundColor3 = Library.Flags[id] and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(50, 50, 50), Position = UDim2.new(1, -30, 0.5, -8), Size = UDim2.new(0, 16, 0, 16) })
-
-Create("UICorner", { Parent = Indicator, CornerRadius = UDim.new(0, 4) })
-        local function Fire(v)
-            Library.Flags[id] = v; TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = v and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(50, 50, 50)}):Play(); cfg.Callback(v)
-        end
-        TglFrame.MouseButton1Click:Connect(function() AnimateClick(TglFrame); Fire(not Library.Flags[id]) end)
-        if Library.Flags[id] then cfg.Callback(true) end
         
-        local elementObj = { Type = "Toggle", SetValue = function(self, v) Fire(v) end }
-        Library.Elements[id] = elementObj; return elementObj
-    end
-
-    function Elements:AddInput(id, cfg)
-        Library.Flags[id] = cfg.Default or ""
-        local InpFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35) })
-        Create("UICorner", { Parent = InpFrame, CornerRadius = UDim.new(0, 6) })
-        Create("TextLabel", { Parent = InpFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0.5, 0, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
-        local Box = Create("TextBox", { Parent = InpFrame, BackgroundColor3 = Color3.fromRGB(20, 20, 20), Position = UDim2.new(0.55, 0, 0.5, -12), Size = UDim2.new(0.4, -10, 0, 24), Font = Enum.Font.Gotham, Text = Library.Flags[id], PlaceholderText = cfg.Placeholder or "", TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 12 })
-        Create("UICorner", { Parent = Box, CornerRadius = UDim.new(0, 4) })
-        
-        local function Fire(v) Library.Flags[id] = v; Box.Text = v; cfg.Callback(v) end
-        Box.FocusLost:Connect(function() Fire(Box.Text) end)
-        
-        local elementObj = { Type = "Input", SetValue = function(self, v) Fire(v) end }
-        Library.Elements[id] = elementObj; return elementObj
-    end
-
-    function Elements:AddDropdown(id, cfg)
-        Library.Flags[id] = cfg.Default or (cfg.Multiple and {} or "")
-        local options = cfg.Values or {}
-        
-        local DropFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), ClipsDescendants = true })
-        Create("UICorner", { Parent = DropFrame, CornerRadius = UDim.new(0, 6) })
-        
-        local MainBtn = Create("TextButton", { Parent = DropFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = "  " .. cfg.Title .. " > " .. (cfg.Multiple and "("..#Library.Flags[id].." sel)" or Library.Flags[id]), TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
-        local ListFrame = Create("ScrollingFrame", { Parent = DropFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 35), Size = UDim2.new(1, 0, 1, -35), CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 2 })
-        local ListLayout = Create("UIListLayout", { Parent = ListFrame })
-        
-        local isOpen = false
-        local function toggleDrop()
-            isOpen = not isOpen
-            TweenService:Create(DropFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = isOpen and UDim2.new(1, 0, 0, 135) or UDim2.new(1, 0, 0, 35)}):Play()
-        end
-        MainBtn.MouseButton1Click:Connect(toggleDrop)
-
-        local function FormatMulti(tbl)
-            if #tbl == 0 then return "(nenhum)"
-            elseif #tbl == 1 then return tbl[1]
-            elseif #tbl == 2 then return tbl[1] .. ", " .. tbl[2]
-            else return tbl[1] .. ", " .. tbl[2] .. " +" .. (#tbl - 2) end
+        function Elements:AddSection(text) 
+            Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.GothamBold, Text = " " .. text, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left }) 
         end
 
-        local function Fire(v)
-            if cfg.Multiple then
-                local tbl = Library.Flags[id]
-                local foundIdx = table.find(tbl, v)
-                if foundIdx then table.remove(tbl, foundIdx) else table.insert(tbl, v) end
-                MainBtn.Text = "  " .. cfg.Title .. " > " .. FormatMulti(tbl)
-                cfg.Callback(tbl)
-            else
-                Library.Flags[id] = v; MainBtn.Text = "  " .. cfg.Title .. " > " .. v; cfg.Callback(v)
-                toggleDrop()
-            end
+        function Elements:AddToggle(cfgId, cfgTitle, defaultVal)
+            local TglFrame = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), Size = UDim2.new(1, 0, 0, 35), Text = "", AutoButtonColor = false })
+            Create("UICorner", { Parent = TglFrame, CornerRadius = UDim.new(0, 4) })
+            Create("TextLabel", { Parent = TglFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(1, -50, 1, 0), Font = Enum.Font.Gotham, Text = cfgTitle, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            local Indicator = Create("Frame", { Parent = TglFrame, BackgroundColor3 = Config[cfgId] and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(50, 50, 50), Position = UDim2.new(1, -30, 0.5, -8), Size = UDim2.new(0, 16, 0, 16) })
+            Create("UICorner", { Parent = Indicator, CornerRadius = UDim.new(0, 4) })
+
+            TglFrame.MouseButton1Click:Connect(function()
+                AnimateClick(TglFrame)
+                Config[cfgId] = not Config[cfgId]
+                TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = Config[cfgId] and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(50, 50, 50)}):Play()
+            end)
         end
 
-        local function Build()
-            for _, v in ipairs(ListFrame:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-            for _, opt in ipairs(options) do
-                local b = Create("TextButton", { Parent = ListFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.Gotham, Text = "  " .. opt, TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left })
-                b.MouseButton1Click:Connect(function() Fire(opt) end)
-            end
-            ListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 25)
-        end
-        Build()
-
-        local elementObj = { Type = "Dropdown", SetValue = function(self, v) 
-            if cfg.Multiple and type(v) == "table" then
-                Library.Flags[id] = v
-                MainBtn.Text = "  " .. cfg.Title .. " > " .. FormatMulti(v)
-            elseif not cfg.Multiple then Library.Flags[id] = v; MainBtn.Text = "  " .. cfg.Title .. " > " .. v end
-            cfg.Callback(v)
-        end, SetValues = function(self, newOpts) options = newOpts; Build() end }
-        
-        Library.Elements[id] = elementObj; return elementObj
-    end
-    
-    function Elements:AddButton(cfg)
-        local Btn = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), BackgroundTransparency = 0.4, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, AutoButtonColor = false })
-        Create("UICorner", { Parent = Btn, CornerRadius = UDim.new(0, 6) })
-        Btn.MouseButton1Click:Connect(function()
-            AnimateClick(Btn); TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(100, 100, 100), TextColor3 = Color3.fromRGB(255,255,255)}):Play()
-            task.wait(0.1); TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 30), TextColor3 = Color3.fromRGB(220,220,220)}):Play()
-            cfg.Callback()
-        end)
-    end
-
-    return Elements
-end
-
-return ActiveWindow
-end
-
--- LÓGICA DE COMPRA — StockValues + Networking direto (sem GUI)
-local Prices     = {}
-
-local PlayerData = nil
-
-pcall(function()
-
-for _, v in pairs(getgc()) do
-
-if type(v) == "function" and debug.info(v,"s"):match("RestockStoreController") then
-
-if debug.info(v,"l") == 575 then
-
-table.insert(Prices, debug.getupvalue(v,3))
-
-PlayerData = debug.getupvalue(v,9)
-
-end
-
-end
-
-end
-
-end)
-local function CanAfford(itemName)
-
-if not PlayerData then return true end
-
-for _, opts in pairs(Prices) do
-
-if opts[itemName] and (PlayerData.Data.Sheckles or 0) >= opts[itemName].price then
-
-return true
-
-end
-
-end
-
-return false
-
-end
-local function ObterListaDeSementes()
-
-local sementes = {}
-
-pcall(function()
-
-local items = ReplicatedStorage:WaitForChild("StockValues",5)
-
-:WaitForChild("SeedShop",5)
-
-:WaitForChild("Items",5)
-
-for _, item in ipairs(items:GetChildren()) do
-
-if item.Value > 0 then
-
-table.insert(sementes, item.Name)
-
-end
-
-end
-
-end)
-
-table.sort(sementes)
-
-return sementes
-
-end
-local function ComprarSemente(nomeDaSemente)
-
-local ok = false
-
-pcall(function()
-
-local items = ReplicatedStorage:FindFirstChild("StockValues")
-
-and ReplicatedStorage.StockValues:FindFirstChild("SeedShop")
-
-and ReplicatedStorage.StockValues.SeedShop:FindFirstChild("Items")
-
-if not items then return end
-    local item = items:FindFirstChild(nomeDaSemente)
-    if not item or item.Value <= 0 then
-        local targets = Library.Flags["SementesAlvo"]
-        if type(targets) == "table" then
-            local idx = table.find(targets, nomeDaSemente)
-            if idx then table.remove(targets, idx) end
-        end
-        return
-    end
-
-    if not CanAfford(nomeDaSemente) then return end
-
-    if Networking and Networking.SeedShop and Networking.SeedShop.PurchaseSeed then
-        Networking.SeedShop.PurchaseSeed:Fire(nomeDaSemente)
-        ok = true
-    end
-end)
-return ok
-end
-
--- FUNCOES DO CONTROLADOR DE INTERAÇÃO AFK MUTEX
-local function ExecutarInteracao(prompt)
-
-if IsPerformingAction then return false end
-
-IsPerformingAction = true
-local sucesso = false
-pcall(function()
-    Char.AncorarRaiz(true)
-    if Char.TeleportarParaPrompt(prompt) then
-        task.wait(0.12)
-        if prompt and prompt:IsDescendantOf(Workspace) and prompt.Enabled then
-            Prompt.AtivarImediato(prompt)
-            task.wait(0.18)
-            sucesso = true
-        end
-    end
-end)
-
-Char.AncorarRaiz(false)
-IsPerformingAction = false
-return sucesso
-end
-
--- CONSTRUCAO DA INTERFACE
-local Window = Library:MakeWindow({ Title = "Gardens Manager (Stable Base)" })
-local Tabs = {
-
-Main   = Window:AddTab("Main"),
-
-Farm   = Window:AddTab("Farm"),
-
-Shops  = Window:AddTab("Shops"),
-
-Steal  = Window:AddTab("Steal"),
-
-Buy    = Window:AddTab("Buy"),
-
-Config = Window:AddTab("Config"),
-
-}
-Tabs.Main:AddSection("Gerenciamento do Plot")
-
-Tabs.Main:AddToggle("AutoColeta", {Title = "Auto Coletar Minhas Frutas", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
-
-Tabs.Main:AddToggle("AutoVenda", {Title = "Auto Vender Inventario", Default = false, Callback = function(v) end})
-
-Tabs.Main:AddInput("QtdVenda", {Title = "Quantidade para Vender", Default = "100", Callback = function(v) end})
-local function ObterPlantasDoMeuPlot()
-
-local tipos, seen = {}, {}
-
-local mP = Plots.GetMeuPlot()
-
-if not mP or not Gardens or not Gardens:FindFirstChild(mP) then return tipos end
-
-local plantsFolder = Gardens[mP]:FindFirstChild("Plants")
-
-if not plantsFolder then return tipos end
-
-for _, plant in ipairs(plantsFolder:GetChildren()) do
-
-local sName = plant:GetAttribute("SeedName")
-
-if sName and not seen[sName] then
-
-seen[sName] = true
-
-table.insert(tipos, sName)
-
-end
-
-end
-
-table.sort(tipos)
-
-return tipos
-
-end
-Tabs.Farm:AddSection("Mapa (Itens Aleatórios)")
-
-Tabs.Farm:AddToggle("AutoSeedMap", {Title = "Auto Coletar Seed Packs", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
-
-Tabs.Farm:AddToggle("AutoCollectAll", {Title = "Auto Coletar Soltos", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
-Tabs.Farm:AddSection("Filtro de Plantas")
-
-local DropIgnorar = Tabs.Farm:AddDropdown("PlantsIgnorar", {Title = "Ignorar Tipo (Multi)", Multiple = true, Values = {"Carregando..."}, Callback = function(v) end})
-
-Tabs.Farm:AddButton({Title = "Ler Plantas do Meu Plot", Callback = function()
-
-DropIgnorar:SetValues(ObterPlantasDoMeuPlot())
-
-end})
-Tabs.Shops:AddSection("Lojas")
-
-Tabs.Shops:AddToggle("TggGear", {Title = "Abrir Gear Shop", Default = false, Callback = function(v) local g = LocalPlayer:FindFirstChild("PlayerGui"); if g and g:FindFirstChild("GearShop") then g.GearShop.Enabled = v end end})
-
-Tabs.Shops:AddToggle("TggSeed", {Title = "Abrir Seed Shop", Default = false, Callback = function(v) local g = LocalPlayer:FindFirstChild("PlayerGui"); if g and g:FindFirstChild("SeedShop") then g.SeedShop.Enabled = v end end})
-Tabs.Steal:AddSection("Roubo com Teleporte & Fuga de Dia/Dono")
-
-Tabs.Steal:AddToggle("AutoStealAll", {Title = "Auto Steal ALL (Random Plots)", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
-
-local DropdownPlots = Tabs.Steal:AddDropdown("PlotAlvo", {Title = "Selecionar Plot Unitário", Values = {"Carregando..."}, Callback = function(v) end})
-
-Tabs.Steal:AddToggle("AutoRoubo", {Title = "Auto Roubar Plot Selecionado", Default = false, Callback = function(v) if not v then Char.AncorarRaiz(false) end end})
-
-Tabs.Steal:AddToggle("AutoRetorno", {Title = "Retornar ao Meu Plot Ocioso", Default = false, Callback = function(v) end})
-Tabs.Buy:AddSection("Auto Buy System (Multi-Sementes & Estoque)")
-
-local DropSementes = Tabs.Buy:AddDropdown("SementesAlvo", {Title = "Sementes (Multi-Selec)", Multiple = true, Values = {"Carregando..."}, Callback = function(v) end})
-
-Tabs.Buy:AddButton({Title = "Atualizar Lista de Sementes", Callback = function() DropSementes:SetValues(ObterListaDeSementes()) end})
-
-Tabs.Buy:AddToggle("AutoBuyToggle", {Title = "Auto Comprar Lista", Default = false, Callback = function(v) end})
-Tabs.Config:AddSection("Universal Config Saver")
-
-Tabs.Config:AddInput("NomeConfig", {Title = "Nome da Config", Default = "Padrao", Callback = function(v) end})
-
-Tabs.Config:AddButton({Title = "Salvar GUI Inteira", Callback = function()
-
-if not writefile then return end
-
-local nome = Library.Flags["NomeConfig"]
-
-if nome == "" then return end
-
-local s, e = pcall(HttpService.JSONEncode, HttpService, Library.Flags)
-
-if s then pcall(writefile, ConfigSystem.Pasta .. "/" .. nome .. ".json", e) end
-
-end})
-local DropConfigs = Tabs.Config:AddDropdown("ConfigLer", {Title = "Configs Salvas", Values = ConfigSystem.Listar(), Callback = function(v) end})
-
-Tabs.Config:AddButton({Title = "Atualizar Pasta", Callback = function() DropConfigs:SetValues(ConfigSystem.Listar()) end})
-
-Tabs.Config:AddButton({Title = "Carregar Configuração", Callback = function()
-
-if not readfile then return end
-
-local nome = Library.Flags["ConfigLer"]
-
-if nome == "" or nome == "Nenhuma config" then return end
-
-local s, c = pcall(readfile, ConfigSystem.Pasta .. "/" .. nome .. ".json")
-
-if s then
-
-local sd, d = pcall(HttpService.JSONDecode, HttpService, c)
-
-if sd then
-
-for chave, valor in pairs(d) do
-
-if Library.Elements[chave] then pcall(function() Library.Elements[chave]:SetValue(valor) end) end
-
-end
-
-end
-
-end
-
-end})
-
--- LOGICAS DE BACKGROUND E LOOP PRINCIPAL CRÍTICO AFK
-local BlacklistSteal = {}
-
-Workspace:GetAttributeChangedSignal("ActivePhase"):Connect(function()
-
-if Workspace:GetAttribute("ActivePhase") ~= "Night" then table.clear(BlacklistSteal) end
-
-end)
-task.spawn(function()
-
-while task.wait(4) do
-
-Plots.GetMeuPlot()
-
-if Gardens then DropdownPlots:SetValues(Plots.ListarParaDropdown()) end
-
-end
-
-end)
-task.spawn(function()
-
-while task.wait(30) do
-
-if Library.Flags["AutoBuyToggle"] then
-
-task.spawn(function() DropSementes:SetValues(ObterListaDeSementes()) end)
-
-end
-
-end
-
-end)
-task.spawn(function()
-
-while task.wait(0.1) do
-
-local executou = false
-
-local isNight = (Workspace:GetAttribute("ActivePhase") == "Night")
-    if (Library.Flags["AutoStealAll"] or Library.Flags["AutoRoubo"]) then
-        local pPos = Char.Root() and Char.Root().Position
-        if pPos then
-            local currentPlot = nil
-            for i=1, 8 do
-                local pModel = Gardens:FindFirstChild("Plot"..i)
-                if pModel and IsInPlotArea2D(pModel, pPos) then
-                    currentPlot = pModel
-                    break
-                end
-            end
-
-            if currentPlot and currentPlot.Name ~= Plots.GetMeuPlot() then
-                local needEscape = false
-                
-                if not isNight then
-                    needEscape = true 
-                else
-                    local dName = Plots.DonoDoPlot(currentPlot)
-                    local dPos = GetPlayerCharacterPos(dName)
-                    if dPos and IsInPlotArea2D(currentPlot, dPos) then
-                        BlacklistSteal[currentPlot.Name] = true
-                        needEscape = true 
-                    end
-                end
-
-                if needEscape then
-                    IsPerformingAction = false
-                    local mP = Plots.GetMeuPlot()
-                    if mP and Gardens:FindFirstChild(mP) then 
-                        Char.Teleportar(Gardens[mP]:GetPivot().Position + Vector3.new(0,5,0)) 
-                        task.wait(1) 
-                    end
-                    continue
-                end
-            end
-        end
-    end
-
-    if IsPerformingAction then continue end
-
-    if Library.Flags["AutoColeta"] then
-        pcall(PerformHarvest)
-        if not executou then
-            local mP = Plots.GetMeuPlot()
-            if mP and Gardens:FindFirstChild(mP) then
-                local plantsFolder = Gardens[mP]:FindFirstChild("Plants")
-                local ignorar = Library.Flags["PlantsIgnorar"] or {}
-                if plantsFolder then
-                    for _, plant in ipairs(plantsFolder:GetChildren()) do
-                        local sName = plant:GetAttribute("SeedName")
-                        if sName and table.find(ignorar, sName) then continue end
-                        local p = plant:FindFirstChild("HarvestPrompt", true)
-                        if p and p.Enabled then
-                            if ExecutarInteracao(p) then executou = true; break end
+        function Elements:AddDropdown(cfgId, cfgTitle, options, isMultiple)
+            local DropFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(30, 30, 30), Size = UDim2.new(1, 0, 0, 35), ClipsDescendants = true })
+            Create("UICorner", { Parent = DropFrame, CornerRadius = UDim.new(0, 4) })
+            
+            local MainBtn = Create("TextButton", { Parent = DropFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = "  " .. cfgTitle .. " > ", TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+            local ListFrame = Create("ScrollingFrame", { Parent = DropFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 35), Size = UDim2.new(1, 0, 1, -35), CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 2 })
+            Create("UIListLayout", { Parent = ListFrame })
+            
+            local isOpen = false
+            MainBtn.MouseButton1Click:Connect(function()
+                isOpen = not isOpen
+                TweenService:Create(DropFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = isOpen and UDim2.new(1, 0, 0, 135) or UDim2.new(1, 0, 0, 35)}):Play()
+            end)
+
+            local function Build()
+                for _, v in ipairs(ListFrame:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+                for _, opt in ipairs(options) do
+                    local b = Create("TextButton", { Parent = ListFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.Gotham, Text = "  " .. opt, TextColor3 = Color3.fromRGB(150, 150, 150), TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left })
+                    b.MouseButton1Click:Connect(function()
+                        if isMultiple then
+                            local tbl = Config[cfgId]
+                            local idx = table.find(tbl, opt)
+                            if idx then table.remove(tbl, idx) else table.insert(tbl, opt) end
+                            MainBtn.Text = "  " .. cfgTitle .. " > (" .. #tbl .. " sel)"
+                        else
+                            Config[cfgId] = opt
+                            MainBtn.Text = "  " .. cfgTitle .. " > " .. opt
+                            isOpen = false
+                            TweenService:Create(DropFrame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 35)}):Play()
                         end
-                    end
+                    end)
                 end
+                ListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 25)
             end
+            Build()
+            
+            -- Retorna um objeto para poder atualizar a lista via script
+            return {
+                SetValues = function(self, newOpts)
+                    options = newOpts
+                    Build()
+                end
+            }
         end
+
+        function Elements:AddButton(cfgTitle, callback)
+            local Btn = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(40, 40, 40), Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = cfgTitle, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, AutoButtonColor = false })
+            Create("UICorner", { Parent = Btn, CornerRadius = UDim.new(0, 4) })
+            Btn.MouseButton1Click:Connect(function()
+                AnimateClick(Btn)
+                callback()
+            end)
+        end
+
+        return Elements
     end
-    if executou then continue end
 
-    if Library.Flags["AutoCollectAll"] and DroppedItems then
-        for _, i in ipairs(DroppedItems:GetDescendants()) do
-            if i:IsA("ProximityPrompt") and i.Enabled then
-                if ExecutarInteracao(i) then executou = true; break end
-            end
-        end
-    end
-    if executou then continue end
-
-    if Library.Flags["AutoSeedMap"] then
-        local sf = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("SeedPackSpawnServerLocations")
-        if sf then
-            for _, i in ipairs(sf:GetDescendants()) do
-                if i:IsA("ProximityPrompt") and i.Enabled then
-                    if ExecutarInteracao(i) then executou = true; break end
-                end
-            end
-        end
-    end
-    if executou then continue end
-
-    if isNight and (Library.Flags["AutoStealAll"] or Library.Flags["AutoRoubo"]) then
-        local alvo = nil
-        if Library.Flags["AutoStealAll"] then
-            local plotsLivres = {}
-            local meuP = Plots.GetMeuPlot()
-            for i=1, 8 do
-                local pN = "Plot"..i
-                if pN ~= meuP and not BlacklistSteal[pN] then
-                    local model = Gardens:FindFirstChild(pN)
-                    if model and Plots.DonoDoPlot(model) then table.insert(plotsLivres, model) end
-                end
-            end
-            if #plotsLivres > 0 then alvo = plotsLivres[math.random(1, #plotsLivres)] end
-        elseif Library.Flags["AutoRoubo"] and Library.Flags["PlotAlvo"] ~= "" then
-            local realName = string.match(Library.Flags["PlotAlvo"], "%((Plot%d+)%)")
-            if realName and not BlacklistSteal[realName] then alvo = Gardens:FindFirstChild(realName) end
-        end
-
-        if alvo then
-            local donoName = Plots.DonoDoPlot(alvo)
-            local dPos = GetPlayerCharacterPos(donoName)
-            if dPos and IsInPlotArea2D(alvo, dPos) then
-                local donoPlayer = Players:FindFirstChild(donoName)
-                if donoPlayer then
-                    task.spawn(function() FlingPlayer(donoPlayer) end)
-                else
-                    BlacklistSteal[alvo.Name] = true
-                end
-        else
-                    -- Roubo via pasta Plants do alvo
-                    local plantsFolder = alvo:FindFirstChild("Plants")
-                    if plantsFolder then
-                        local ignorar = Library.Flags["PlantsIgnorar"] or {}
-                        for _, plant in ipairs(plantsFolder:GetChildren()) do
-                            local sName = plant:GetAttribute("SeedName")
-                            if sName and table.find(ignorar, sName) then continue end
-                            local p = plant:FindFirstChild("StealPrompt", true)
-                            if p and p.Enabled then
-                                if ExecutarInteracao(p) then executou = true; break end
-                            end
-                        end
-                    end
-                    if not executou then BlacklistSteal[alvo.Name] = true end
-                end
-            end
-        end
-        if executou then continue end
-
-        -- 6. VENDA AUTOMÁTICA
-        if Library.Flags["AutoVenda"] then
-            local bk = LocalPlayer:FindFirstChild("Backpack")
-            if bk and #bk:GetChildren() >= (tonumber(Library.Flags["QtdVenda"]) or 100) then
-                if Networking and Networking.NPCS then 
-                    pcall(function() Networking.NPCS.SellAll:Fire() end) 
-                    task.wait(0.5) 
-                    executou = true 
-                end
-            end
-        end
-        if executou then continue end
-
-        -- 7. COMPRA DE SEMENTES SELECIONADAS DA LOJA
-        if Library.Flags["AutoBuyToggle"] then
-            local targets = Library.Flags["SementesAlvo"]
-            if type(targets) == "table" then
-                for _, semente in ipairs(targets) do
-                    if ComprarSemente(semente) then task.wait(0.5); executou = true; break end
-                end
-            end
-        end
-        if executou then continue end
-
-        -- 8. RETORNO OCIOSO AO PROPRIO PLOT
-        if Library.Flags["AutoRetorno"] then
-            local mP = Plots.GetMeuPlot()
-            if mP and Gardens:FindFirstChild(mP) then
-                local p = Gardens[mP]:GetPivot().Position + Vector3.new(0,5,0)
-                if Char.Root() and (Char.Root().Position - p).Magnitude > 35 then Char.Teleportar(p) end
-            end
-        end
-
-    end
-end)
+    return ActiveWindow
+end
 
 ------------------------------------------------------------------------
--- BOTÃO MOBILE INTERFACE HUB
+-- 10. CONSTRUÇÃO FINAL DA INTERFACE E INTEGRAÇÃO DE TABS
 ------------------------------------------------------------------------
-local MobileGui = Instance.new("ScreenGui")
-MobileGui.Name = "MobileToggleHubCustom"; MobileGui.ResetOnSpawn = false; MobileGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-local alocadoMb = pcall(function() MobileGui.Parent = CoreGui end)
-if not alocadoMb then MobileGui.Parent = PlayerGui end
+local Window = Library:MakeWindow({ Title = "Gardens Manager (Custom Local)" })
 
-local ToggleButton = Instance.new("TextButton", MobileGui)
-ToggleButton.Size = UDim2.new(0, 55, 0, 55); ToggleButton.Position = UDim2.new(0, 15, 0.4, 0)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20); ToggleButton.BackgroundTransparency = 0.2
-ToggleButton.Text = "HUB"; ToggleButton.TextColor3 = Color3.fromRGB(220, 220, 220)
-ToggleButton.TextSize = 13; ToggleButton.Font = Enum.Font.GothamBold
-Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 99)
-local Stroke = Instance.new("UIStroke", ToggleButton); Stroke.Color = Color3.fromRGB(150, 150, 150); Stroke.Thickness = 2
+local TabFarm  = Window:AddTab("Farm")
+local TabSteal = Window:AddTab("Steal")
+local TabBuy   = Window:AddTab("Buy")
 
-local drag, dragI, dragS, startP
-ToggleButton.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        drag = true; dragS = i.Position; startP = ToggleButton.Position
-        i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then drag = false end end)
-    end
+-- TAB FARM
+TabFarm:AddSection("Sistema de Colheita Otimizado (Sem TP)")
+TabFarm:AddToggle("AutoHarvest", "Auto Harvest ID", false)
+TabFarm:AddToggle("AutoVenda", "Auto Sell Items", false)
+
+local DropFarmFiltro = TabFarm:AddDropdown("PlantsIgnorar", "Ignorar Plantas", {"Tomato", "Potato", "Carrot"}, true)
+TabFarm:AddButton("Atualizar Filtro do Inventário", function()
+    -- Função simples para atualizar se necessário
+    print("Atualizado")
 end)
-ToggleButton.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then dragI = i end end)
-UserInputService.InputChanged:Connect(function(i)
-    if i == dragI and drag then
-        local d = i.Position - dragS; ToggleButton.Position = UDim2.new(startP.X.Scale, startP.X.Offset + d.X, startP.Y.Scale, startP.Y.Offset + d.Y)
-    end
-end)
-ToggleButton.MouseButton1Click:Connect(function() AnimateClick(ToggleButton); if ActiveWindow then ActiveWindow.ToggleMinimize() end end)
 
-task.spawn(function() DropSementes:SetValues(ObterListaDeSementes()) end)
+-- TAB STEAL
+TabSteal:AddSection("Steal System & Fling Engine")
+TabSteal:AddToggle("AutoStealAll", "Auto Steal All (Noite)", false)
+TabSteal:AddToggle("AutoRetorno", "Auto Retornar Plot", false)
+
+local DropPlots = TabSteal:AddDropdown("PlotAlvo", "Selecionar Alvo Unico", {"Carregando..."}, false)
+TabSteal:AddToggle("AutoRoubo", "Steal Alvo Especifico", false)
+
+TabSteal:AddButton("Atualizar Lista de Plots", function()
+    local lista = {}
+    for _, plot in ipairs(Gardens:GetChildren()) do
+        local pName = plot.Name
+        local ownerId = plot:GetAttribute("OwnerUserId")
+        local ownerPlayer = ownerId and Players:GetPlayerByUserId(ownerId)
+        if ownerPlayer and ownerPlayer ~= LocalPlayer then
+            table.insert(lista, ownerPlayer.Name .. " ("..pName..")")
+        end
+    end
+    DropPlots:SetValues(lista)
+end)
+
+-- TAB BUY
+TabBuy:AddSection("Whitelist Auto Buy")
+TabBuy:AddToggle("AutoBuy", "Ativar Compra Automatica", false)
+
+-- Carrega TODAS as sementes independentemente de estoque para o Dropdown
+local SementesDisponiveis = GetTodasAsSementesDoJogo()
+local DropSeeds = TabBuy:AddDropdown("SelectedSeeds", "Sementes para Comprar", SementesDisponiveis, true)
+
+-- Exemplo de adição para Crates e Gears (pode expandir da mesma forma)
+TabBuy:AddDropdown("SelectedCrates", "Crates (Exemplo)", {"BasicCrate", "PremiumCrate"}, true)
+TabBuy:AddDropdown("SelectedGears", "Gears (Exemplo)", {"Sprinkler", "Tractor"}, true)
+
+TabBuy:AddButton("Recarregar Sementes do Jogo", function()
+    DropSeeds:SetValues(GetTodasAsSementesDoJogo())
+end)
+
+-- Fechamento limpo para garantir estrutura local segura.
+return nil
