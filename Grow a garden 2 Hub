@@ -907,14 +907,29 @@ task.spawn(function()
         if executou then continue end
 
         -- 8. RETORNO OCIOSO AO PROPRIO PLOT
-                                if Library.Flags["AutoRetorno"] then
+if Library.Flags["AutoRetorno"] then
                 local mP = Plots.GetMeuPlot()
+                
                 if mP and Gardens:FindFirstChild(mP) then
-                    -- As coordenadas 382, 188, -2 são aplicadas na posição exata do seu plot
-                    local p = Gardens[mP]:GetPivot().Position + Vector3.new(382, 188, -2)
+                    local plot = Gardens[mP]
                     
-                    if Char.Root() and (Char.Root().Position - p).Magnitude > 35 then 
-                        Char.Teleportar(p) 
+                    -- Verifica se a pasta Props existe
+                    if plot:FindFirstChild("Props") then
+                        -- Faz um loop por todos os itens dentro de Props, já que o ID muda
+                        for _, prop in pairs(plot.Props:GetChildren()) do
+                            -- Procura pelo item que contém a pasta Build e a Part64
+                            if prop:FindFirstChild("Build") and prop.Build:FindFirstChild("Part64") then
+                                local part64 = prop.Build.Part64
+                                local p = part64.Position
+                                
+                                if Char.Root() and (Char.Root().Position - p).Magnitude > 35 then 
+                                    Char.Teleportar(p) 
+                                end
+                                
+                                -- Interrompe o loop assim que encontrar e teleportar
+                                break 
+                            end
+                        end
                     end
                 end
             end
@@ -922,6 +937,7 @@ task.spawn(function()
         end 
 
     end)
+
 ------------------------------------------------------------------------
 -- BOTÃO MOBILE INTERFACE HUB
 ------------------------------------------------------------------------
