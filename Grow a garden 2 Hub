@@ -907,11 +907,15 @@ task.spawn(function()
         if executou then continue end
 
         -- 8. RETORNO OCIOSO AO PROPRIO PLOT
-                    if Library.Flags["AutoRetorno"] then
-                local destino = Vector3.new(382, 188, -2)
-                
-                if Char.Root() and (Char.Root().Position - destino).Magnitude > 35 then 
-                    Char.Teleportar(destino) 
+                                if Library.Flags["AutoRetorno"] then
+                local mP = Plots.GetMeuPlot()
+                if mP and Gardens:FindFirstChild(mP) then
+                    -- As coordenadas 382, 188, -2 são aplicadas na posição exata do seu plot
+                    local p = Gardens[mP]:GetPivot().Position + Vector3.new(382, 188, -2)
+                    
+                    if Char.Root() and (Char.Root().Position - p).Magnitude > 35 then 
+                        Char.Teleportar(p) 
+                    end
                 end
             end
 
