@@ -831,7 +831,7 @@ task.spawn(function()
         if executou then continue end
 
         -- 5. ROUBO UNITÁRIO OU ALL (SÓ ATUA SE FOR NOITE)
-        if isNight and (Library.Flags["AutoStealAll"] or Library.Flags["AutoRoubo"]) then
+                if isNight and (Library.Flags["AutoStealAll"] or Library.Flags["AutoRoubo"]) then
             local alvo = nil
             if Library.Flags["AutoStealAll"] then
                 local plotsLivres = {}
@@ -856,7 +856,35 @@ task.spawn(function()
                     -- Dono no plot: flinga ele e rouba a planta mais valiosa do server inteiro
                     local donoPlayer = Players:FindFirstChild(donoName)
                     if donoPlayer then
-                        task.spawn(function() FlingPlayer(donoPlayer) end)
+                        task.spawn(function()
+                            -- Sistema de fling substituído pelo novo código fornecido
+                            local Player1 = Players.LocalPlayer
+                            local character, hrp, velo
+                            
+                            -- Loop temporário (1 segundo) para não travar o script para sempre
+                            local startTime = tick()
+                            while tick() - startTime < 1 do
+                                RunService.Heartbeat:Wait()
+                                character = Player1.Character
+                                hrp = character and character:FindFirstChild("HumanoidRootPart")
+                                
+                                local targetChar = donoPlayer.Character
+                                local targetHrp = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+                                
+                                if hrp and targetHrp then
+                                    -- Teleporta para o alvo para garantir a colisão do Fling
+                                    hrp.CFrame = targetHrp.CFrame
+                                    
+                                    velo = hrp.Velocity 
+                                    hrp.Velocity = velo * 10000 + Vector3.new(0, 10000, 0) 
+                                    RunService.RenderStepped:Wait() 
+                                    hrp.Velocity = velo 
+                                    RunService.Stepped:Wait()
+                                else
+                                    break
+                                end
+                            end
+                        end)
                     end
                     local bestPrompt = FindMostValuablePlant()
                     if bestPrompt then
@@ -876,20 +904,7 @@ task.spawn(function()
                             end
                         end
                     end
-                    if not executou then BlacklistSteal[alvo.Name] = true end
-                end
-            end
-        end
-        if executou then continue end
-
-        -- 6. VENDA AUTOMÁTICA
-        if Library.Flags["AutoVenda"] then
-            local bk = LocalPlayer:FindFirstChild("Backpack")
-            if bk and #bk:GetChildren() >= (tonumber(Library.Flags["QtdVenda"]) or 100) then
-                if Networking and Networking.NPCS then 
-                    pcall(function() Networking.NPCS.SellAll:Fire() end) 
-                    task.wait(0.5) 
-                    executou = true 
+                    -- A linha que colocava na blacklist (BlacklistSteal[alvo.Name] = true) foi removida daqui
                 end
             end
         end
