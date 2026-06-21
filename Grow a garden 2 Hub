@@ -907,26 +907,17 @@ task.spawn(function()
         if executou then continue end
 
         -- 8. RETORNO OCIOSO AO PROPRIO PLOT
-        import org.bukkit.Location;
-import org.bukkit.entity.Player;
-import org.bukkit.World;
-
-public class TeleporteManager {
-
-    /**
-     * Teleporta o jogador para a coordenada absoluta 382, 188, -2
-     * @param jogador O jogador que será teleportado
-     */
-    public void executarTeleporte(Player jogador) {
-        World mundo = jogador.getWorld();
-        double x = 382.0;
-        double y = 188.0;
-        double z = -2.0;
-
-        Location destino = new Location(mundo, x, y, z);
-        jogador.teleport(destino);
-    }
-}
+        if Library.Flags["AutoRetorno"] then
+    local destino = Vector3.new(382, 188, -2)
+    
+    -- Verifica se o RootPart do personagem existe antes de tentar teleportar
+    if Char.Root() then
+        -- Verifica a distância para evitar que o personagem tente teleportar infinitamente caso já esteja no local
+        if (Char.Root().Position - destino).Magnitude > 5 then
+            Char.Teleportar(destino)
+        end
+    end
+end
 
 
 ------------------------------------------------------------------------
