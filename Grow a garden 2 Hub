@@ -907,17 +907,27 @@ task.spawn(function()
         if executou then continue end
 
         -- 8. RETORNO OCIOSO AO PROPRIO PLOT
-        if Library.Flags["AutoRetorno"] then
-            local mP = Plots.GetMeuPlot()
-            if mP and Gardens:FindFirstChild(mP) then
-                local p = Gardens[mP]:GetPivot().Position + Vector3.new(0,5,0)
-                if Char.Root() and (Char.Root().Position - p).Magnitude > 35 then Char.Teleportar(p) end
-            end
-        end
+        import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.bukkit.World;
 
-    end 
+public class TeleporteManager {
 
-end)
+    /**
+     * Teleporta o jogador para a coordenada absoluta 382, 188, -2
+     * @param jogador O jogador que será teleportado
+     */
+    public void executarTeleporte(Player jogador) {
+        World mundo = jogador.getWorld();
+        double x = 382.0;
+        double y = 188.0;
+        double z = -2.0;
+
+        Location destino = new Location(mundo, x, y, z);
+        jogador.teleport(destino);
+    }
+}
+
 
 ------------------------------------------------------------------------
 -- BOTÃO MOBILE INTERFACE HUB
