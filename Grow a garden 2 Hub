@@ -907,19 +907,17 @@ task.spawn(function()
         if executou then continue end
 
         -- 8. RETORNO OCIOSO AO PROPRIO PLOT
-        if Library.Flags["AutoRetorno"] then
-    local destino = Vector3.new(382, 188, -2)
-    
-    -- Verifica se o RootPart do personagem existe antes de tentar teleportar
-    if Char.Root() then
-        -- Verifica a distância para evitar que o personagem tente teleportar infinitamente caso já esteja no local
-        if (Char.Root().Position - destino).Magnitude > 5 then
-            Char.Teleportar(destino)
-        end
-    end
-end
+                    if Library.Flags["AutoRetorno"] then
+                local destino = Vector3.new(382, 188, -2)
+                
+                if Char.Root() and (Char.Root().Position - destino).Magnitude > 35 then 
+                    Char.Teleportar(destino) 
+                end
+            end
 
+        end 
 
+    end)
 ------------------------------------------------------------------------
 -- BOTÃO MOBILE INTERFACE HUB
 ------------------------------------------------------------------------
