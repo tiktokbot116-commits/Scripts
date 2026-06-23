@@ -740,3 +740,312 @@ end)
 ToggleButton.MouseButton1Click:Connect(function() AnimateClick(ToggleButton); if ActiveWindow then ActiveWindow.ToggleMinimize() end end)
 
 task.spawn(function() DropSementes:SetValues(ObterListaDeSementes()) end)
+zIndexCounter = zIndexCounter - 1
+            Create("TextLabel", { Parent = TabPage, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.GothamBold, Text = " " .. text, TextColor3 = Color3.fromRGB(200, 200, 200), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = zIndexCounter })
+        end
+
+        function Elements:AddToggle(id, cfg)
+            State[id] = cfg.Default or false
+            zIndexCounter = zIndexCounter - 1
+            local TglFrame = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(25, 25, 32), Size = UDim2.new(1, 0, 0, 35), Text = "", AutoButtonColor = false, ZIndex = zIndexCounter })
+            Create("UICorner", { Parent = TglFrame, CornerRadius = UDim.new(0, 6) })
+            Create("UIStroke", { Parent = TglFrame, Color = Color3.fromRGB(40, 40, 50), Thickness = 1 })
+            Create("TextLabel", { Parent = TglFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(1, -50, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = zIndexCounter })
+            local Indicator = Create("Frame", { Parent = TglFrame, BackgroundColor3 = State[id] and Color3.fromRGB(60, 120, 255) or Color3.fromRGB(40, 40, 50), Position = UDim2.new(1, -30, 0.5, -8), Size = UDim2.new(0, 16, 0, 16), ZIndex = zIndexCounter })
+            Create("UICorner", { Parent = Indicator, CornerRadius = UDim.new(0, 4) })
+
+            local function Fire(v)
+                State[id] = v; TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = v and Color3.fromRGB(60, 120, 255) or Color3.fromRGB(40, 40, 50)}):Play();
+                if cfg.Callback then cfg.Callback(v) end
+            end
+            TglFrame.MouseButton1Click:Connect(function() AnimateClick(TglFrame); Fire(not State[id]) end)
+            if State[id] and cfg.Callback then cfg.Callback(true) end
+            
+            Library.Elements[id] = { Type = "Toggle", SetValue = function(self, v) Fire(v) end }
+            return Library.Elements[id]
+        end
+
+        function Elements:AddInput(id, cfg)
+            State[id] = cfg.Default or ""
+            zIndexCounter = zIndexCounter - 1
+            local InpFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(25, 25, 32), Size = UDim2.new(1, 0, 0, 35), ZIndex = zIndexCounter })
+            Create("UICorner", { Parent = InpFrame, CornerRadius = UDim.new(0, 6) })
+            Create("UIStroke", { Parent = InpFrame, Color = Color3.fromRGB(40, 40, 50), Thickness = 1 })
+            Create("TextLabel", { Parent = InpFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0.5, 0, 1, 0), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = zIndexCounter })
+            local Box = Create("TextBox", { Parent = InpFrame, BackgroundColor3 = Color3.fromRGB(15, 15, 20), Position = UDim2.new(0.55, 0, 0.5, -12), Size = UDim2.new(0.4, -10, 0, 24), Font = Enum.Font.Gotham, Text = tostring(State[id]), PlaceholderText = cfg.Placeholder or "", TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 12, ZIndex = zIndexCounter })
+            Create("UICorner", { Parent = Box, CornerRadius = UDim.new(0, 4) })
+            
+            local function Fire(v) 
+                if cfg.IsNumber then v = tonumber(v) or State[id] end
+                State[id] = v; Box.Text = tostring(v); 
+                if cfg.Callback then cfg.Callback(v) end 
+            end
+            Box.FocusLost:Connect(function() Fire(Box.Text) end)
+            
+            Library.Elements[id] = { Type = "Input", SetValue = function(self, v) Fire(v) end }
+            return Library.Elements[id]
+        end
+
+        function Elements:AddDropdown(id, cfg)
+            State[id] = cfg.Default or (cfg.Multiple and {} or "")
+            local options = cfg.Values or {}
+            
+            zIndexCounter = zIndexCounter - 1
+            local DropFrame = Create("Frame", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(25, 25, 32), Size = UDim2.new(1, 0, 0, 35), ClipsDescendants = true, ZIndex = zIndexCounter })
+            Create("UICorner", { Parent = DropFrame, CornerRadius = UDim.new(0, 6) })
+            Create("UIStroke", { Parent = DropFrame, Color = Color3.fromRGB(40, 40, 50), Thickness = 1 })
+            
+            local MainBtn = Create("TextButton", { Parent = DropFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = "  " .. cfg.Title .. " > " .. (cfg.Multiple and "("..#State[id].." sel)" or State[id]), TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = zIndexCounter })
+            local ListFrame = Create("ScrollingFrame", { Parent = DropFrame, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 35), Size = UDim2.new(1, 0, 1, -35), CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 2, ZIndex = zIndexCounter })
+            Create("UIListLayout", { Parent = ListFrame })
+            
+            local isOpen = false
+            local function toggleDrop()
+                isOpen = not isOpen
+                TweenService:Create(DropFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = isOpen and UDim2.new(1, 0, 0, 135) or UDim2.new(1, 0, 0, 35)}):Play()
+            end
+            MainBtn.MouseButton1Click:Connect(toggleDrop)
+
+            local function FormatMulti(tbl)
+                if #tbl == 0 then return "(nenhum)"
+                elseif #tbl == 1 then return tbl[1]
+                elseif #tbl == 2 then return tbl[1] .. ", " .. tbl[2]
+                else return tbl[1] .. ", " .. tbl[2] .. " +" .. (#tbl - 2) end
+            end
+
+            local function Fire(v)
+                if cfg.Multiple then
+                    local tbl = State[id]
+                    local foundIdx = table.find(tbl, v)
+                    if foundIdx then table.remove(tbl, foundIdx) else table.insert(tbl, v) end
+                    MainBtn.Text = "  " .. cfg.Title .. " > " .. FormatMulti(tbl)
+                    if cfg.Callback then cfg.Callback(tbl) end
+                else
+                    State[id] = v; MainBtn.Text = "  " .. cfg.Title .. " > " .. v;
+                    if cfg.Callback then cfg.Callback(v) end
+                    toggleDrop()
+                end
+            end
+
+            local function Build()
+                for _, v in ipairs(ListFrame:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+                for _, opt in ipairs(options) do
+                    local b = Create("TextButton", { Parent = ListFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 25), Font = Enum.Font.Gotham, Text = "  " .. opt, TextColor3 = Color3.fromRGB(180, 180, 180), TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = zIndexCounter })
+                    b.MouseButton1Click:Connect(function() Fire(opt) end)
+                end
+                ListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 25)
+            end
+            Build()
+
+            Library.Elements[id] = { Type = "Dropdown", SetValue = function(self, v) 
+                if cfg.Multiple and type(v) == "table" then
+                    State[id] = v
+                    MainBtn.Text = "  " .. cfg.Title .. " > " .. FormatMulti(v)
+                elseif not cfg.Multiple then 
+                    State[id] = v; MainBtn.Text = "  " .. cfg.Title .. " > " .. v
+                end
+                if cfg.Callback then cfg.Callback(v) end
+            end, SetValues = function(self, newOpts) options = newOpts; Build() end }
+            
+            return Library.Elements[id]
+        end
+        
+        function Elements:AddButton(cfg)
+            zIndexCounter = zIndexCounter - 1
+            local Btn = Create("TextButton", { Parent = TabPage, BackgroundColor3 = Color3.fromRGB(25, 25, 32), Size = UDim2.new(1, 0, 0, 35), Font = Enum.Font.Gotham, Text = cfg.Title, TextColor3 = Color3.fromRGB(220, 220, 220), TextSize = 13, AutoButtonColor = false, ZIndex = zIndexCounter })
+            Create("UICorner", { Parent = Btn, CornerRadius = UDim.new(0, 6) })
+            Create("UIStroke", { Parent = Btn, Color = Color3.fromRGB(40, 40, 50), Thickness = 1 })
+            Btn.MouseButton1Click:Connect(function()
+                AnimateClick(Btn); TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 120, 255), TextColor3 = Color3.fromRGB(255,255,255)}):Play()
+                task.wait(0.1); TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25, 25, 32), TextColor3 = Color3.fromRGB(220,220,220)}):Play()
+                if cfg.Callback then cfg.Callback() end
+            end)
+        end
+
+        return Elements
+    end
+
+    return ActiveWindow
+end
+------------------------------------------------------------------------
+-- UI BUILD
+------------------------------------------------------------------------
+local Window = Library:MakeWindow({ Title = "Gardens Manager (V3 Premium)" })
+
+local Tabs = {
+    Main   = Window:AddTab("Main"),
+    Farm   = Window:AddTab("Farm"),
+    Shops  = Window:AddTab("Shops"),
+    Steal  = Window:AddTab("Steal"),
+    Buy    = Window:AddTab("Buy")
+}
+
+Tabs.Main:AddSection("Plot Management")
+Tabs.Main:AddToggle("AutoColeta", {Title = "Auto Harvest Own Plot", Default = false})
+Tabs.Main:AddToggle("AutoVenda", {Title = "Auto Sell Inventory", Default = false})
+Tabs.Main:AddInput("SellAmount", {Title = "Amount to Sell At", Default = 100, IsNumber = true})
+
+Tabs.Farm:AddSection("Map Farming")
+Tabs.Farm:AddToggle("AutoSeedMap", {Title = "Auto Collect Seed Packs", Default = false})
+Tabs.Farm:AddToggle("AutoCollectAll", {Title = "Auto Collect Dropped Items", Default = false})
+
+Tabs.Shops:AddSection("Remote Shops")
+Tabs.Shops:AddToggle("TggGear", {Title = "Open Gear Shop UI", Default = false, Callback = function(v) local g = PlayerGui; if g and g:FindFirstChild("GearShop") then g.GearShop.Enabled = v end end})
+Tabs.Shops:AddToggle("TggSeed", {Title = "Open Seed Shop UI", Default = false, Callback = function(v) local g = PlayerGui; if g and g:FindFirstChild("SeedShop") then g.SeedShop.Enabled = v end end})
+
+Tabs.Steal:AddSection("Value-Based Auto Steal (Server Wide)")
+Tabs.Steal:AddInput("MinValue", {Title = "Minimum Fruit Value (0 = All)", Default = 0, IsNumber = true})
+Tabs.Steal:AddToggle("AutoStealAll", {Title = "Auto Steal ALL Valid Plants", Default = false})
+local DropdownPlots = Tabs.Steal:AddDropdown("TargetPlot", {Title = "Select Specific Plot", Values = {"Loading..."}})
+Tabs.Steal:AddToggle("AutoRoubo", {Title = "Auto Steal Selected Plot", Default = false})
+Tabs.Steal:AddToggle("AutoRetorno", {Title = "Return to Plot Afterwards", Default = false})
+
+Tabs.Buy:AddSection("Passive Auto Buy (Stock Resupply)")
+local DropSementes = Tabs.Buy:AddDropdown("TargetSeeds", {Title = "Target Seeds (Multi)", Multiple = true, Values = {"Loading..."}})
+Tabs.Buy:AddButton({Title = "Refresh Seed List", Callback = function() DropSementes:SetValues(ObterListaDeSementes()) end})
+Tabs.Buy:AddToggle("AutoBuyToggle", {Title = "Enable Auto Buy", Default = false})
+Tabs.Buy:AddToggle("AutoBuyToggle", {Title = "Enable Auto Buy", Default = false})
+
+------------------------------------------------------------------------
+-- MAIN ASYNC CONTROLLER LOOP
+------------------------------------------------------------------------
+task.spawn(function()
+    while task.wait(4) do
+        if Gardens then DropdownPlots:SetValues(Plots.ListarParaDropdown()) end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.2) do
+        local isNight = (Workspace:GetAttribute("ActivePhase") == "Night")
+
+        if State.Busy or State.Flinging then continue end
+
+        -- AUTO STEAL PRIORITY
+        if isNight and (State.AutoStealAll or State.AutoRoubo) then
+            State.Busy = true
+            
+            if State.AutoStealAll then
+                ExecuteAutoSteal()
+            elseif State.AutoRoubo and State.TargetPlot ~= "" then
+                local realName = string.match(State.TargetPlot, "%((Plot%d+)%)")
+                local alvo = realName and Gardens:FindFirstChild(realName)
+                
+                if alvo then
+                    local donoName = Plots.DonoDoPlot(alvo)
+                    local ownerPlayer = donoName and Players:FindFirstChild(donoName)
+                    local ownerPos = ownerPlayer and GetPlayerCharacterPos(donoName)
+                    
+                    if ownerPos and IsInPlotArea2D(alvo, ownerPos) then
+                        FlingPlayer(ownerPlayer)
+                    end
+
+                    local plantsFolder = alvo:FindFirstChild("Plants")
+                    if plantsFolder then
+                        local collectedAny = false
+                        for _, plant in ipairs(plantsFolder:GetChildren()) do
+                            local p = plant:FindFirstChild("StealPrompt", true)
+                            if p and p.Enabled then
+                                local val = tonumber(plant:GetAttribute("Value")) or tonumber(plant:GetAttribute("Worth")) or tonumber(plant:GetAttribute("PlantValue")) or 0
+                                if val >= State.MinValue then
+                                    local success = Interact(p)
+                                    if success then collectedAny = true end
+                                end
+                            end
+                        end
+                        if collectedAny then ReturnToMyPlot() end
+                    end
+                end
+            end
+            
+            State.Busy = false
+        end
+
+        -- PASSIVE TASKS
+        if State.AutoColeta and not State.Busy then
+            task.spawn(PerformHarvest)
+        end
+
+        if State.AutoCollectAll and DroppedItems and not State.Busy then
+            for _, i in ipairs(DroppedItems:GetDescendants()) do
+                if i:IsA("ProximityPrompt") and i.Enabled then
+                    Interact(i)
+                end
+            end
+        end
+
+        if State.AutoSeedMap and not State.Busy then
+            local sf = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("SeedPackSpawnServerLocations")
+            if sf then
+                for _, i in ipairs(sf:GetDescendants()) do
+                    if i:IsA("ProximityPrompt") and i.Enabled then
+                        Interact(i)
+                    end
+                end
+            end
+        end
+
+        if State.AutoVenda then
+            local bk = LocalPlayer:FindFirstChild("Backpack")
+            if bk and #bk:GetChildren() >= State.SellAmount then
+                if Networking and Networking.NPCS then
+                    pcall(function() Networking.NPCS.SellAll:Fire() end)
+                    task.wait(0.5)
+                end
+            end
+        end
+
+        if State.AutoBuyToggle then
+            if type(State.TargetSeeds) == "table" then
+                for _, semente in ipairs(State.TargetSeeds) do
+                    if ComprarSemente(semente) then task.wait(0.2) end
+                end
+            end
+        end
+
+        if State.AutoRetorno and not State.Busy and not State.Flinging then
+            local mP = Plots.GetMeuPlot()
+            if mP and Gardens:FindFirstChild(mP) then
+                local p = Gardens[mP]:GetPivot().Position + Vector3.new(0,5,0)
+                local mRoot = GetRoot(LocalPlayer)
+                if mRoot and (mRoot.Position - p).Magnitude > 35 then 
+                    mRoot.Anchored = false
+                    mRoot.CFrame = CFrame.new(p)
+                end
+            end
+        end
+    end
+end)
+------------------------------------------------------------------------
+-- MOBILE TOGGLE HUB
+------------------------------------------------------------------------
+local MobileGui = Instance.new("ScreenGui")
+MobileGui.Name = "MobileToggleHubCustom"
+MobileGui.ResetOnSpawn = false; MobileGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+if not pcall(function() MobileGui.Parent = CoreGui end) then MobileGui.Parent = PlayerGui end
+
+local ToggleButton = Instance.new("TextButton", MobileGui)
+ToggleButton.Size = UDim2.new(0, 50, 0, 50); ToggleButton.Position = UDim2.new(0, 15, 0.4, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 25); ToggleButton.BackgroundTransparency = 0.1
+ToggleButton.Text = "HUB"; ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 13; ToggleButton.Font = Enum.Font.GothamBold
+Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 10)
+local Stroke = Instance.new("UIStroke", ToggleButton)
+Stroke.Color = Color3.fromRGB(60, 120, 255); Stroke.Thickness = 2
+
+local drag, dragI, dragS, startP
+ToggleButton.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        drag = true; dragS = i.Position; startP = ToggleButton.Position
+        i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then drag = false end end)
+    end
+end)
+ToggleButton.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then dragI = i end end)
+UserInputService.InputChanged:Connect(function(i)
+    if i == dragI and drag then
+        local d = i.Position - dragS; ToggleButton.Position = UDim2.new(startP.X.Scale, startP.X.Offset + d.X, startP.Y.Scale, startP.Y.Offset + d.Y)
+    end
+end)
+ToggleButton.MouseButton1Click:Connect(function() AnimateClick(ToggleButton); if ActiveWindow then ActiveWindow.ToggleMinimize() end end)
+
+task.spawn(function() DropSementes:SetValues(ObterListaDeSementes()) end)
