@@ -11,7 +11,7 @@ local HttpService       = game:GetService("HttpService")
 local CoreGui           = game:GetService("CoreGui")
 local UserInputService  = game:GetService("UserInputService")
 local TweenService      = game:GetService("TweenService")
-local VirtualInputManager = pcall(function() return game:GetService("VirtualInputManager") end) and game:GetService("VirtualInputManager") or nil
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui", 10)
