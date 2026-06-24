@@ -68,7 +68,6 @@ end
 -- MÓDULO: INPUT E PROMPTS (ANTI-SPAM SEGURO)
 ------------------------------------------------------------------------
 -- Função de Interação Híbrida (Modo "Hardened")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local function Interact(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
