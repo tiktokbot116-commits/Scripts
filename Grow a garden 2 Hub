@@ -67,37 +67,33 @@ end
 ------------------------------------------------------------------------
 -- MÓDULO: INPUT E PROMPTS (ANTI-SPAM SEGURO)
 ------------------------------------------------------------------------
--- Função de Interação "Anti-Replicação Falha"
-
-local function ForceInteract(prompt)
+-- Função de Interação Estável (Mobile Delta / PC Xeno)
+local function Interact(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
-    
-    -- 1. Tenta o método via Exploit (fireproximityprompt)
-    -- Se o executor for de confiança, ele injeta o evento diretamente no servidor
+    if not prompt.Enabled then return false end
+
+    -- 1. Tenta o método nativo do executor (FireProximityPrompt)
+    -- Se o fireproximityprompt estiver disponível, ele é o mais estável.
     if fireproximityprompt then
         fireproximityprompt(prompt)
         return true
     end
 
-    -- 2. Tenta o método Virtual (Para quando fireproximityprompt é bloqueado)
-    -- Se chegamos aqui, o jogo exige validação de tempo do servidor
-    if VirtualInputManager then
-        -- Não forçamos Hold 0 para não quebrar a replicação
-        local holdTime = prompt.HoldDuration > 0 and prompt.HoldDuration or 0.1
-        
-        -- Simulamos o ato de segurar a tecla "E"
-        -- Isso força o cliente a enviar um fluxo de pacotes para o servidor
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-        
-        -- Aguardamos o tempo exato que o servidor espera para validar a coleta
-        task.wait(holdTime + 0.1) 
-        
-        -- Soltamos a tecla
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-        return true
-    end
+    -- 2. Método de replicação manual (Se o Fire não funcionar)
+    -- A MÁGICA: Não usamos HoldDuration = 0 aqui para não bugar a replicação.
+    -- O servidor precisa sentir o "tempo" do hold.
+    local holdTime = prompt.HoldDuration
     
-    return false
+    -- Força a posição (se necessário, mova seu root antes de chamar esta função)
+    prompt:InputHoldBegin()
+    
+    -- Aguarda o tempo real do prompt + margem de segurança para o servidor registrar
+    -- Se o holdTime for 0, usamos 0.1 para garantir o envio do pacote
+    task.wait(math.max(holdTime, 0.1) + 0.05)
+    
+    prompt:InputHoldEnd()
+    
+    return true
 end
 ------------------------------------------------------------------------
 -- MÓDULO: PERSONAGEM / TELEPORTE
