@@ -67,41 +67,43 @@ end
 ------------------------------------------------------------------------
 -- MÓDULO: INPUT E PROMPTS (ANTI-SPAM SEGURO)
 ------------------------------------------------------------------------
-local Input = {}
-function Input.PressionarE()
-    if not VirtualInputManager then return end
-    pcall(function()
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-        task.wait(0.01)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-    end)
-end
+-- Módulo de Interação Híbrida: Fire + Virtual
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
-local Prompt = {}
-local PromptDebounce = {}
-
-function Prompt.AtivarImediato(prompt)
+local function Interact(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
-    
-    if PromptDebounce[prompt] and tick() - PromptDebounce[prompt] < 0.5 then return false end
-    PromptDebounce[prompt] = tick()
+    if not prompt.Enabled then return false end
 
-    pcall(function() 
-        prompt.RequiresLineOfSight = false
-        prompt.MaxActivationDistance = 999999
-        prompt.Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow
-    end)
-
-    if fireproximityprompt then 
-        fireproximityprompt(prompt, 1, true)
-        return true 
+    -- 1. Tenta o disparo nativo do executor (FireProximityPrompt)
+    -- Se o executor for decente, ele executará isso instantaneamente
+    if fireproximityprompt then
+        fireproximityprompt(prompt)
+        return true
     end
 
-    pcall(function() prompt.HoldDuration = 0; prompt:InputHoldBegin(); prompt:InputHoldEnd() end)
-    Input.PressionarE()
-    return true
-end
+    -- 2. Se o fireproximityprompt não existir, usa a via de força bruta (VirtualInputManager)
+    -- Isso garante que o script funcione mesmo em executores que não possuem a função fire
+    if VirtualInputManager then
+        -- Ajusta as propriedades para garantir que o prompt aceite o input
+        local oldDist = prompt.MaxActivationDistance
+        local oldDur = prompt.HoldDuration
+        
+        prompt.MaxActivationDistance = 999999
+        prompt.HoldDuration = 0
+        
+        -- Simula a tecla E fisicamente para disparar o prompt
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        
+        -- Restaura as propriedades
+        prompt.MaxActivationDistance = oldDist
+        prompt.HoldDuration = oldDur
+        return true
+    end
 
+    return false
+end
 ------------------------------------------------------------------------
 -- MÓDULO: PERSONAGEM / TELEPORTE
 ------------------------------------------------------------------------
