@@ -67,34 +67,36 @@ end
 ------------------------------------------------------------------------
 -- MÓDULO: INPUT E PROMPTS (ANTI-SPAM SEGURO)
 ------------------------------------------------------------------------
--- Função de Interação Híbrida (Modo "Hardened")
+-- Função de Interação "Anti-Replicação Falha"
 
-local function Interact(prompt)
+local function ForceInteract(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
     
-    -- 1. A abordagem FireProximityPrompt (Nativa do Exploit)
-    -- Se o executor for bom, ele ignora a validação de tempo do servidor.
+    -- 1. Tenta o método via Exploit (fireproximityprompt)
+    -- Se o executor for de confiança, ele injeta o evento diretamente no servidor
     if fireproximityprompt then
         fireproximityprompt(prompt)
         return true
     end
 
-    -- 2. A abordagem Virtual (Para quando fireproximityprompt não existe)
-    -- Aqui não usamos Hold 0. Simulamos o ciclo de tempo real para o servidor aceitar.
+    -- 2. Tenta o método Virtual (Para quando fireproximityprompt é bloqueado)
+    -- Se chegamos aqui, o jogo exige validação de tempo do servidor
     if VirtualInputManager then
-        local originalDuration = prompt.HoldDuration
+        -- Não forçamos Hold 0 para não quebrar a replicação
+        local holdTime = prompt.HoldDuration > 0 and prompt.HoldDuration or 0.1
         
-        -- Simulamos o início do segurar
-        prompt:InputHoldBegin()
+        -- Simulamos o ato de segurar a tecla "E"
+        -- Isso força o cliente a enviar um fluxo de pacotes para o servidor
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
         
-        -- O SEGREDO: O servidor precisa que você 'segure' por um tempo mínimo. 
-        -- Se for 0.1s, ele geralmente aceita a replicação.
-        task.wait(originalDuration > 0 and 0.1 or 0.05) 
+        -- Aguardamos o tempo exato que o servidor espera para validar a coleta
+        task.wait(holdTime + 0.1) 
         
-        prompt:InputHoldEnd()
+        -- Soltamos a tecla
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
         return true
     end
-
+    
     return false
 end
 ------------------------------------------------------------------------
