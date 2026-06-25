@@ -64,7 +64,7 @@ function ConfigSystem.Listar()
 end
 
 ------------------------------------------------------------------------
--- MÓDULO: PROMPTS (Apenas FireProximityPrompt)
+-- MÓDULO: PROMPTS (FireProximityPrompt com Teleporte)
 ------------------------------------------------------------------------
 local Prompt = {}
 local PromptDebounce = {}
@@ -83,6 +83,57 @@ function Prompt.AtivarImediato(prompt)
     return false
 end
 
+------------------------------------------------------------------------
+-- CONTROLADOR DE INTERAÇÃO (Teleporta antes de disparar)
+------------------------------------------------------------------------
+local function ExecutarInteracao(prompt)
+    if IsPerformingAction or IsFlinging then return false end
+    IsPerformingAction = true
+
+    local sucesso = false
+    pcall(function()
+        if not prompt or not prompt:IsDescendantOf(Workspace) or not prompt.Enabled then return end
+
+        -- Descobre a posição alvo (parte pai ou modelo)
+        local targetPos = nil
+        local parentPart = prompt.Parent
+        if parentPart and parentPart:IsA("BasePart") then
+            targetPos = parentPart.Position + Vector3.new(0, 3, 0)
+        else
+            local model = prompt:FindFirstAncestorOfClass("Model")
+            if model then
+                local pPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+                if pPart then targetPos = pPart.Position + Vector3.new(0, 3, 0) end
+            end
+        end
+
+        if not targetPos then return end
+
+        -- Teleporta, ancora brevemente, dispara
+        local root = Char.Root()
+        if not root then return end
+
+        root.Anchored = true
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.CFrame = CFrame.new(targetPos)
+
+        task.wait(0.1) -- pequena pausa para o servidor registrar a posição
+
+        if prompt:IsDescendantOf(Workspace) and prompt.Enabled then
+            sucesso = Prompt.AtivarImediato(prompt)
+        end
+
+        task.wait(0.15)
+        root.Anchored = false
+    end)
+
+    -- Garante que desancora mesmo em erro
+    local root = Char.Root()
+    if root then root.Anchored = false end
+
+    IsPerformingAction = false
+    return sucesso
+end
 ------------------------------------------------------------------------
 -- MÓDULO: PERSONAGEM / TELEPORTE
 ------------------------------------------------------------------------
