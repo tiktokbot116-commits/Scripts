@@ -71,66 +71,46 @@ local PromptDebounce = {}
 
 function Prompt.AtivarImediato(prompt)
     if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
-    if PromptDebounce[prompt] and tick() - PromptDebounce[prompt] < 0.5 then return false end
-    PromptDebounce[prompt] = tick()
-    if not prompt.Enabled then return false end
-
-    if fireproximityprompt then
-        fireproximityprompt(prompt)
-        return true
-    end
-
-    return false
-end
-
-------------------------------------------------------------------------
--- CONTROLADOR DE INTERAÇÃO (Teleporta antes de disparar)
-------------------------------------------------------------------------
 local function ExecutarInteracao(prompt)
     if IsPerformingAction or IsFlinging then return false end
     IsPerformingAction = true
 
     local sucesso = false
-    pcall(function()
-        if not prompt or not prompt:IsDescendantOf(Workspace) or not prompt.Enabled then return end
 
-        -- Descobre a posição alvo (parte pai ou modelo)
-        local targetPos = nil
-        local parentPart = prompt.Parent
-        if parentPart and parentPart:IsA("BasePart") then
-            targetPos = parentPart.Position + Vector3.new(0, 3, 0)
-        else
-            local model = prompt:FindFirstAncestorOfClass("Model")
-            if model then
-                local pPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-                if pPart then targetPos = pPart.Position + Vector3.new(0, 3, 0) end
-            end
-        end
-
-        if not targetPos then return end
-
-        -- Teleporta, ancora brevemente, dispara
-        local root = Char.Root()
-        if not root then return end
-
-        root.Anchored = true
-        root.AssemblyLinearVelocity = Vector3.zero
-        root.CFrame = CFrame.new(targetPos)
-
-        task.wait(0.1) -- pequena pausa para o servidor registrar a posição
-
-        if prompt:IsDescendantOf(Workspace) and prompt.Enabled then
-            sucesso = Prompt.AtivarImediato(prompt)
-        end
-
-        task.wait(0.15)
-        root.Anchored = false
-    end)
-
-    -- Garante que desancora mesmo em erro
+    -- Valida tudo FORA do pcall para não engolir erros
     local root = Char.Root()
-    if root then root.Anchored = false end
+    if not root then IsPerformingAction = false; return false end
+    if not prompt or not prompt:IsDescendantOf(Workspace) or not prompt.Enabled then IsPerformingAction = false; return false end
 
+    -- Resolve posição alvo
+    local targetPos = nil
+    local parentPart = prompt.Parent
+    if parentPart and parentPart:IsA("BasePart") then
+        targetPos = parentPart.Position + Vector3.new(0, 3, 0)
+    end
+    if not targetPos then
+        local model = prompt:FindFirstAncestorOfClass("Model")
+        if model then
+            local pPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+            if pPart then targetPos = pPart.Position + Vector3.new(0, 3, 0) end
+        end
+    end
+    if not targetPos then IsPerformingAction = false; return false end
+
+    -- Ancora e teleporta em loop (garante que o servidor registre)
+    root.Anchored = true
+    for _ = 1, 5 do
+        root.CFrame = CFrame.new(targetPos)
+        task.wait()
+    end
+
+    -- Dispara só depois do teleporte confirmado
+    if prompt:IsDescendantOf(Workspace) and prompt.Enabled then
+        sucesso = Prompt.AtivarImediato(prompt)
+    end
+
+    task.wait(0.15)
+    root.Anchored = false
     IsPerformingAction = false
     return sucesso
 end
