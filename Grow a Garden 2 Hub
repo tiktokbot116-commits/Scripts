@@ -66,21 +66,18 @@ end
 ------------------------------------------------------------------------
 -- MÓDULO: PROMPTS (FireProximityPrompt com Teleporte)
 ------------------------------------------------------------------------
-local Prompt = {}
-local PromptDebounce = {}
+local RunService = game:GetService("RunService")
 
-function Prompt.AtivarImediato(prompt)
-    if not prompt or not prompt:IsDescendantOf(Workspace) then return false end
 local function ExecutarInteracao(prompt)
     if IsPerformingAction or IsFlinging then return false end
     IsPerformingAction = true
 
-    local sucesso = false
-
-    -- Valida tudo FORA do pcall para não engolir erros
     local root = Char.Root()
-    if not root then IsPerformingAction = false; return false end
-    if not prompt or not prompt:IsDescendantOf(Workspace) or not prompt.Enabled then IsPerformingAction = false; return false end
+    local char = LocalPlayer.Character
+    if not root or not char then IsPerformingAction = false; return false end
+    if not prompt or not prompt:IsDescendantOf(Workspace) or not prompt.Enabled then
+        IsPerformingAction = false; return false
+    end
 
     -- Resolve posição alvo
     local targetPos = nil
@@ -97,20 +94,29 @@ local function ExecutarInteracao(prompt)
     end
     if not targetPos then IsPerformingAction = false; return false end
 
-    -- Ancora e teleporta em loop (garante que o servidor registre)
-    root.Anchored = true
-    for _ = 1, 5 do
+    -- Muda estado para Physics: desativa a física padrão do personagem
+    -- isso impede o motor de bater contra o teleporte
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then hum:ChangeState(Enum.HumanoidStateType.Physics) end
+
+    -- Teleporta por 3 heartbeats seguidos (servidor registra direitinho)
+    for _ = 1, 3 do
         root.CFrame = CFrame.new(targetPos)
-        task.wait()
+        root.AssemblyLinearVelocity  = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+        RunService.Heartbeat:Wait()
     end
 
-    -- Dispara só depois do teleporte confirmado
+    -- Restaura movimento normal
+    if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
+
+    -- Dispara o prompt
+    local sucesso = false
     if prompt:IsDescendantOf(Workspace) and prompt.Enabled then
         sucesso = Prompt.AtivarImediato(prompt)
     end
 
-    task.wait(0.15)
-    root.Anchored = false
+    task.wait(0.1)
     IsPerformingAction = false
     return sucesso
 end
