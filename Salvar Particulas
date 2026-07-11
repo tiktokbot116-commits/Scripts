@@ -9,12 +9,34 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local LocalPlayer = Players.LocalPlayer
 local guiParent = (gethui and gethui()) or CoreGui
 if guiParent:FindFirstChild("ParticleExtractorMobile") then 
     guiParent.ParticleExtractorMobile:Destroy() 
 end
+
+-- ==========================================
+-- SISTEMA DE NOME DO JOGO (ASSÍNCRONO)
+-- ==========================================
+local gameFolderName = tostring(game.PlaceId) -- Fallback inicial
+task.spawn(function()
+    if game.PlaceId > 0 then
+        pcall(function()
+            local info = MarketplaceService:GetProductInfo(game.PlaceId)
+            if info and info.Name then
+                -- Remove caracteres inválidos para nomes de pasta no Windows/Android
+                local safeName = string.gsub(info.Name, '[\\/:*?"<>|]', '')
+                -- Remove espaços extras no final
+                safeName = string.match(safeName, "^%s*(.-)%s*$")
+                if safeName ~= "" then
+                    gameFolderName = safeName
+                end
+            end
+        end)
+    end
+end)
 
 -- ==========================================
 -- 1. BASE DE PREVIEW E VOID ROOM
@@ -72,7 +94,6 @@ local function serializeValueForJSON(val)
         return {Type = "NumberSequence", Keypoints = data}
     elseif t == "ColorSequence" then
         local data = {}
-        -- CORRIGIDO: Removido o 'Envelope' que estava causando o erro no ColorSequenceKeypoint
         for _, kp in ipairs(val.Keypoints) do table.insert(data, {Time = kp.Time, Color = {R = kp.Value.R, G = kp.Value.G, B = kp.Value.B}}) end
         return {Type = "ColorSequence", Keypoints = data}
     elseif t == "NumberRange" then return {Type = "NumberRange", Min = val.Min, Max = val.Max}
@@ -265,7 +286,7 @@ local SaveBtn = Instance.new("TextButton", RightPanel)
 SaveBtn.Size = UDim2.new(1, -20, 0, 40)
 SaveBtn.Position = UDim2.new(0, 10, 0, 218)
 SaveBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 100)
-SaveBtn.Text = "📥 EXPORTAR JSON (PARTICLEBACKUPS)"
+SaveBtn.Text = "📥 EXPORTAR JSON (PASTA DO JOGO)"
 SaveBtn.TextColor3 = Color3.new(1, 1, 1)
 SaveBtn.Font = Enum.Font.GothamBold
 SaveBtn.TextSize = 12
@@ -430,25 +451,29 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     List.CanvasSize = UDim2.new(0, 0, 0, count * 33)
 end)
 
--- SISTEMA DE EXPORTAÇÃO PARA O FOLDER "ParticleBackups"
+-- SISTEMA DE EXPORTAÇÃO (ATUALIZADO COM SUBPASTAS DE JOGOS)
 SaveBtn.MouseButton1Click:Connect(function()
     if not selectedParticle then return end
 
-    local folderName = "ParticleBackups"
+    local baseFolder = "ParticleBackups"
+    local fullPathFolder = baseFolder .. "/" .. gameFolderName
     
-    -- Tenta garantir que a pasta exista de forma mais robusta
+    -- Garante que a pasta principal e a do jogo existam
     if isfolder and makefolder then
         local success, err = pcall(function()
-            if not isfolder(folderName) then
-                makefolder(folderName)
+            if not isfolder(baseFolder) then
+                makefolder(baseFolder)
+            end
+            if not isfolder(fullPathFolder) then
+                makefolder(fullPathFolder)
             end
         end)
         
         if not success then
-            warn("Erro ao criar pasta: " .. tostring(err))
-            SaveBtn.Text = "❌ ERRO: FOLDER"
+            warn("Erro ao criar pastas: " .. tostring(err))
+            SaveBtn.Text = "❌ ERRO: FOLDERS"
             task.wait(2)
-            SaveBtn.Text = "📥 EXPORTAR JSON (PARTICLEBACKUPS)"
+            SaveBtn.Text = "📥 EXPORTAR JSON (PASTA DO JOGO)"
             return
         end
     end
@@ -456,6 +481,8 @@ SaveBtn.MouseButton1Click:Connect(function()
     local exportData = {
         ParticleName = selectedParticle.Name,
         OriginalParent = selectedParticle.Parent and selectedParticle.Parent.Name or "Unknown",
+        PlaceId = game.PlaceId,
+        GameName = gameFolderName,
         Properties = {}
     }
 
@@ -467,9 +494,9 @@ SaveBtn.MouseButton1Click:Connect(function()
     end
 
     local jsonString = HttpService:JSONEncode(exportData)
-    local fileName = folderName .. "/" .. selectedParticle.Name .. "_" .. tostring(math.random(100, 999)) .. ".json"
+    -- Salva diretamente dentro da subpasta do jogo atual
+    local fileName = fullPathFolder .. "/" .. selectedParticle.Name .. "_" .. tostring(math.random(100, 999)) .. ".json"
 
-    -- Tenta salvar e reporta erro se falhar
     if writefile then
         local success, err = pcall(function() 
             writefile(fileName, jsonString) 
@@ -489,6 +516,6 @@ SaveBtn.MouseButton1Click:Connect(function()
     end
 
     task.wait(2)
-    SaveBtn.Text = "📥 EXPORTAR JSON (PARTICLEBACKUPS)"
+    SaveBtn.Text = "📥 EXPORTAR JSON (PASTA DO JOGO)"
     SaveBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 100)
 end)
