@@ -1,5 +1,5 @@
 -- =================================================================
--- PARTICLE EXTRACTOR V2 PRO - ARCHITECTURE BY SENIOR DEV
+-- PARTICLE EXTRACTOR V3 PRO - FAKE VIEWPORT FIX
 -- =================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -88,7 +88,6 @@ Topbar.Size = UDim2.new(1, 0, 0, 35)
 Topbar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 Instance.new("UICorner", Topbar).CornerRadius = UDim.new(0, 10)
 
--- Esconder borda inferior do Topbar
 local TopbarHider = Instance.new("Frame", Topbar)
 TopbarHider.Size = UDim2.new(1, 0, 0, 10)
 TopbarHider.Position = UDim2.new(0, 0, 1, -10)
@@ -148,13 +147,14 @@ local ListLayout = Instance.new("UIListLayout", List)
 ListLayout.Padding = UDim.new(0, 5)
 ListLayout.SortOrder = Enum.SortOrder.Name
 
--- Viewport Frame
-local Viewport = Instance.new("ViewportFrame", MainFrame)
-Viewport.Size = UDim2.new(0, 300, 0, 250)
-Viewport.Position = UDim2.new(0, 230, 0, 45)
-Viewport.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", Viewport).Color = Color3.fromRGB(60, 60, 70)
+-- Fundo Falso do Viewport (Apenas visual na UI)
+local FakeViewportBG = Instance.new("Frame", MainFrame)
+FakeViewportBG.Size = UDim2.new(0, 300, 0, 250)
+FakeViewportBG.Position = UDim2.new(0, 230, 0, 45)
+FakeViewportBG.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+FakeViewportBG.BackgroundTransparency = 0.5 -- Meio transparente para focar na partícula
+Instance.new("UICorner", FakeViewportBG).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", FakeViewportBG).Color = Color3.fromRGB(60, 60, 70)
 
 local NameLabel = Instance.new("TextLabel", MainFrame)
 NameLabel.Size = UDim2.new(0, 300, 0, 30)
@@ -177,7 +177,24 @@ SaveBtn.TextSize = 14
 Instance.new("UICorner", SaveBtn).CornerRadius = UDim.new(0, 6)
 
 -- ==========================================
--- 3. ANIMAÇÕES E FUNCIONALIDADES CORE
+-- 3. PROJEÇÃO DE CÂMERA (O SEGREDO)
+-- ==========================================
+-- Cria uma Part no mundo real que vai renderizar os efeitos
+local PreviewPart = Instance.new("Part")
+PreviewPart.Name = "ParticlePreviewHook"
+PreviewPart.Size = Vector3.new(1, 1, 1)
+PreviewPart.Transparency = 1
+PreviewPart.CanCollide = false
+PreviewPart.Anchored = true
+-- Colocamos na Câmera para não sujar o Workspace principal e não replicar
+PreviewPart.Parent = Workspace.CurrentCamera
+
+local renderConnection = nil
+local selectedParticle = nil
+local particleButtons = {}
+
+-- ==========================================
+-- 4. ANIMAÇÕES E FUNCIONALIDADES CORE
 -- ==========================================
 
 -- Smooth Dragging
@@ -202,18 +219,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Sistema de Botões da Lista e Câmera 3D
-local selectedParticle = nil
-local particleButtons = {}
-local renderConnection = nil
-
-local function setupCamera()
-    local cam = Instance.new("Camera")
-    cam.FieldOfView = 60
-    Viewport.CurrentCamera = cam
-    return cam
-end
-
 local function populateList()
     for _, child in ipairs(List:GetChildren()) do
         if child:IsA("TextButton") then child:Destroy() end
@@ -222,65 +227,70 @@ local function populateList()
     
     local count = 0
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("ParticleEmitter") then
-            local btn = Instance.new("TextButton", List)
-            btn.Size = UDim2.new(1, -10, 0, 30)
-            btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-            btn.Text = " " .. obj.Name
-            btn.TextColor3 = Color3.fromRGB(220, 220, 220)
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 12
-            btn.TextXAlignment = Enum.TextXAlignment.Left
-            btn.TextTruncate = Enum.TextTruncate.AtEnd
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-            
-            table.insert(particleButtons, {Button = btn, Name = obj.Name:lower()})
-            count = count + 1
-            
-            btn.MouseButton1Click:Connect(function()
-                selectedParticle = obj
-                NameLabel.Text = obj.Name
-                NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        -- Protege contra instâncias destruídas ou sem permissão
+        pcall(function()
+            if obj:IsA("ParticleEmitter") then
+                local btn = Instance.new("TextButton", List)
+                btn.Size = UDim2.new(1, -10, 0, 30)
+                btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+                btn.Text = " " .. obj.Name
+                btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+                btn.Font = Enum.Font.Gotham
+                btn.TextSize = 12
+                btn.TextXAlignment = Enum.TextXAlignment.Left
+                btn.TextTruncate = Enum.TextTruncate.AtEnd
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
                 
-                Viewport:ClearAllChildren()
-                local part = Instance.new("Part", Viewport)
-                part.Anchored = true
-                part.Transparency = 1
-                part.Position = Vector3.new(0, 0, 0)
+                table.insert(particleButtons, {Button = btn, Name = obj.Name:lower()})
+                count = count + 1
                 
-                local clone = obj:Clone()
-                clone.Parent = part
-                clone.Enabled = true
-                
-                local cam = setupCamera()
-                
-                -- Animação Orbital da Câmera (3D View)
-                if renderConnection then renderConnection:Disconnect() end
-                local angle = 0
-                renderConnection = RunService.RenderStepped:Connect(function(dt)
-                    angle = angle + math.rad(30 * dt) -- Velocidade de rotação
-                    local offset = Vector3.new(math.sin(angle) * 6, 2, math.cos(angle) * 6)
-                    cam.CFrame = CFrame.lookAt(offset, part.Position)
+                btn.MouseButton1Click:Connect(function()
+                    selectedParticle = obj
+                    NameLabel.Text = obj.Name
+                    NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    
+                    -- Limpa a parte de projeção real
+                    PreviewPart:ClearAllChildren()
+                    
+                    -- Clona a partícula para o mundo real
+                    local clone = obj:Clone()
+                    clone.Parent = PreviewPart
+                    clone.Enabled = true
+                    
+                    -- Inicia a projeção 3D que trava a parte na frente da câmera do jogador
+                    if renderConnection then renderConnection:Disconnect() end
+                    
+                    local angle = 0
+                    renderConnection = RunService.RenderStepped:Connect(function(dt)
+                        -- Faz a partícula girar lentamente para mostrar todas as direções (3D Orbital)
+                        angle = angle + math.rad(45 * dt)
+                        
+                        -- CFrame mágico: Trava a parte à direita da câmera (onde a UI está) e um pouco à frente
+                        local camCFrame = Workspace.CurrentCamera.CFrame
+                        -- X = 2 (Para a direita), Y = 0 (Centro), Z = -6 (Distância pra frente)
+                        local offset = CFrame.new(2, 0, -6) * CFrame.Angles(0, angle, 0)
+                        
+                        PreviewPart.CFrame = camCFrame * offset
+                    end)
                 end)
-            end)
-        end
+            end
+        end)
     end
     List.CanvasSize = UDim2.new(0, 0, 0, count * 35)
 end
 
 -- ==========================================
--- 4. CONEXÕES DE EVENTOS
+-- 5. CONEXÕES DE EVENTOS
 -- ==========================================
 
 -- Botão Salvar
 SaveBtn.MouseButton1Click:Connect(function()
     if selectedParticle then
-        -- Tween Feedback de Sucesso
         local originalColor = SaveBtn.BackgroundColor3
         TweenService:Create(SaveBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 100, 255)}):Play()
         SaveBtn.Text = "⏳ PROCESSANDO..."
         
-        local path = saveParticleData(selectedParticle)
+        saveParticleData(selectedParticle)
         
         SaveBtn.Text = "✅ SALVO COM SUCESSO!"
         task.wait(1.5)
@@ -308,12 +318,15 @@ end)
 -- Refresh
 RefreshBtn.MouseButton1Click:Connect(function()
     TweenService:Create(RefreshBtn, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = RefreshBtn.Rotation + 360}):Play()
+    if renderConnection then renderConnection:Disconnect() end
+    PreviewPart:ClearAllChildren()
     populateList()
 end)
 
--- Cleanup & Fechar
+-- Cleanup & Fechar Total
 CloseBtn.MouseButton1Click:Connect(function()
     if renderConnection then renderConnection:Disconnect() end
+    if PreviewPart then PreviewPart:Destroy() end
     ScreenGui:Destroy()
 end)
 
