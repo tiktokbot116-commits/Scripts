@@ -72,7 +72,8 @@ local function serializeValueForJSON(val)
         return {Type = "NumberSequence", Keypoints = data}
     elseif t == "ColorSequence" then
         local data = {}
-        for _, kp in ipairs(val.Keypoints) do table.insert(data, {Time = kp.Time, Color = {R = kp.Value.R, G = kp.Value.G, B = kp.Value.B}, Envelope = kp.Envelope}) end
+        -- CORRIGIDO: Removido o 'Envelope' que estava causando o erro no ColorSequenceKeypoint
+        for _, kp in ipairs(val.Keypoints) do table.insert(data, {Time = kp.Time, Color = {R = kp.Value.R, G = kp.Value.G, B = kp.Value.B}}) end
         return {Type = "ColorSequence", Keypoints = data}
     elseif t == "NumberRange" then return {Type = "NumberRange", Min = val.Min, Max = val.Max}
     elseif t == "Vector3" then return {Type = "Vector3", X = val.X, Y = val.Y, Z = val.Z}
