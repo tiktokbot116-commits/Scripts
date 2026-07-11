@@ -403,38 +403,57 @@ local function dumpAllProperties(part)
     StatsScroll.CanvasSize = UDim2.new(0, 0, 0, StatsText.TextBounds.Y + 20)
 end
 
+-- ==========================================
+-- SISTEMA DE BUSCA GERAL DE PARTÍCULAS
+-- ==========================================
 local allButtons = {}
 local seenNames = {}
 
-for _, obj in pairs(Workspace:GetDescendants()) do
-    if obj:IsA("ParticleEmitter") then
-        if not seenNames[obj.Name] then
-            seenNames[obj.Name] = true
-            
-            local btn = Instance.new("TextButton", List)
-            btn.Size = UDim2.new(1, 0, 0, 28)
-            btn.BackgroundColor3 = PANEL_COLOR
-            btn.Text = "  " .. obj.Name
-            btn.TextColor3 = TEXT_COLOR
-            btn.Font = Enum.Font.GothamMedium
-            btn.TextSize = 12
-            btn.TextXAlignment = Enum.TextXAlignment.Left
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-            
-            table.insert(allButtons, {btn = btn, name = obj.Name:lower()})
-            
-            btn.MouseButton1Click:Connect(function()
-                selectedParticle = obj
-                SelName.Text = obj.Name
-                dumpAllProperties(obj)
-                
-                for _, item in ipairs(allButtons) do item.btn.BackgroundColor3 = PANEL_COLOR end
-                btn.BackgroundColor3 = ACCENT_COLOR
-                
-                if isViewing then updateVoidRoom() end
-            end)
+-- Define os principais serviços acessíveis ao cliente para buscar
+local servicesToScan = {
+    Workspace,
+    game:GetService("ReplicatedStorage"),
+    game:GetService("Lighting"),
+    game:GetService("MaterialService"),
+    game:GetService("Players"),
+    game:GetService("StarterGui"),
+    game:GetService("StarterPack"),
+    game:GetService("StarterPlayer")
+}
+
+for _, service in ipairs(servicesToScan) do
+    pcall(function() -- Usa pcall para evitar erros em objetos bloqueados
+        for _, obj in ipairs(service:GetDescendants()) do
+            if obj:IsA("ParticleEmitter") then
+                if not seenNames[obj.Name] then
+                    seenNames[obj.Name] = true
+                    
+                    local btn = Instance.new("TextButton", List)
+                    btn.Size = UDim2.new(1, 0, 0, 28)
+                    btn.BackgroundColor3 = PANEL_COLOR
+                    btn.Text = "  " .. obj.Name
+                    btn.TextColor3 = TEXT_COLOR
+                    btn.Font = Enum.Font.GothamMedium
+                    btn.TextSize = 12
+                    btn.TextXAlignment = Enum.TextXAlignment.Left
+                    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+                    
+                    table.insert(allButtons, {btn = btn, name = obj.Name:lower()})
+                    
+                    btn.MouseButton1Click:Connect(function()
+                        selectedParticle = obj
+                        SelName.Text = obj.Name
+                        dumpAllProperties(obj)
+                        
+                        for _, item in ipairs(allButtons) do item.btn.BackgroundColor3 = PANEL_COLOR end
+                        btn.BackgroundColor3 = ACCENT_COLOR
+                        
+                        if isViewing then updateVoidRoom() end
+                    end)
+                end
+            end
         end
-    end
+    end)
 end
 List.CanvasSize = UDim2.new(0, 0, 0, #allButtons * 33)
 
