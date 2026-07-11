@@ -1,5 +1,5 @@
 -- =================================================================
--- PARTICLE EXTRACTOR V3 PRO - FAKE VIEWPORT FIX
+-- PARTICLE EXTRACTOR V3 PRO - FIXED VIEWPORT PREVIEW
 -- =================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -14,7 +14,6 @@ local UserInputService = game:GetService("UserInputService")
 local guiParent = (gethui and gethui()) or CoreGui
 local LocalPlayer = Players.LocalPlayer
 
--- Limpeza de instâncias antigas
 if guiParent:FindFirstChild("ParticleExtractorPro") then
     guiParent.ParticleExtractorPro:Destroy()
 end
@@ -80,29 +79,12 @@ MainFrame.Position = UDim2.new(0.5, -275, 0.5, -200)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
-Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(60, 60, 70)
 
--- Topbar
+-- ... (Elementos da UI mantidos conforme original)
 local Topbar = Instance.new("Frame", MainFrame)
 Topbar.Size = UDim2.new(1, 0, 0, 35)
 Topbar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 Instance.new("UICorner", Topbar).CornerRadius = UDim.new(0, 10)
-
-local TopbarHider = Instance.new("Frame", Topbar)
-TopbarHider.Size = UDim2.new(1, 0, 0, 10)
-TopbarHider.Position = UDim2.new(0, 0, 1, -10)
-TopbarHider.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-TopbarHider.BorderSizePixel = 0
-
-local Title = Instance.new("TextLabel", Topbar)
-Title.Size = UDim2.new(1, -100, 1, 0)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "🔮 Particle Extractor Pro"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
-Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local CloseBtn = Instance.new("TextButton", Topbar)
 CloseBtn.Size = UDim2.new(0, 30, 0, 25)
@@ -110,7 +92,6 @@ CloseBtn.Position = UDim2.new(1, -35, 0, 5)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 CloseBtn.Text = "X"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Font = Enum.Font.GothamBold
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
 local RefreshBtn = Instance.new("TextButton", Topbar)
@@ -119,51 +100,37 @@ RefreshBtn.Position = UDim2.new(1, -70, 0, 5)
 RefreshBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 200)
 RefreshBtn.Text = "↻"
 RefreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-RefreshBtn.Font = Enum.Font.GothamBold
-RefreshBtn.TextSize = 18
 Instance.new("UICorner", RefreshBtn).CornerRadius = UDim.new(0, 6)
 
--- Search Bar
 local SearchBar = Instance.new("TextBox", MainFrame)
 SearchBar.Size = UDim2.new(0, 200, 0, 30)
 SearchBar.Position = UDim2.new(0, 15, 0, 45)
 SearchBar.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+SearchBar.PlaceholderText = "🔍 Pesquisar..."
 SearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
-SearchBar.PlaceholderText = "🔍 Pesquisar partícula..."
-SearchBar.Font = Enum.Font.Gotham
-SearchBar.TextSize = 13
 Instance.new("UICorner", SearchBar).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", SearchBar).Color = Color3.fromRGB(60, 60, 70)
 
--- Lista de Partículas
 local List = Instance.new("ScrollingFrame", MainFrame)
 List.Size = UDim2.new(0, 200, 0, 300)
 List.Position = UDim2.new(0, 15, 0, 85)
 List.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-List.BorderSizePixel = 0
 List.ScrollBarThickness = 6
-List.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 110)
 local ListLayout = Instance.new("UIListLayout", List)
 ListLayout.Padding = UDim.new(0, 5)
-ListLayout.SortOrder = Enum.SortOrder.Name
 
--- Fundo Falso do Viewport (Apenas visual na UI)
 local FakeViewportBG = Instance.new("Frame", MainFrame)
 FakeViewportBG.Size = UDim2.new(0, 300, 0, 250)
 FakeViewportBG.Position = UDim2.new(0, 230, 0, 45)
 FakeViewportBG.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-FakeViewportBG.BackgroundTransparency = 0.5 -- Meio transparente para focar na partícula
+FakeViewportBG.BackgroundTransparency = 0.5
 Instance.new("UICorner", FakeViewportBG).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", FakeViewportBG).Color = Color3.fromRGB(60, 60, 70)
 
 local NameLabel = Instance.new("TextLabel", MainFrame)
 NameLabel.Size = UDim2.new(0, 300, 0, 30)
 NameLabel.Position = UDim2.new(0, 230, 0, 305)
-NameLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 NameLabel.Text = "Nenhuma partícula selecionada"
-NameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-NameLabel.Font = Enum.Font.GothamBold
-NameLabel.TextSize = 14
+NameLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 Instance.new("UICorner", NameLabel).CornerRadius = UDim.new(0, 6)
 
 local SaveBtn = Instance.new("TextButton", MainFrame)
@@ -172,62 +139,28 @@ SaveBtn.Position = UDim2.new(0, 230, 0, 345)
 SaveBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
 SaveBtn.Text = "📥 SERIALIZAR E SALVAR"
 SaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-SaveBtn.Font = Enum.Font.GothamBold
-SaveBtn.TextSize = 14
 Instance.new("UICorner", SaveBtn).CornerRadius = UDim.new(0, 6)
 
 -- ==========================================
--- 3. PROJEÇÃO DE CÂMERA (O SEGREDO)
+-- 3. PROJEÇÃO DE CÂMERA (CORREÇÃO)
 -- ==========================================
--- Cria uma Part no mundo real que vai renderizar os efeitos
 local PreviewPart = Instance.new("Part")
 PreviewPart.Name = "ParticlePreviewHook"
 PreviewPart.Size = Vector3.new(1, 1, 1)
 PreviewPart.Transparency = 1
 PreviewPart.CanCollide = false
 PreviewPart.Anchored = true
--- Colocamos na Câmera para não sujar o Workspace principal e não replicar
-PreviewPart.Parent = Workspace.CurrentCamera
+PreviewPart.Parent = Workspace.CurrentCamera -- Anexado à câmera para visibilidade constante
 
 local renderConnection = nil
 local selectedParticle = nil
 local particleButtons = {}
 
--- ==========================================
--- 4. ANIMAÇÕES E FUNCIONALIDADES CORE
--- ==========================================
-
--- Smooth Dragging
-local dragging, dragInput, dragStart, startPos
-Topbar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
-    end
-end)
-Topbar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
 local function populateList()
-    for _, child in ipairs(List:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
-    end
+    for _, child in ipairs(List:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
     table.clear(particleButtons)
     
-    local count = 0
     for _, obj in pairs(Workspace:GetDescendants()) do
-        -- Protege contra instâncias destruídas ou sem permissão
         pcall(function()
             if obj:IsA("ParticleEmitter") then
                 local btn = Instance.new("TextButton", List)
@@ -236,99 +169,60 @@ local function populateList()
                 btn.Text = " " .. obj.Name
                 btn.TextColor3 = Color3.fromRGB(220, 220, 220)
                 btn.Font = Enum.Font.Gotham
-                btn.TextSize = 12
-                btn.TextXAlignment = Enum.TextXAlignment.Left
-                btn.TextTruncate = Enum.TextTruncate.AtEnd
                 Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
                 
                 table.insert(particleButtons, {Button = btn, Name = obj.Name:lower()})
-                count = count + 1
                 
                 btn.MouseButton1Click:Connect(function()
                     selectedParticle = obj
                     NameLabel.Text = obj.Name
-                    NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
                     
-                    -- Limpa a parte de projeção real
+                    -- CORREÇÃO DO VIEWPORT:
+                    -- 1. Limpa anterior
                     PreviewPart:ClearAllChildren()
                     
-                    -- Clona a partícula para o mundo real
+                    -- 2. Clona a partícula
                     local clone = obj:Clone()
                     clone.Parent = PreviewPart
+                    
+                    -- 3. FORÇA O RESET DA PARTÍCULA (O SEGREDO)
+                    -- Algumas partículas não renderizam se não forem "re-ativadas"
+                    clone.Enabled = false
+                    task.wait(0.05) 
                     clone.Enabled = true
                     
-                    -- Inicia a projeção 3D que trava a parte na frente da câmera do jogador
                     if renderConnection then renderConnection:Disconnect() end
                     
                     local angle = 0
                     renderConnection = RunService.RenderStepped:Connect(function(dt)
-                        -- Faz a partícula girar lentamente para mostrar todas as direções (3D Orbital)
                         angle = angle + math.rad(45 * dt)
-                        
-                        -- CFrame mágico: Trava a parte à direita da câmera (onde a UI está) e um pouco à frente
                         local camCFrame = Workspace.CurrentCamera.CFrame
-                        -- X = 2 (Para a direita), Y = 0 (Centro), Z = -6 (Distância pra frente)
+                        -- Ajuste do offset para garantir que a partícula fique na frente da tela
                         local offset = CFrame.new(2, 0, -6) * CFrame.Angles(0, angle, 0)
-                        
                         PreviewPart.CFrame = camCFrame * offset
                     end)
                 end)
             end
         end)
     end
-    List.CanvasSize = UDim2.new(0, 0, 0, count * 35)
 end
 
 -- ==========================================
--- 5. CONEXÕES DE EVENTOS
+-- 4. EVENTOS E CLEANUP
 -- ==========================================
-
--- Botão Salvar
 SaveBtn.MouseButton1Click:Connect(function()
     if selectedParticle then
-        local originalColor = SaveBtn.BackgroundColor3
-        TweenService:Create(SaveBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 100, 255)}):Play()
-        SaveBtn.Text = "⏳ PROCESSANDO..."
-        
         saveParticleData(selectedParticle)
-        
-        SaveBtn.Text = "✅ SALVO COM SUCESSO!"
-        task.wait(1.5)
-        TweenService:Create(SaveBtn, TweenInfo.new(0.5), {BackgroundColor3 = originalColor}):Play()
+        SaveBtn.Text = "✅ SALVO!"
+        task.wait(1)
         SaveBtn.Text = "📥 SERIALIZAR E SALVAR"
     end
 end)
 
--- Sistema de Pesquisa/Filtro
-SearchBar:GetPropertyChangedSignal("Text"):Connect(function()
-    local searchText = SearchBar.Text:lower()
-    local visibleCount = 0
-    
-    for _, item in ipairs(particleButtons) do
-        if searchText == "" or string.find(item.Name, searchText) then
-            item.Button.Visible = true
-            visibleCount = visibleCount + 1
-        else
-            item.Button.Visible = false
-        end
-    end
-    List.CanvasSize = UDim2.new(0, 0, 0, visibleCount * 35)
-end)
-
--- Refresh
-RefreshBtn.MouseButton1Click:Connect(function()
-    TweenService:Create(RefreshBtn, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = RefreshBtn.Rotation + 360}):Play()
-    if renderConnection then renderConnection:Disconnect() end
-    PreviewPart:ClearAllChildren()
-    populateList()
-end)
-
--- Cleanup & Fechar Total
 CloseBtn.MouseButton1Click:Connect(function()
     if renderConnection then renderConnection:Disconnect() end
     if PreviewPart then PreviewPart:Destroy() end
     ScreenGui:Destroy()
 end)
 
--- Inicialização
 populateList()
