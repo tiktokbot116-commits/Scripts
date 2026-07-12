@@ -10,27 +10,45 @@ local sessionSkip = {}
 local currentTrack = nil
 local isWaiting = false
 
+-- [[ CRIAR PASTA DE BACKUPS ]] --
+if isfolder and not isfolder("AnimationsBackups") then
+    makefolder("AnimationsBackups")
+end
+
 -- [[ INTERFACE ]] --
 local sg = Instance.new("ScreenGui", CoreGui)
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 380, 0, 100)
-main.Position = UDim2.new(0.5, -190, 0, -120)
+main.Size = UDim2.new(0, 380, 0, 135) -- Aumentado levemente para caber o input de texto
+main.Position = UDim2.new(0.5, -190, 0, -150)
 main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Instance.new("UICorner", main)
 local stroke = Instance.new("UIStroke", main)
 stroke.Color = Color3.fromRGB(0, 150, 255)
 
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 40)
+title.Size = UDim2.new(1, 0, 0, 35)
 title.Text = "AGUARDANDO ANIMAÇÃO..."
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
 
+-- Caixa de texto para digitar o nome da animação
+local nameInput = Instance.new("TextBox", main)
+nameInput.Size = UDim2.new(0.9, 0, 0, 30)
+nameInput.Position = UDim2.new(0.05, 0, 0.28, 0)
+nameInput.PlaceholderText = "Digite o nome para salvar..."
+nameInput.Text = ""
+nameInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+nameInput.TextColor3 = Color3.new(1, 1, 1)
+nameInput.Font = Enum.Font.Gotham
+nameInput.TextScaled = true
+nameInput.ClearTextOnFocus = false
+Instance.new("UICorner", nameInput)
+
 local btnContainer = Instance.new("Frame", main)
-btnContainer.Size = UDim2.new(1, 0, 0.4, 0)
-btnContainer.Position = UDim2.new(0, 0, 0.5, 0)
+btnContainer.Size = UDim2.new(1, 0, 0.35, 0)
+btnContainer.Position = UDim2.new(0, 0, 0.6, 0)
 btnContainer.BackgroundTransparency = 1
 local layout = Instance.new("UIListLayout", btnContainer)
 layout.FillDirection = Enum.FillDirection.Horizontal
@@ -49,9 +67,16 @@ local function createBtn(text, color, cb)
     b.MouseButton1Click:Connect(cb)
 end
 
--- [[ LÓGICA DE SALVAMENTO PARA O SEU UNPACK ]] --
-local function saveToClipboard()
+-- [[ LÓGICA DE SALVAMENTO PARA ARQUIVO ]] --
+local function saveAnimation()
     if not currentAnimID then return end
+    
+    -- Pega o nome digitado. Se estiver vazio, usa "Anim_ID" por segurança.
+    local animName = nameInput.Text
+    if animName == "" or animName:match("^%s*$") then
+        animName = "Anim_" .. tostring(currentAnimID)
+    end
+    
     title.Text = "LENDO COMPONENTES..."
     
     local success, seq = pcall(function() 
@@ -65,12 +90,11 @@ local function saveToClipboard()
             local function scan(obj)
                 for _, v in ipairs(obj:GetChildren()) do
                     if v:IsA("Pose") then 
-                        -- IMPORTANTE: Transforma CFrame em uma lista de números para o UNPACK da sua foto
                         local cf = v.CFrame
                         local components = {cf:GetComponents()}
                         
                         table.insert(ps, {
-                            Name = v.Name, -- Sua foto usa poseData.Name
+                            Name = v.Name,
                             CFrame = components 
                         }) 
                         scan(v) 
@@ -82,13 +106,26 @@ local function saveToClipboard()
         end
         
         local json = HttpService:JSONEncode(data)
+        
+        -- Salva no arquivo dentro da pasta
+        if writefile then
+            writefile("AnimationsBackups/" .. animName .. ".json", json)
+        end
+        
+        -- Opcional: Mantém também copiando para o clipboard caso precise colar rápido
         if setclipboard then
             setclipboard(json)
-            title.Text = "COPIADO PARA O IMPORTADOR!"
-            task.wait(1)
-            isWaiting = false
-            main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
         end
+        
+        title.Text = "SALVO COM SUCESSO!"
+        task.wait(1.5)
+        isWaiting = false
+        main:TweenPosition(UDim2.new(0.5, -190, 0, -150), "In", "Quad", 0.3)
+    else
+        title.Text = "FALHA AO LER ANIMAÇÃO!"
+        task.wait(1.5)
+        isWaiting = false
+        main:TweenPosition(UDim2.new(0.5, -190, 0, -150), "In", "Quad", 0.3)
     end
 end
 
@@ -106,12 +143,12 @@ createBtn("STOP", Color3.fromRGB(150, 0, 0), function()
     if currentTrack then currentTrack:Stop() end
 end)
 
-createBtn("SAVE", Color3.fromRGB(0, 150, 0), saveToClipboard)
+createBtn("SAVE", Color3.fromRGB(0, 150, 0), saveAnimation)
 
 createBtn("SKIP", Color3.fromRGB(150, 100, 0), function()
     if currentAnimID then sessionSkip[currentAnimID] = true end
     isWaiting = false
-    main:TweenPosition(UDim2.new(0.5, -190, 0, -120), "In", "Quad", 0.3)
+    main:TweenPosition(UDim2.new(0.5, -190, 0, -150), "In", "Quad", 0.3)
 end)
 
 -- [[ MONITOR ]] --
@@ -128,7 +165,8 @@ local function setupMonitor(char)
             track.Stopped:Wait()
             
             currentAnimID = id
-            title.Text = "ID: " .. id .. " | SALVAR?"
+            title.Text = "NOVA ANIMAÇÃO ENCONTRADA!"
+            nameInput.Text = "" -- Limpa a caixa de texto para a nova animação
             main:TweenPosition(UDim2.new(0.5, -190, 0, 20), "Out", "Back", 0.4)
         end
     end)
