@@ -1,5 +1,5 @@
 -- =================================================================
--- PARTICLE EXTRACTOR - MODERN MOBILE & BACKUP EDITION
+-- PARTICLE EXTRACTOR - MODERN MOBILE & BACKUP EDITION (TABS VERSION)
 -- =================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -20,19 +20,15 @@ end
 -- ==========================================
 -- SISTEMA DE NOME DO JOGO (ASSÍNCRONO)
 -- ==========================================
-local gameFolderName = tostring(game.PlaceId) -- Fallback inicial
+local gameFolderName = tostring(game.PlaceId)
 task.spawn(function()
     if game.PlaceId > 0 then
         pcall(function()
             local info = MarketplaceService:GetProductInfo(game.PlaceId)
             if info and info.Name then
-                -- Remove caracteres inválidos para nomes de pasta no Windows/Android
                 local safeName = string.gsub(info.Name, '[\\/:*?"<>|]', '')
-                -- Remove espaços extras no final
                 safeName = string.match(safeName, "^%s*(.-)%s*$")
-                if safeName ~= "" then
-                    gameFolderName = safeName
-                end
+                if safeName ~= "" then gameFolderName = safeName end
             end
         end)
     end
@@ -85,7 +81,6 @@ local particleProperties = {
     "Rotation", "RotationSpeed", "Squash", "VelocitySpread", "ZOffset", "TimeScale"
 }
 
--- Serialização completa para salvar no arquivo JSON
 local function serializeValueForJSON(val)
     local t = typeof(val)
     if t == "NumberSequence" then
@@ -104,7 +99,6 @@ local function serializeValueForJSON(val)
     else return val end
 end
 
--- Formatação amigável apenas para visualização na UI
 local function formatValueForUI(val)
     local t = typeof(val)
     if t == "NumberRange" then return string.format("%.2f - %.2f", val.Min, val.Max)
@@ -122,7 +116,6 @@ local ScreenGui = Instance.new("ScreenGui", guiParent)
 ScreenGui.Name = "ParticleExtractorMobile"
 ScreenGui.ResetOnSpawn = false
 
--- Constantes de Design Moderno
 local BG_COLOR = Color3.fromRGB(18, 18, 22)
 local PANEL_COLOR = Color3.fromRGB(25, 25, 30)
 local ACCENT_COLOR = Color3.fromRGB(80, 120, 255)
@@ -142,8 +135,8 @@ Instance.new("UIStroke", MiniBtn).Color = ACCENT_COLOR
 
 -- ====== FRAME PRINCIPAL ======
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 500, 0, 310) 
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -155)
+MainFrame.Size = UDim2.new(0, 520, 0, 330) 
+MainFrame.Position = UDim2.new(0.5, -260, 0.5, -165)
 MainFrame.BackgroundColor3 = BG_COLOR
 MainFrame.ClipsDescendants = true
 Instance.new("UICorner", MainFrame).CornerRadius = RADIUS
@@ -155,11 +148,6 @@ Header.Size = UDim2.new(1, 0, 0, 40)
 Header.BackgroundColor3 = PANEL_COLOR
 Header.BorderSizePixel = 0
 Instance.new("UICorner", Header).CornerRadius = RADIUS
-local HeaderBottom = Instance.new("Frame", Header)
-HeaderBottom.Size = UDim2.new(1, 0, 0, 10)
-HeaderBottom.Position = UDim2.new(0, 0, 1, -10)
-HeaderBottom.BackgroundColor3 = PANEL_COLOR
-HeaderBottom.BorderSizePixel = 0
 
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(1, -90, 1, 0)
@@ -189,27 +177,52 @@ CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
 CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.GothamBold
 
--- Painel Esquerdo (Lista)
+-- Painel Esquerdo (Lista e Tabs)
 local LeftPanel = Instance.new("Frame", MainFrame)
-LeftPanel.Size = UDim2.new(0, 170, 1, -40)
+LeftPanel.Size = UDim2.new(0, 180, 1, -40)
 LeftPanel.Position = UDim2.new(0, 0, 0, 40)
 LeftPanel.BackgroundColor3 = BG_COLOR
 LeftPanel.BorderSizePixel = 0
 
+-- TABS
+local TabContainer = Instance.new("Frame", LeftPanel)
+TabContainer.Size = UDim2.new(1, -20, 0, 25)
+TabContainer.Position = UDim2.new(0, 10, 0, 5)
+TabContainer.BackgroundTransparency = 1
+
+local TabSoltas = Instance.new("TextButton", TabContainer)
+TabSoltas.Size = UDim2.new(0.5, -2, 1, 0)
+TabSoltas.Position = UDim2.new(0, 0, 0, 0)
+TabSoltas.BackgroundColor3 = ACCENT_COLOR
+TabSoltas.Text = "Soltas"
+TabSoltas.TextColor3 = TEXT_COLOR
+TabSoltas.Font = Enum.Font.GothamBold
+TabSoltas.TextSize = 11
+Instance.new("UICorner", TabSoltas).CornerRadius = UDim.new(0, 4)
+
+local TabModelos = Instance.new("TextButton", TabContainer)
+TabModelos.Size = UDim2.new(0.5, -2, 1, 0)
+TabModelos.Position = UDim2.new(0.5, 2, 0, 0)
+TabModelos.BackgroundColor3 = PANEL_COLOR
+TabModelos.Text = "Modelos"
+TabModelos.TextColor3 = TEXT_COLOR
+TabModelos.Font = Enum.Font.GothamBold
+TabModelos.TextSize = 11
+Instance.new("UICorner", TabModelos).CornerRadius = UDim.new(0, 4)
+
 local SearchBox = Instance.new("TextBox", LeftPanel)
-SearchBox.Size = UDim2.new(1, -20, 0, 30)
-SearchBox.Position = UDim2.new(0, 10, 0, 10)
+SearchBox.Size = UDim2.new(1, -20, 0, 25)
+SearchBox.Position = UDim2.new(0, 10, 0, 35)
 SearchBox.BackgroundColor3 = PANEL_COLOR
 SearchBox.TextColor3 = TEXT_COLOR
 SearchBox.PlaceholderText = "Pesquisar..."
 SearchBox.Font = Enum.Font.Gotham
-SearchBox.TextSize = 12
-Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", SearchBox).Color = Color3.fromRGB(50, 50, 60)
+SearchBox.TextSize = 11
+Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
 
 local List = Instance.new("ScrollingFrame", LeftPanel)
-List.Size = UDim2.new(1, -20, 1, -55)
-List.Position = UDim2.new(0, 10, 0, 45)
+List.Size = UDim2.new(1, -20, 1, -70)
+List.Position = UDim2.new(0, 10, 0, 65)
 List.BackgroundTransparency = 1
 List.ScrollBarThickness = 2
 List.ScrollBarImageColor3 = ACCENT_COLOR
@@ -219,22 +232,22 @@ ListLayout.Padding = UDim.new(0, 5)
 
 -- Painel Direito (Detalhes)
 local RightPanel = Instance.new("Frame", MainFrame)
-RightPanel.Size = UDim2.new(1, -170, 1, -40)
-RightPanel.Position = UDim2.new(0, 170, 0, 40)
+RightPanel.Size = UDim2.new(1, -180, 1, -40)
+RightPanel.Position = UDim2.new(0, 180, 0, 40)
 RightPanel.BackgroundTransparency = 1
 
 local SelName = Instance.new("TextLabel", RightPanel)
 SelName.Size = UDim2.new(1, -20, 0, 25)
 SelName.Position = UDim2.new(0, 10, 0, 5)
 SelName.BackgroundTransparency = 1
-SelName.Text = "Selecione uma Partícula"
+SelName.Text = "Selecione um Item"
 SelName.TextColor3 = TEXT_COLOR
 SelName.Font = Enum.Font.GothamBold
 SelName.TextSize = 16
 SelName.TextXAlignment = Enum.TextXAlignment.Left
 
 local StatsScroll = Instance.new("ScrollingFrame", RightPanel)
-StatsScroll.Size = UDim2.new(1, -20, 0, 135)
+StatsScroll.Size = UDim2.new(1, -20, 0, 155)
 StatsScroll.Position = UDim2.new(0, 10, 0, 35)
 StatsScroll.BackgroundColor3 = PANEL_COLOR
 StatsScroll.ScrollBarThickness = 3
@@ -254,11 +267,11 @@ StatsText.TextXAlignment = Enum.TextXAlignment.Left
 StatsText.TextYAlignment = Enum.TextYAlignment.Top
 
 -- ====== BOTÕES DE CONTROLE ======
-local cameraRadius = 10 
+local cameraRadius = 15 
 
 local ZoomOutBtn = Instance.new("TextButton", RightPanel)
 ZoomOutBtn.Size = UDim2.new(0, 40, 0, 35)
-ZoomOutBtn.Position = UDim2.new(0, 10, 0, 175)
+ZoomOutBtn.Position = UDim2.new(0, 10, 0, 195)
 ZoomOutBtn.BackgroundColor3 = PANEL_COLOR
 ZoomOutBtn.Text = "➖"
 ZoomOutBtn.TextColor3 = TEXT_COLOR
@@ -266,7 +279,7 @@ Instance.new("UICorner", ZoomOutBtn).CornerRadius = UDim.new(0, 6)
 
 local ZoomInBtn = Instance.new("TextButton", RightPanel)
 ZoomInBtn.Size = UDim2.new(0, 40, 0, 35)
-ZoomInBtn.Position = UDim2.new(0, 55, 0, 175)
+ZoomInBtn.Position = UDim2.new(0, 55, 0, 195)
 ZoomInBtn.BackgroundColor3 = PANEL_COLOR
 ZoomInBtn.Text = "➕"
 ZoomInBtn.TextColor3 = TEXT_COLOR
@@ -274,7 +287,7 @@ Instance.new("UICorner", ZoomInBtn).CornerRadius = UDim.new(0, 6)
 
 local ViewBtn = Instance.new("TextButton", RightPanel)
 ViewBtn.Size = UDim2.new(1, -115, 0, 35)
-ViewBtn.Position = UDim2.new(0, 100, 0, 175)
+ViewBtn.Position = UDim2.new(0, 100, 0, 195)
 ViewBtn.BackgroundColor3 = ACCENT_COLOR
 ViewBtn.Text = "INICIAR CÂMERA"
 ViewBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -284,9 +297,9 @@ Instance.new("UICorner", ViewBtn).CornerRadius = UDim.new(0, 6)
 
 local SaveBtn = Instance.new("TextButton", RightPanel)
 SaveBtn.Size = UDim2.new(1, -20, 0, 40)
-SaveBtn.Position = UDim2.new(0, 10, 0, 218)
+SaveBtn.Position = UDim2.new(0, 10, 0, 238)
 SaveBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 100)
-SaveBtn.Text = "📥 EXPORTAR JSON (PASTA DO JOGO)"
+SaveBtn.Text = "📥 EXPORTAR JSON"
 SaveBtn.TextColor3 = Color3.new(1, 1, 1)
 SaveBtn.Font = Enum.Font.GothamBold
 SaveBtn.TextSize = 12
@@ -294,12 +307,12 @@ Instance.new("UICorner", SaveBtn).CornerRadius = UDim.new(0, 6)
 
 -- Funções de Zoom
 ZoomOutBtn.MouseButton1Click:Connect(function() 
-    cameraRadius = math.clamp(cameraRadius + 2, 2, 50)
+    cameraRadius = math.clamp(cameraRadius + 3, 2, 80)
     TweenService:Create(ZoomOutBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(50, 50, 60)}):Play()
     task.wait(0.1); ZoomOutBtn.BackgroundColor3 = PANEL_COLOR
 end)
 ZoomInBtn.MouseButton1Click:Connect(function() 
-    cameraRadius = math.clamp(cameraRadius - 2, 2, 50)
+    cameraRadius = math.clamp(cameraRadius - 3, 2, 80)
     TweenService:Create(ZoomInBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(50, 50, 60)}):Play()
     task.wait(0.1); ZoomInBtn.BackgroundColor3 = PANEL_COLOR
 end)
@@ -328,30 +341,40 @@ end
 makeDraggable(MainFrame, Header)
 makeDraggable(MiniBtn, MiniBtn)
 
-MinimizeBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    MiniBtn.Visible = true
-end)
-
-MiniBtn.MouseButton1Click:Connect(function()
-    MiniBtn.Visible = false
-    MainFrame.Visible = true
-end)
+MinimizeBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; MiniBtn.Visible = true end)
+MiniBtn.MouseButton1Click:Connect(function() MiniBtn.Visible = false; MainFrame.Visible = true end)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 -- ==========================================
 -- 5. LÓGICA CORE (CÂMERA, LISTA E SALVAMENTO)
 -- ==========================================
-local selectedParticle = nil
+local selectedItem = nil -- Pode ser ParticleEmitter ou Model
 local isViewing = false
 local cam = Workspace.CurrentCamera
 local orbitalConnection = nil
 
 local function updateVoidRoom()
     PreviewBase:ClearAllChildren()
-    if selectedParticle and isViewing then
-        local clone = selectedParticle:Clone()
-        clone.Parent = PreviewBase
-        clone.Enabled = true
+    for _, child in ipairs(VoidRoom:GetChildren()) do
+        if child.Name == "ModelPreview" then child:Destroy() end
+    end
+
+    if selectedItem and isViewing then
+        if selectedItem:IsA("ParticleEmitter") then
+            local clone = selectedItem:Clone()
+            clone.Parent = PreviewBase
+            clone.Enabled = true
+        elseif selectedItem:IsA("Model") then
+            local clone = selectedItem:Clone()
+            clone.Name = "ModelPreview"
+            clone:PivotTo(CFrame.new(centerPos))
+            
+            -- Ativa todas as partículas do modelo no preview
+            for _, p in ipairs(clone:GetDescendants()) do
+                if p:IsA("ParticleEmitter") then p.Enabled = true end
+            end
+            clone.Parent = VoidRoom
+        end
     end
 end
 
@@ -369,12 +392,20 @@ local function toggleCamera()
         if orbitalConnection then orbitalConnection:Disconnect() end
         orbitalConnection = RunService.RenderStepped:Connect(function(dt)
             angle = angle + math.rad(45 * dt)
-            local camPos = PreviewBase.Position + Vector3.new(math.sin(angle) * cameraRadius, height, math.cos(angle) * cameraRadius)
-            cam.CFrame = CFrame.lookAt(camPos, PreviewBase.Position)
+            local targetPos = PreviewBase.Position
+            if selectedItem and selectedItem:IsA("Model") then
+                targetPos = centerPos -- Foca no centro do modelo
+            end
+            
+            local camPos = targetPos + Vector3.new(math.sin(angle) * cameraRadius, height, math.cos(angle) * cameraRadius)
+            cam.CFrame = CFrame.lookAt(camPos, targetPos)
         end)
     else
         if orbitalConnection then orbitalConnection:Disconnect() end
         PreviewBase:ClearAllChildren()
+        for _, child in ipairs(VoidRoom:GetChildren()) do
+            if child.Name == "ModelPreview" then child:Destroy() end
+        end
         cam.CameraType = Enum.CameraType.Custom
         local localChar = LocalPlayer.Character
         if localChar and localChar:FindFirstChild("Humanoid") then
@@ -386,146 +417,253 @@ local function toggleCamera()
 end
 
 ViewBtn.MouseButton1Click:Connect(function()
-    if not selectedParticle and not isViewing then return end
+    if not selectedItem and not isViewing then return end
     toggleCamera()
 end)
 
-local function dumpAllProperties(part)
-    local rawText = " [ " .. part.ClassName .. " ]\n\n"
-    for _, propName in ipairs(particleProperties) do
-        local ok, val = pcall(function() return part[propName] end)
-        if ok then
-            rawText = rawText .. " 🔸 " .. propName .. ": " .. formatValueForUI(val) .. "\n"
+local function dumpAllProperties(item)
+    local rawText = ""
+    if item:IsA("ParticleEmitter") then
+        rawText = " [ PARTICLE: " .. item.Name .. " ]\n\n"
+        for _, propName in ipairs(particleProperties) do
+            local ok, val = pcall(function() return item[propName] end)
+            if ok then
+                rawText = rawText .. " 🔸 " .. propName .. ": " .. formatValueForUI(val) .. "\n"
+            end
         end
+    elseif item:IsA("Model") then
+        rawText = " [ MODELO: " .. item.Name .. " ]\n\n"
+        local count = 0
+        for _, desc in ipairs(item:GetDescendants()) do
+            if desc:IsA("ParticleEmitter") then count = count + 1 end
+        end
+        rawText = rawText .. " 🔸 Total de Partículas Internas: " .. tostring(count) .. "\n"
+        rawText = rawText .. " 🔸 Selecione 'Exportar JSON' para salvar todas juntas em um arquivo."
     end
+    
     StatsText.Text = rawText
     task.wait(0.05)
     StatsScroll.CanvasSize = UDim2.new(0, 0, 0, StatsText.TextBounds.Y + 20)
 end
 
 -- ==========================================
--- SISTEMA DE BUSCA GERAL DE PARTÍCULAS
+-- SISTEMA DE BUSCA GERAL COM ABAS
 -- ==========================================
-local allButtons = {}
-local seenNames = {}
+local looseParticles = {}
+local modelDict = {} -- Modelo -> Array de Partículas
+local allModels = {}
 
--- Define os principais serviços acessíveis ao cliente para buscar
 local servicesToScan = {
-    Workspace,
-    game:GetService("ReplicatedStorage"),
-    game:GetService("Lighting"),
-    game:GetService("MaterialService"),
-    game:GetService("Players"),
-    game:GetService("StarterGui"),
-    game:GetService("StarterPack"),
-    game:GetService("StarterPlayer")
+    Workspace, game:GetService("ReplicatedStorage"), game:GetService("Lighting"),
+    game:GetService("MaterialService"), game:GetService("Players"),
+    game:GetService("StarterGui"), game:GetService("StarterPack"), game:GetService("StarterPlayer")
 }
 
 for _, service in ipairs(servicesToScan) do
-    pcall(function() -- Usa pcall para evitar erros em objetos bloqueados
+    pcall(function() 
         for _, obj in ipairs(service:GetDescendants()) do
             if obj:IsA("ParticleEmitter") then
-                if not seenNames[obj.Name] then
-                    seenNames[obj.Name] = true
-                    
-                    local btn = Instance.new("TextButton", List)
-                    btn.Size = UDim2.new(1, 0, 0, 28)
-                    btn.BackgroundColor3 = PANEL_COLOR
-                    btn.Text = "  " .. obj.Name
-                    btn.TextColor3 = TEXT_COLOR
-                    btn.Font = Enum.Font.GothamMedium
-                    btn.TextSize = 12
-                    btn.TextXAlignment = Enum.TextXAlignment.Left
-                    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-                    
-                    table.insert(allButtons, {btn = btn, name = obj.Name:lower()})
-                    
-                    btn.MouseButton1Click:Connect(function()
-                        selectedParticle = obj
-                        SelName.Text = obj.Name
-                        dumpAllProperties(obj)
-                        
-                        for _, item in ipairs(allButtons) do item.btn.BackgroundColor3 = PANEL_COLOR end
-                        btn.BackgroundColor3 = ACCENT_COLOR
-                        
-                        if isViewing then updateVoidRoom() end
-                    end)
+                local parentModel = obj:FindFirstAncestorOfClass("Model")
+                if parentModel then
+                    if not modelDict[parentModel] then
+                        modelDict[parentModel] = {}
+                        table.insert(allModels, parentModel)
+                    end
+                    table.insert(modelDict[parentModel], obj)
+                else
+                    table.insert(looseParticles, obj)
                 end
             end
         end
     end)
 end
-List.CanvasSize = UDim2.new(0, 0, 0, #allButtons * 33)
 
-SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local text = SearchBox.Text:lower()
+local currentTab = "Soltas"
+local viewingModel = nil
+
+local function UpdateUIList()
+    for _, child in ipairs(List:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+
+    local filter = SearchBox.Text:lower()
     local count = 0
-    for _, item in ipairs(allButtons) do
-        if text == "" or string.find(item.name, text) then
-            item.btn.Visible = true; count = count + 1
+    
+    local function createButton(text, bgColor, callback)
+        local btn = Instance.new("TextButton", List)
+        btn.Size = UDim2.new(1, 0, 0, 28)
+        btn.BackgroundColor3 = bgColor
+        btn.Text = "  " .. text
+        btn.TextColor3 = TEXT_COLOR
+        btn.Font = Enum.Font.GothamMedium
+        btn.TextSize = 11
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.MouseButton1Click:Connect(callback)
+        count = count + 1
+        return btn
+    end
+
+    if currentTab == "Soltas" then
+        for _, part in ipairs(looseParticles) do
+            if filter == "" or string.find(part.Name:lower(), filter) then
+                createButton("✨ " .. part.Name, PANEL_COLOR, function()
+                    selectedItem = part
+                    SelName.Text = part.Name
+                    dumpAllProperties(part)
+                    for _, b in ipairs(List:GetChildren()) do if b:IsA("TextButton") then b.BackgroundColor3 = PANEL_COLOR end end
+                    -- (Este botão perde a ref pura, simplificando seleção visual)
+                    if isViewing then updateVoidRoom() end
+                end)
+            end
+        end
+    elseif currentTab == "Modelos" then
+        if viewingModel == nil then
+            for _, mdl in ipairs(allModels) do
+                if filter == "" or string.find(mdl.Name:lower(), filter) then
+                    createButton("📦 " .. mdl.Name, PANEL_COLOR, function()
+                        viewingModel = mdl
+                        selectedItem = mdl
+                        SelName.Text = mdl.Name
+                        dumpAllProperties(mdl)
+                        SearchBox.Text = "" -- Limpa busca ao entrar
+                        if isViewing then updateVoidRoom() end
+                        UpdateUIList()
+                    end)
+                end
+            end
         else
-            item.btn.Visible = false
+            -- Estamos DENTRO de um modelo
+            createButton("🔙 VOLTAR AOS MODELOS", Color3.fromRGB(80, 80, 90), function()
+                viewingModel = nil
+                selectedItem = nil
+                SelName.Text = "Selecione um Modelo"
+                StatsText.Text = ""
+                UpdateUIList()
+            end)
+            
+            createButton("🌟 EXPORTAR TODO O MODELO", Color3.fromRGB(180, 140, 30), function()
+                selectedItem = viewingModel
+                -- A lógica de exportação cuida de salvar tudo
+                -- Simula o clique no botão principal de salvar
+                SaveBtn.Text = "Exportando Modelo..."
+                task.wait(0.1)
+                -- O usuário precisará clicar no botão verde gigante em baixo, ou podemos forçar o evento aqui,
+                -- mas para ser seguro, só vamos selecionar o modelo.
+                SelName.Text = viewingModel.Name .. " (Selecionado)"
+                dumpAllProperties(viewingModel)
+            end)
+
+            for _, part in ipairs(modelDict[viewingModel]) do
+                if filter == "" or string.find(part.Name:lower(), filter) then
+                    createButton("  ↳ ✨ " .. part.Name, PANEL_COLOR, function()
+                        selectedItem = part
+                        SelName.Text = part.Name
+                        dumpAllProperties(part)
+                        if isViewing then updateVoidRoom() end
+                    end)
+                end
+            end
         end
     end
+    
     List.CanvasSize = UDim2.new(0, 0, 0, count * 33)
+end
+
+TabSoltas.MouseButton1Click:Connect(function()
+    currentTab = "Soltas"
+    viewingModel = nil
+    TabSoltas.BackgroundColor3 = ACCENT_COLOR
+    TabModelos.BackgroundColor3 = PANEL_COLOR
+    SearchBox.Text = ""
+    UpdateUIList()
 end)
 
--- SISTEMA DE EXPORTAÇÃO (ATUALIZADO COM SUBPASTAS DE JOGOS)
+TabModelos.MouseButton1Click:Connect(function()
+    currentTab = "Modelos"
+    viewingModel = nil
+    TabModelos.BackgroundColor3 = ACCENT_COLOR
+    TabSoltas.BackgroundColor3 = PANEL_COLOR
+    SearchBox.Text = ""
+    UpdateUIList()
+end)
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(UpdateUIList)
+UpdateUIList() -- Inicia a lista
+
+-- SISTEMA DE EXPORTAÇÃO (ATUALIZADO PARA SUPORTAR MODELOS E ARRAYS)
+local function getPropertiesData(particle)
+    local props = {}
+    for _, prop in ipairs(particleProperties) do
+        local ok, val = pcall(function() return particle[prop] end)
+        if ok then
+            props[prop] = serializeValueForJSON(val)
+        end
+    end
+    return props
+end
+
 SaveBtn.MouseButton1Click:Connect(function()
-    if not selectedParticle then return end
+    if not selectedItem then return end
 
     local baseFolder = "ParticleBackups"
     local fullPathFolder = baseFolder .. "/" .. gameFolderName
     
-    -- Garante que a pasta principal e a do jogo existam
     if isfolder and makefolder then
         local success, err = pcall(function()
-            if not isfolder(baseFolder) then
-                makefolder(baseFolder)
-            end
-            if not isfolder(fullPathFolder) then
-                makefolder(fullPathFolder)
-            end
+            if not isfolder(baseFolder) then makefolder(baseFolder) end
+            if not isfolder(fullPathFolder) then makefolder(fullPathFolder) end
         end)
         
         if not success then
-            warn("Erro ao criar pastas: " .. tostring(err))
             SaveBtn.Text = "❌ ERRO: FOLDERS"
             task.wait(2)
-            SaveBtn.Text = "📥 EXPORTAR JSON (PASTA DO JOGO)"
+            SaveBtn.Text = "📥 EXPORTAR JSON"
             return
         end
     end
 
-    local exportData = {
-        ParticleName = selectedParticle.Name,
-        OriginalParent = selectedParticle.Parent and selectedParticle.Parent.Name or "Unknown",
-        PlaceId = game.PlaceId,
-        GameName = gameFolderName,
-        Properties = {}
-    }
+    local exportData = {}
+    local fileNamePrefix = ""
 
-    for _, prop in ipairs(particleProperties) do
-        local ok, val = pcall(function() return selectedParticle[prop] end)
-        if ok then
-            exportData.Properties[prop] = serializeValueForJSON(val)
+    if selectedItem:IsA("ParticleEmitter") then
+        exportData = {
+            Type = "SingleParticle",
+            ParticleName = selectedItem.Name,
+            OriginalParent = selectedItem.Parent and selectedItem.Parent.Name or "Unknown",
+            PlaceId = game.PlaceId,
+            GameName = gameFolderName,
+            Properties = getPropertiesData(selectedItem)
+        }
+        fileNamePrefix = selectedItem.Name
+    elseif selectedItem:IsA("Model") then
+        exportData = {
+            Type = "ModelCollection",
+            ModelName = selectedItem.Name,
+            PlaceId = game.PlaceId,
+            GameName = gameFolderName,
+            Particles = {}
+        }
+        
+        for _, part in ipairs(modelDict[selectedItem] or {}) do
+            table.insert(exportData.Particles, {
+                ParticleName = part.Name,
+                OriginalParent = part.Parent and part.Parent.Name or "Unknown",
+                Properties = getPropertiesData(part)
+            })
         end
+        fileNamePrefix = "MODEL_" .. selectedItem.Name
     end
 
     local jsonString = HttpService:JSONEncode(exportData)
-    -- Salva diretamente dentro da subpasta do jogo atual
-    local fileName = fullPathFolder .. "/" .. selectedParticle.Name .. "_" .. tostring(math.random(100, 999)) .. ".json"
+    local fileName = fullPathFolder .. "/" .. fileNamePrefix .. "_" .. tostring(math.random(100, 999)) .. ".json"
 
     if writefile then
-        local success, err = pcall(function() 
-            writefile(fileName, jsonString) 
-        end)
-        
+        local success, err = pcall(function() writefile(fileName, jsonString) end)
         if success then
             SaveBtn.Text = "✅ SALVO COM SUCESSO!"
             SaveBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 255)
         else
-            warn("Erro ao salvar arquivo: " .. tostring(err))
             SaveBtn.Text = "❌ ERRO: WRITEFILE"
             SaveBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
         end
@@ -535,6 +673,6 @@ SaveBtn.MouseButton1Click:Connect(function()
     end
 
     task.wait(2)
-    SaveBtn.Text = "📥 EXPORTAR JSON (PASTA DO JOGO)"
+    SaveBtn.Text = "📥 EXPORTAR JSON"
     SaveBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 100)
 end)
