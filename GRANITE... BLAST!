@@ -1,0 +1,488 @@
+local Player = game.Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+
+-------------------------------------------------------------------------
+-- UI SETUP & BARRAS CINEMÁTICAS (WARM-UP 8, 9)
+-------------------------------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Name = "GraniteBlastUI"
+
+local Button = Instance.new("TextButton", ScreenGui)
+Button.Size = UDim2.new(0, 200, 0, 60)
+Button.Position = UDim2.new(0.5, -100, 0.85, 0)
+Button.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Button.Text = "GRANITE BLAST"
+Button.TextColor3 = Color3.fromRGB(0, 255, 255)
+Button.Font = Enum.Font.GothamBlack
+Button.TextScaled = true
+local UICorner = Instance.new("UICorner", Button)
+UICorner.CornerRadius = UDim.new(0.15, 0)
+local UIStroke = Instance.new("UIStroke", Button)
+UIStroke.Color = Color3.fromRGB(0, 255, 255); UIStroke.Thickness = 3
+
+local FlashFrame = Instance.new("Frame", ScreenGui)
+FlashFrame.Size = UDim2.new(1, 0, 1, 0)
+FlashFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+FlashFrame.BackgroundTransparency = 1; FlashFrame.ZIndex = 100
+
+-- [EFEITO 9] Barras Cinemáticas
+local TopBar = Instance.new("Frame", ScreenGui); TopBar.Size = UDim2.new(1,0,0,0); TopBar.BackgroundColor3 = Color3.new(0,0,0); TopBar.BorderSizePixel = 0
+local BottomBar = Instance.new("Frame", ScreenGui); BottomBar.Size = UDim2.new(1,0,0,0); BottomBar.Position = UDim2.new(0,0,1,0); BottomBar.AnchorPoint = Vector2.new(0,1); BottomBar.BackgroundColor3 = Color3.new(0,0,0); BottomBar.BorderSizePixel = 0
+
+-- [EFEITO 8] Vinheta (Vignette) escurecendo bordas
+local Vignette = Instance.new("Frame", ScreenGui); Vignette.Size = UDim2.new(1,0,1,0); Vignette.BackgroundColor3 = Color3.new(0,0,0); Vignette.BackgroundTransparency = 1; Vignette.ZIndex = -1
+local UIGradient = Instance.new("UIGradient", Vignette); UIGradient.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0.8), NumberSequenceKeypoint.new(0.5,1), NumberSequenceKeypoint.new(1,0.8)}); UIGradient.Rotation = 90
+
+-------------------------------------------------------------------------
+-- VARIÁVEIS DE CONTROLE
+-------------------------------------------------------------------------
+local Debounce = false
+local ShakeForce = 0
+local MuzzleOffset = CFrame.new(0, 0.4, -0.55) 
+local ChaosColor1 = Color3.fromRGB(0, 255, 255)
+local ChaosColor2 = Color3.fromRGB(255, 255, 255)
+local BlackColor = Color3.fromRGB(0, 0, 0)
+local ANIMATION_SPEED = 2.5 
+local BEAM_DURATION = 4 
+local BEAM_LENGTH = 800 
+
+-------------------------------------------------------------------------
+-- CÂMERA DINÂMICA
+-------------------------------------------------------------------------
+local OriginalFOV = 70
+RunService.RenderStepped:Connect(function()
+	local Cam = workspace.CurrentCamera
+	if ShakeForce > 0.1 then
+		local shakeX = math.rad(math.random(-5, 5) * 0.04 * ShakeForce)
+		local shakeY = math.rad(math.random(-5, 5) * 0.04 * ShakeForce)
+		Cam.CFrame = Cam.CFrame * CFrame.Angles(shakeX, shakeY, 0)
+		Cam.FieldOfView = math.clamp(OriginalFOV + (ShakeForce * 1.5), 70, 120)
+		ShakeForce = ShakeForce * 0.88 
+	else
+		ShakeForce = 0; Cam.FieldOfView = OriginalFOV
+	end
+end)
+
+-------------------------------------------------------------------------
+-- FUNÇÕES DE EFEITOS GERAIS
+-------------------------------------------------------------------------
+local function CreatePart(shape, mat, col, size, cf, t)
+	local p = Instance.new("Part")
+	p.Shape = shape; p.Material = mat; p.Color = col; p.Size = size; p.CFrame = cf; p.Transparency = t
+	p.Anchored = true; p.CanCollide = false; p.Parent = workspace
+	return p
+end
+
+local function TweenOut(part, duration, endSize)
+	TweenService:Create(part, TweenInfo.new(duration, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = endSize, Transparency = 1}):Play()
+	Debris:AddItem(part, duration)
+end
+
+-------------------------------------------------------------------------
+-- ANIMAÇÃO CUSTOMIZADA
+-------------------------------------------------------------------------
+local function GetMotor6D(character, poseName)
+	local Torso = character:FindFirstChild("Torso")
+	local HRP = character:FindFirstChild("HumanoidRootPart")
+	if not Torso then return nil end
+	if poseName == "Right Arm" then return Torso:FindFirstChild("Right Shoulder") end
+	if poseName == "Left Arm" then return Torso:FindFirstChild("Left Shoulder") end
+	if poseName == "Right Leg" then return Torso:FindFirstChild("Right Hip") end
+	if poseName == "Left Leg" then return Torso:FindFirstChild("Left Hip") end
+	if poseName == "Torso" then return HRP and HRP:FindFirstChild("RootJoint") end
+	if poseName == "Head" then return Torso:FindFirstChild("Neck") end
+	return Torso:FindFirstChild(poseName)
+end
+
+local function playCustomAnimation(character)
+	local success, content = pcall(function() return readfile("AnimationsBackups/Granite Blast.json") end)
+	if not success then return end
+	local AnimData = HttpService:JSONDecode(content)
+	local originalJoints = {}
+	local partesR6 = {"Right Arm", "Left Arm", "Right Leg", "Left Leg", "Torso", "Head"}
+	for _, poseName in ipairs(partesR6) do
+		local joint = GetMotor6D(character, poseName)
+		if joint and joint:IsA("Motor6D") then originalJoints[poseName] = joint.C0 end
+	end
+	task.spawn(function()
+		local prevTime = 0
+		for _, keyframe in ipairs(AnimData.Keyframes) do
+			local currentTime = keyframe.Time or (prevTime + 0.05)
+			local stepDuration = (currentTime - prevTime) / ANIMATION_SPEED
+			if stepDuration <= 0.01 then stepDuration = 0.01 end
+			for _, pose in ipairs(keyframe.Poses) do
+				local joint = GetMotor6D(character, pose.Name)
+				if joint and originalJoints[pose.Name] then
+					TweenService:Create(joint, TweenInfo.new(stepDuration, Enum.EasingStyle.Linear), {C0 = originalJoints[pose.Name] * CFrame.new(unpack(pose.CFrame))}):Play()
+				end
+			end
+			task.wait(stepDuration)
+			prevTime = currentTime
+		end
+		task.wait(BEAM_DURATION) 
+		for poseName, originalC0 in pairs(originalJoints) do
+			local joint = GetMotor6D(character, poseName)
+			if joint then TweenService:Create(joint, TweenInfo.new(0.5), {C0 = originalC0}):Play() end
+		end
+	end)
+end
+
+-------------------------------------------------------------------------
+-- DISPARO PRINCIPAL (O APOCALIPSE)
+-------------------------------------------------------------------------
+Button.MouseButton1Click:Connect(function()
+	if Debounce then return end
+	Debounce = true
+	local Character = Player.Character
+	local Head = Character and Character:FindFirstChild("Head")
+	local HRP = Character and Character:FindFirstChild("HumanoidRootPart")
+	if not Head or not HRP then Debounce = false return end
+
+	-- Ativar UI Cinemática (Barras e Vinheta)
+	TweenService:Create(TopBar, TweenInfo.new(1), {Size = UDim2.new(1,0,0,80)}):Play()
+	TweenService:Create(BottomBar, TweenInfo.new(1), {Size = UDim2.new(1,0,0,80)}):Play()
+	TweenService:Create(Vignette, TweenInfo.new(1), {BackgroundTransparency = 0.3}):Play()
+
+	playCustomAnimation(Character)
+	ShakeForce = 5 
+	
+	-- EFEITO WARM-UP 1: Cratera
+	local crater = CreatePart(Enum.PartType.Cylinder, Enum.Material.Slate, Color3.new(0.1,0.1,0.1), Vector3.new(0.1, 20, 20), HRP.CFrame * CFrame.new(0,-2.9,0) * CFrame.Angles(0,0,math.rad(90)), 0)
+	
+	-- EFEITO WARM-UP 5: Brilho no Olho
+	local EyeGlint = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor2, Vector3.new(0.5,0.5,0.5), Head.CFrame * CFrame.new(0.15,0.2,-0.6), 0)
+	TweenOut(EyeGlint, 0.8, Vector3.new(5, 0.1, 5))
+
+	local EnergyBall = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor1, Vector3.new(0.1, 0.1, 0.1), Head.CFrame * MuzzleOffset, 0)
+	EnergyBall.Anchored = false; EnergyBall.Massless = true
+	local Weld = Instance.new("WeldConstraint", EnergyBall); Weld.Part0 = Head; Weld.Part1 = EnergyBall
+	local Light = Instance.new("PointLight", EnergyBall); Light.Color = ChaosColor1; Light.Range = 5; Light.Brightness = 5
+
+	TweenService:Create(EnergyBall, TweenInfo.new(1.2, Enum.EasingStyle.Cubic), {Size = Vector3.new(4, 4, 4)}):Play()
+	TweenService:Create(Light, TweenInfo.new(1.2), {Range = 80, Brightness = 30}):Play()
+
+	local chargeTime = 0
+	while chargeTime < 1.2 do
+		-- WARM-UP 2 & 7: Cúpula de Aura e Choque Terrestre
+		local dome = CreatePart(Enum.PartType.Ball, Enum.Material.ForceField, ChaosColor1, Vector3.new(5,5,5), HRP.CFrame, 0.5)
+		TweenOut(dome, 0.4, Vector3.new(30,30,30))
+		local groundRing = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2, Vector3.new(0.5,5,5), HRP.CFrame * CFrame.new(0,-2.5,0) * CFrame.Angles(0,0,math.rad(90)), 0.2)
+		TweenOut(groundRing, 0.4, Vector3.new(0,40,40))
+
+		-- WARM-UP 3: Anéis de Implosão
+		local inRing = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor1, Vector3.new(0.5,30,30), EnergyBall.CFrame * CFrame.Angles(math.rad(math.random(0,360)), math.rad(math.random(0,360)), 0), 0.5)
+		TweenService:Create(inRing, TweenInfo.new(0.3), {Size = Vector3.new(2,1,1), CFrame = EnergyBall.CFrame, Transparency = 1}):Play()
+		Debris:AddItem(inRing, 0.3)
+
+		-- WARM-UP 4 & 6: Motes Flutuantes e Fumaça
+		local mote = CreatePart(Enum.PartType.Block, Enum.Material.Neon, ChaosColor2, Vector3.new(0.4,0.4,0.4), HRP.CFrame * CFrame.new(math.random(-10,10),-3,math.random(-10,10)), 0)
+		TweenService:Create(mote, TweenInfo.new(1), {CFrame = mote.CFrame * CFrame.new(0,math.random(10,20),0), Transparency = 1}):Play()
+		Debris:AddItem(mote, 1)
+
+		task.wait(0.1)
+		chargeTime = chargeTime + 0.1
+	end
+
+	-- WARM-UP 10: Pre-Blast Blackout
+	local ccBlack = Instance.new("ColorCorrectionEffect", Lighting)
+	ccBlack.Brightness = -1; ccBlack.Contrast = 5
+	task.wait(0.08)
+	ccBlack:Destroy()
+
+	--=========================================
+	-- DISPARO MASSIVO
+	--=========================================
+	EnergyBall:Destroy()
+	ShakeForce = 40 
+
+	local FixedAimCFrame = Head.CFrame * MuzzleOffset
+
+	-- EFEITO BEAM 15: Starburst no Muzzle
+	for i=1, 4 do
+		local spike = CreatePart(Enum.PartType.Block, Enum.Material.Neon, ChaosColor2, Vector3.new(0.5,30,0.5), FixedAimCFrame * CFrame.Angles(0,0,math.rad(i*45)), 0)
+		TweenOut(spike, 0.3, Vector3.new(0,100,0))
+	end
+
+	-- EFEITOS BEAM PRINCIPAIS (Cores, Distorções, Super Núcleos)
+	local GlassCyl = CreatePart(Enum.PartType.Cylinder, Enum.Material.Glass, ChaosColor2, Vector3.new(BEAM_LENGTH, 30, 30), FixedAimCFrame * CFrame.new(0,0,-BEAM_LENGTH/2) * CFrame.Angles(0,math.rad(90),0), 0.6) -- [Efeito 13]
+	local OuterBeam = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor1, Vector3.new(BEAM_LENGTH, 18, 18), GlassCyl.CFrame, 0.3)
+	local CoreBeam = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2, Vector3.new(BEAM_LENGTH, 8, 8), GlassCyl.CFrame, 0)
+	local SuperWhiteCore = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, Color3.new(1,1,1), Vector3.new(BEAM_LENGTH, 4, 4), GlassCyl.CFrame, 0) -- [Efeito 12]
+	local BlackCore = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, BlackColor, Vector3.new(BEAM_LENGTH, 1.5, 1.5), GlassCyl.CFrame, 0) -- [Efeito 11]
+
+	-- Hélices (Normais e Contra-Hélices) [Efeito 14]
+	local Helix1 = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2, Vector3.new(BEAM_LENGTH, 3, 3), GlassCyl.CFrame, 0)
+	local Helix2 = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2, Vector3.new(BEAM_LENGTH, 3, 3), GlassCyl.CFrame, 0)
+	local Helix3 = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor1, Vector3.new(BEAM_LENGTH, 2, 2), GlassCyl.CFrame, 0)
+	local Helix4 = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor1, Vector3.new(BEAM_LENGTH, 2, 2), GlassCyl.CFrame, 0)
+
+	local BeamScale = Instance.new("NumberValue"); BeamScale.Value = 18
+	TweenService:Create(BeamScale, TweenInfo.new(BEAM_DURATION, Enum.EasingStyle.Cubic), {Value = 100}):Play()
+
+	local isFiring = true
+	local helixRot = 0
+
+	local conn = RunService.RenderStepped:Connect(function()
+		if not isFiring then return end
+		ShakeForce = 18 
+		
+		-- BEAM 26: Wavy Fluctuation (O Raio pulsa organicamente)
+		local wave = math.sin(os.clock() * 60) * 8
+		local cr = BeamScale.Value + wave
+		
+		GlassCyl.Size = Vector3.new(BEAM_LENGTH, cr*1.5, cr*1.5)
+		OuterBeam.Size = Vector3.new(BEAM_LENGTH, cr, cr)
+		CoreBeam.Size = Vector3.new(BEAM_LENGTH, cr*0.5, cr*0.5)
+		SuperWhiteCore.Size = Vector3.new(BEAM_LENGTH, cr*0.25, cr*0.25)
+		BlackCore.Size = Vector3.new(BEAM_LENGTH, cr*0.1, cr*0.1)
+
+		helixRot = helixRot + 20
+		local base = FixedAimCFrame * CFrame.new(0,0,-BEAM_LENGTH/2) * CFrame.Angles(0,0,math.rad(helixRot)) * CFrame.Angles(0,math.rad(90),0)
+		local baseRev = FixedAimCFrame * CFrame.new(0,0,-BEAM_LENGTH/2) * CFrame.Angles(0,0,math.rad(-helixRot*1.5)) * CFrame.Angles(0,math.rad(90),0)
+		
+		Helix1.CFrame = base * CFrame.new(0, cr*0.6, 0); Helix2.CFrame = base * CFrame.new(0, -cr*0.6, 0)
+		Helix3.CFrame = baseRev * CFrame.new(0, cr*0.7, 0); Helix4.CFrame = baseRev * CFrame.new(0, -cr*0.7, 0)
+	end)
+
+	-- LOOP ASSÍNCRONO DE EFEITOS CONSTANTES NO RAIO
+	task.spawn(function()
+		while isFiring do
+			local cr = BeamScale.Value
+			
+			-- BEAM 27: Flash Colorido UI
+			local flash = Instance.new("ColorCorrectionEffect", Lighting)
+			flash.TintColor = math.random()>0.5 and ChaosColor1 or Color3.new(1,0,0)
+			flash.Brightness = 0.5
+			Debris:AddItem(flash, 0.05)
+			
+			-- BEAM 25: Intake Funnel
+			local funnel = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2, Vector3.new(0.1, cr*2, cr*2), FixedAimCFrame * CFrame.Angles(0,math.rad(90),0), 0.5)
+			TweenService:Create(funnel, TweenInfo.new(0.2), {Size = Vector3.new(20, 0, 0), CFrame = FixedAimCFrame * CFrame.new(0,0,20) * CFrame.Angles(0,math.rad(90),0), Transparency = 1}):Play()
+			Debris:AddItem(funnel, 0.2)
+			
+			-- BEAM 22 & 23: Esfera e Anéis no FINAL do Raio
+			local TipPos = FixedAimCFrame * CFrame.new(0,0,-BEAM_LENGTH)
+			local tipExp = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor1, Vector3.new(cr,cr,cr), TipPos, 0)
+			TweenOut(tipExp, 0.2, Vector3.new(cr*3,cr*3,cr*3))
+			local tipRing = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2, Vector3.new(1,cr*2,cr*2), TipPos * CFrame.Angles(0,0,math.rad(90)), 0)
+			TweenOut(tipRing, 0.3, Vector3.new(0, cr*4, cr*4))
+
+			for i=1, 4 do
+				local posZ = -math.random(0, BEAM_LENGTH)
+				local beamPt = FixedAimCFrame * CFrame.new(0,0,posZ)
+				
+				-- BEAM 16: Satélites orbitais
+				local sat = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor2, Vector3.new(4,4,4), beamPt * CFrame.Angles(0,0,math.rad(math.random(0,360))) * CFrame.new(0,cr,0), 0)
+				TweenService:Create(sat, TweenInfo.new(0.3), {CFrame = beamPt * CFrame.new(0,0,-100), Transparency = 1}):Play()
+				Debris:AddItem(sat, 0.3)
+
+				-- BEAM 17: Nódulos
+				local node = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor1, Vector3.new(cr*1.2,cr*1.2,cr*1.2), beamPt, 0.3)
+				TweenOut(node, 0.2, Vector3.new(1,1,1))
+
+				-- BEAM 19: Discos Cortantes viajantes
+				local disk = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2, Vector3.new(1, cr*1.5, cr*1.5), beamPt * CFrame.Angles(0,math.rad(90),0), 0)
+				TweenService:Create(disk, TweenInfo.new(0.2), {CFrame = beamPt * CFrame.new(0,0,-200) * CFrame.Angles(0,math.rad(90),0), Size = Vector3.new(5,0,0)}):Play()
+				Debris:AddItem(disk, 0.2)
+
+				-- BEAM 20: Energy Shards (Estilhaços)
+				local shard = CreatePart(Enum.PartType.Block, Enum.Material.Neon, ChaosColor1, Vector3.new(2,5,2), beamPt, 0)
+				local flyDir = beamPt * CFrame.Angles(math.random(-3,3), math.random(-3,3), 0)
+				TweenService:Create(shard, TweenInfo.new(0.4), {CFrame = flyDir * CFrame.new(0,0,-50), Size = Vector3.new(0,20,0), Transparency = 1}):Play()
+				Debris:AddItem(shard, 0.4)
+
+				-- BEAM 18: Poeira da Trincheira (No chão debaixo do raio)
+				local groundPt = CFrame.new(beamPt.Position) * CFrame.new(0,-10,0)
+				local trench = CreatePart(Enum.PartType.Ball, Enum.Material.Smoke, Color3.new(0.3,0.3,0.3), Vector3.new(10,10,10), groundPt, 0.5)
+				TweenOut(trench, 0.5, Vector3.new(30,30,30))
+-- =========================
+-- +100 EFEITOS INSANOS
+-- =========================
+
+-- 31: Distortion Bubble
+local bubble = CreatePart(Enum.PartType.Ball, Enum.Material.ForceField, ChaosColor1, Vector3.new(cr*2,cr*2,cr*2), beamPt, 0.7)
+TweenOut(bubble, 0.3, Vector3.new(cr*5,cr*5,cr*5))
+
+-- 32: Plasma Rings rápidos
+for i=1,2 do
+	local ring = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor1, Vector3.new(1,cr*2,cr*2),
+		beamPt * CFrame.Angles(0,0,math.rad(math.random(0,360))), 0)
+	TweenService:Create(ring, TweenInfo.new(0.15), {
+		Size = Vector3.new(0,cr*5,cr*5),
+		Transparency = 1
+	}):Play()
+	Debris:AddItem(ring, 0.2)
+end
+
+-- 33: Sparks caóticos
+for i=1,3 do
+	local spark = CreatePart(Enum.PartType.Block, Enum.Material.Neon, ChaosColor2, Vector3.new(0.2,2,0.2), beamPt, 0)
+	TweenService:Create(spark, TweenInfo.new(0.2), {
+		CFrame = spark.CFrame * CFrame.new(math.random(-20,20),math.random(-20,20),math.random(-20,20)),
+		Transparency = 1
+	}):Play()
+	Debris:AddItem(spark, 0.2)
+end
+
+-- 34: Flash branco no mundo
+local flash = Instance.new("ColorCorrectionEffect", Lighting)
+flash.Brightness = 1
+flash.Contrast = 2
+Debris:AddItem(flash, 0.05)
+
+-- 35: Pulso gravitacional
+local grav = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, BlackColor, Vector3.new(cr,cr,cr), beamPt, 0.4)
+TweenOut(grav, 0.25, Vector3.new(cr*4,cr*4,cr*4))
+
+-- 36: Mini buracos negros
+local bh = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, BlackColor, Vector3.new(2,2,2), beamPt, 0)
+TweenService:Create(bh, TweenInfo.new(0.3), {
+	Size = Vector3.new(10,10,10),
+	Transparency = 1
+}):Play()
+Debris:AddItem(bh, 0.3)
+
+-- 37: Lightning fake
+local bolt = CreatePart(Enum.PartType.Block, Enum.Material.Neon, ChaosColor2, Vector3.new(0.2,cr,0.2), beamPt, 0)
+TweenOut(bolt, 0.1, Vector3.new(0,cr*3,0))
+
+-- 38: Pulsos laterais
+local side = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor1,
+	Vector3.new(3,3,3),
+	beamPt * CFrame.new(math.random(-cr,cr),math.random(-cr,cr),0),
+	0)
+TweenOut(side, 0.2, Vector3.new(10,10,10))
+
+-- 39: Onda horizontal
+local wave = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2,
+	Vector3.new(1,cr*3,cr*3),
+	beamPt * CFrame.Angles(0,math.rad(90),0),
+	0.3)
+TweenOut(wave, 0.3, Vector3.new(0,cr*6,cr*6))
+
+-- 40: Fragmentos gigantes
+local chunk = CreatePart(Enum.PartType.Block, Enum.Material.Slate, Color3.new(0.2,0.2,0.2),
+	Vector3.new(5,5,5), beamPt, 0)
+TweenService:Create(chunk, TweenInfo.new(0.4), {
+	CFrame = chunk.CFrame * CFrame.new(math.random(-50,50),math.random(20,60),math.random(-50,50)),
+	Transparency = 1
+}):Play()
+Debris:AddItem(chunk, 0.4)
+
+-- 41–50: MULTI BURST (10 efeitos rápidos)
+for i=1,10 do
+	local burst = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor1,
+		Vector3.new(1,1,1), beamPt, 0)
+	TweenService:Create(burst, TweenInfo.new(0.2), {
+		Size = Vector3.new(5,5,5),
+		Transparency = 1
+	}):Play()
+	Debris:AddItem(burst, 0.2)
+end
+
+-- 51–60: LINHAS DE ENERGIA
+for i=1,10 do
+	local line = CreatePart(Enum.PartType.Block, Enum.Material.Neon, ChaosColor2,
+		Vector3.new(0.2,10,0.2),
+		beamPt * CFrame.Angles(math.random(),math.random(),math.random()),
+		0)
+	TweenOut(line, 0.2, Vector3.new(0,30,0))
+end
+
+-- 61–70: EXPLOSÕES MINI
+for i=1,10 do
+	local exp = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor2,
+		Vector3.new(2,2,2),
+		beamPt * CFrame.new(math.random(-10,10),math.random(-10,10),0),
+		0)
+	TweenOut(exp, 0.3, Vector3.new(15,15,15))
+end
+
+-- 71–80: DISKS GIRATÓRIOS
+for i=1,10 do
+	local disk = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor1,
+		Vector3.new(1,5,5),
+		beamPt * CFrame.Angles(0,math.rad(90),0),
+		0)
+	TweenService:Create(disk, TweenInfo.new(0.2), {
+		CFrame = disk.CFrame * CFrame.Angles(0,0,math.rad(360)),
+		Transparency = 1
+	}):Play()
+	Debris:AddItem(disk, 0.2)
+end
+
+-- 81–90: FUMAÇA ENERGÉTICA
+for i=1,10 do
+	local smoke = CreatePart(Enum.PartType.Ball, Enum.Material.Smoke,
+		Color3.new(0.4,0.4,0.4),
+		Vector3.new(5,5,5), beamPt, 0.5)
+	TweenOut(smoke, 0.5, Vector3.new(20,20,20))
+end
+
+-- 91–100: FLASHES RANDOMICOS
+for i=1,10 do
+	local cc = Instance.new("ColorCorrectionEffect", Lighting)
+	cc.TintColor = Color3.fromRGB(math.random(0,255),math.random(0,255),math.random(0,255))
+	cc.Brightness = 0.3
+	Debris:AddItem(cc, 0.05)
+end
+			end
+			task.wait(0.04)
+		end
+	end)
+
+	-- BEAM 30: FINAL SUPERNOVA E IMPLOSÃO
+	task.delay(BEAM_DURATION, function()
+		isFiring = false
+		if conn then conn:Disconnect() end
+-- 101–110 FINAL INSANO
+for i=1,10 do
+	local shock = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor2,
+		Vector3.new(1,50,50),
+		FixedAimCFrame * CFrame.new(0,0,-BEAM_LENGTH/2) * CFrame.Angles(0,math.rad(90),0),
+		0)
+	TweenOut(shock, 0.5, Vector3.new(0,300,300))
+end
+
+-- 111: Freeze frame
+workspace.CurrentCamera.FieldOfView = 40
+task.wait(0.05)
+workspace.CurrentCamera.FieldOfView = 70
+
+-- 112: Whiteout total
+FlashFrame.BackgroundTransparency = 0
+TweenService:Create(FlashFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+		
+		-- Flash Reverso para mostrar que acabou
+		local ccFinal = Instance.new("ColorCorrectionEffect", Lighting); ccFinal.Brightness = -2; ccFinal.Contrast = 5
+		Debris:AddItem(ccFinal, 0.2)
+
+		-- Esmaga todas as camadas do feixe
+		local partsToShrink = {OuterBeam, CoreBeam, SuperWhiteCore, BlackCore, GlassCyl, Helix1, Helix2, Helix3, Helix4}
+		for _, p in ipairs(partsToShrink) do
+			TweenService:Create(p, TweenInfo.new(0.2, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {Size = Vector3.new(BEAM_LENGTH, 0, 0), Transparency = 1}):Play()
+			Debris:AddItem(p, 0.3)
+		end
+		Debris:AddItem(BeamScale, 1)
+
+		-- Explosão estelar no fim
+		local FinalNova = CreatePart(Enum.PartType.Ball, Enum.Material.Neon, ChaosColor2, Vector3.new(10,10,10), FixedAimCFrame * CFrame.new(0,0,-BEAM_LENGTH/2), 0)
+		TweenOut(FinalNova, 0.5, Vector3.new(300,300,300))
+		local FinalRing = CreatePart(Enum.PartType.Cylinder, Enum.Material.Neon, ChaosColor1, Vector3.new(2,10,10), FixedAimCFrame * CFrame.new(0,0,-BEAM_LENGTH/2) * CFrame.Angles(0,math.rad(90),0), 0)
+		TweenOut(FinalRing, 0.6, Vector3.new(0,400,400))
+		
+		-- Volta a UI ao normal
+		TweenService:Create(TopBar, TweenInfo.new(1), {Size = UDim2.new(1,0,0,0)}):Play()
+		TweenService:Create(BottomBar, TweenInfo.new(1), {Size = UDim2.new(1,0,0,0)}):Play()
+		TweenService:Create(Vignette, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
+	end)
+
+	task.wait(BEAM_DURATION + 1)
+	Debris:AddItem(crater, 2)
+	Debounce = false
+end)
