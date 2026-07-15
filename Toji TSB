@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
@@ -14,7 +15,8 @@ local skillNames = {
     ["1"] = "Heavenly Flurry",
     ["2"] = "Rising Cleave",
     ["3"] = "Assassin's Dash",
-    ["4"] = "Heavenly Counter"
+    ["4"] = "Heavenly Counter",
+    ["5"] = "Blink",
 }
 
 local SFX_IDS = {
@@ -24,22 +26,41 @@ local SFX_IDS = {
     ["4"] = "rbxassetid://124277180088599",
 }
 
-local SFX_SHEATH_REVERSE = "rbxassetid://0" -- Placeholder
-local ALWAYS_VISIBLE_ACCESSORIES = {"Front", "Pants", "Left", "Right"}
-local WORM_SHEATHED = "WormDagger"
-local WORM_UNSHEATHED = "TojiWorm"
+-- Cooldown (segundos) por skill
+local COOLDOWNS = {
+    ["1"] = 20,
+    ["2"] = 20,
+    ["3"] = 17,
+    ["4"] = 17.4,
+    ["5"] = 5,
+}
 
-local ACCESSORY_IDS = {
-    ["WormDagger"] = 17470088700,
-    ["TojiWorm"] = 112622889621079,
-    ["Front"] = 98756500017727,
-    ["Pants"] = 82571593390503,
-    ["Left"] = 129444780103646,
-    ["Right"] = 71657803260137,
+-- IDs DA ISOH
+local ISOH_ID = "97170279607570"
+local ISOH_TEX = "78781276461261"
+local ISOH_SIZE = Vector3.new(0.1, 0.1, 0.1)
+local ISOH_OFFSET = CFrame.new(0, -0.5, 0)
+
+-- IDs DE ROUPAS 2D
+local SHIRT_ID = "75586310906790"
+local PANTS_ID = "15463727879"
+
+local KATANA_NAME = "#KATANAWEAPON"
+local SHEATH_NAME = "Sheathe"
+
+-- TABELA DE ACESSÓRIOS (apenas o Toji Worm, sem a Worm Dagger)
+local ACCESSORY_DATA = {
+    ["TojiWorm"]   = {Mesh = 17281749377, Texture = 17281718139, Part = "Torso", Offset = CFrame.new(0,0,0), Rot = CFrame.Angles(0,0,0)},
+    ["Front"]      = {Mesh = 84517354800926, Texture = 112065449012887, Part = "Torso", Offset = CFrame.new(0,0,0), Rot = CFrame.Angles(0, math.rad(180), 0)},
+    ["Head"]       = {Mesh = 88874249502391, Texture = 99757939239691, Part = "Head", Offset = CFrame.new(0,0,0), Rot = CFrame.Angles(0, math.rad(180), 0)},
+    ["Left"]       = {Mesh = 72702166642406, Texture = 103027013003624, Part = "Left Arm", Offset = CFrame.new(0, 0.7, 0), Rot = CFrame.Angles(0,0,0)},
+    ["Right"]      = {Mesh = 73247424268835, Texture = 103027013003624, Part = "Right Arm", Offset = CFrame.new(0, 0.7, 0), Rot = CFrame.Angles(0,0,0)}
 }
 
 local isBusy = false
-local accessorySpecCache = {}
+local createdParts = {}
+local createdISOH = nil
+local lastUsed = {}
 
 -- =======================================================================
 -- 2. VERIFICAÇÃO DO PERSONAGEM E SETUP DA UI
@@ -59,6 +80,11 @@ for id, name in pairs(skillNames) do
     end
 end
 
+-- Torna o botão "5" (Blink) visível
+if hotbar:FindFirstChild("5") then
+    pcall(function() hotbar["5"].Visible = true end)
+end
+
 if charFolder:FindFirstChild("UltimateName") then
     charFolder.UltimateName.Value = "Heavenly Restriction"
 end
@@ -71,151 +97,93 @@ local ANIMS = {
 }
 
 -- =======================================================================
--- 3. SISTEMA DE ACESSÓRIOS (VERSÃO EXECUTOR)
+-- 3. ACESSÓRIOS, ARMA E BAINHA
 -- =======================================================================
-local function loadAccessorySpec(name)
-    if accessorySpecCache[name] then return accessorySpecCache[name] end
-    local id = ACCESSORY_IDS[name]
-    if not id or id == 0 then return nil end
+local function applyClothing(char)
+    local s = char:FindFirstChildOfClass("Shirt") or Instance.new("Shirt", char)
+    local p = char:FindFirstChildOfClass("Pants") or Instance.new("Pants", char)
+    s.ShirtTemplate = "rbxassetid://" .. SHIRT_ID
+    p.PantsTemplate = "rbxassetid://" .. PANTS_ID
+end
 
-    -- Tentativa via executor (burlar bloqueio do InsertService)
-    local ok, result = pcall(function()
-        local objects = game:GetObjects("rbxassetid://" .. tostring(id))
-        return objects[1]
-    end)
-
-    if not ok or not result then
-        warn("[Ability] Falha ao carregar acessório '" .. name .. "' via GetObjects (Executor pode não suportar ou asset privado).")
-        return nil
-    end
-
-    local accessory = result:FindFirstChildOfClass("Accessory") or result:FindFirstChildWhichIsA("Accessory", true)
-    local originalHandle = accessory and (accessory:FindFirstChild("Handle") or accessory:FindFirstChildWhichIsA("BasePart", true))
-
-    if not accessory or not originalHandle then
-        result:Destroy()
-        return nil
-    end
-
-    local spec = {
-        accessoryType = accessory.AccessoryType,
-        size = originalHandle.Size, 
-        color = originalHandle.Color, 
-        material = originalHandle.Material,
-        transparency = originalHandle.Transparency, 
-        specialMesh = nil, 
-        attachments = {}, 
-        handleInstance = nil
-    }
-
-    if originalHandle:IsA("MeshPart") then
-        originalHandle.Parent = nil
-        spec.handleInstance = originalHandle
-    else
-        local sm = originalHandle:FindFirstChildOfClass("SpecialMesh")
-        if sm then
-            spec.specialMesh = { 
-                meshType = sm.MeshType, 
-                meshId = sm.MeshId, 
-                textureId = sm.TextureId, 
-                scale = sm.Scale, 
-                offset = sm.Offset, 
-                vertexColor = sm.VertexColor 
-            }
+local function makeInvisible(model)
+    if not model then return end
+    for _, obj in pairs(model:GetDescendants()) do
+        if (obj:IsA("BasePart") or obj:IsA("Decal")) and obj.Name ~= "ISOH" then
+            obj.Transparency = 1
         end
-        for _, att in ipairs(originalHandle:GetChildren()) do
-            if att:IsA("Attachment") then 
-                table.insert(spec.attachments, {name = att.Name, cframe = att.CFrame}) 
+    end
+end
+
+local function createAccessory(name, data, char)
+    local target = char:FindFirstChild(data.Part)
+    if not target then return nil end
+    local part = Instance.new("MeshPart")
+    part.Name = name
+    part.MeshId = "rbxassetid://" .. data.Mesh
+    part.TextureID = "rbxassetid://" .. data.Texture
+    part.Size = Vector3.new(1, 1, 1)
+    part.CanCollide = false
+    part.CFrame = target.CFrame * data.Offset * data.Rot
+    part.Parent = char
+    local weld = Instance.new("WeldConstraint", part)
+    weld.Part0 = part; weld.Part1 = target
+    return part
+end
+
+-- LOOP DE ATUALIZAÇÃO (recria o que estiver faltando a cada segundo)
+task.spawn(function()
+    while task.wait(1) do
+        local char = Workspace:FindFirstChild("Live") and Workspace.Live:FindFirstChild(player.Name)
+        if char then
+            applyClothing(char) -- Aplica Camisa e Calça
+            makeInvisible(char:FindFirstChild(KATANA_NAME))
+            makeInvisible(char:FindFirstChild(SHEATH_NAME))
+
+            for name, data in pairs(ACCESSORY_DATA) do
+                if not createdParts[name] or not createdParts[name].Parent then
+                    if createdParts[name] then createdParts[name]:Destroy() end
+                    createdParts[name] = createAccessory(name, data, char)
+                end
+            end
+
+            local weapon = char:FindFirstChild(KATANA_NAME)
+            local hold = weapon and weapon:FindFirstChild("WeaponHold")
+
+            if hold and not createdISOH then
+                local part = Instance.new("MeshPart")
+                part.Name = "ISOH"
+                part.MeshId = "rbxassetid://" .. ISOH_ID
+                part.TextureID = "rbxassetid://" .. ISOH_TEX
+                part.Size = ISOH_SIZE
+                part.Transparency = 0
+                part.CanCollide = false
+                part.Parent = hold
+
+                local w = Instance.new("Weld", part)
+                w.Part0 = part; w.Part1 = hold; w.C0 = ISOH_OFFSET
+                createdISOH = part
             end
         end
     end
-
-    result:Destroy()
-    accessorySpecCache[name] = spec
-    return spec
-end
-
-local function buildAccessoryInstance(name, spec)
-    local accessory = Instance.new("Accessory")
-    accessory.Name = name
-    pcall(function() accessory.AccessoryType = spec.accessoryType end)
-
-    local handle
-    if spec.handleInstance then
-        handle = spec.handleInstance:Clone()
-    else
-        handle = Instance.new("Part")
-        handle.Size = spec.size
-        handle.Color = spec.color
-        handle.Material = spec.material
-        handle.Transparency = spec.transparency
-        handle.Massless = true
-
-        if spec.specialMesh then
-            local mesh = Instance.new("SpecialMesh", handle)
-            mesh.MeshType = spec.specialMesh.meshType
-            mesh.MeshId = spec.specialMesh.meshId
-            mesh.TextureId = spec.specialMesh.textureId
-            mesh.Scale = spec.specialMesh.scale
-            mesh.Offset = spec.specialMesh.offset
-            mesh.VertexColor = spec.specialMesh.vertexColor
-        end
-
-        for _, attData in ipairs(spec.attachments) do
-            local att = Instance.new("Attachment", handle)
-            att.Name = attData.name
-            att.CFrame = attData.cframe
-        end
-    end
-
-    handle.Anchored = false
-    handle.CanCollide = false
-    handle.Name = "Handle"
-    handle.Parent = accessory
-    return accessory
-end
-
-local function setAccessoryVisible(name, visible)
-    local acc = character:FindFirstChild(name)
-    if not acc then return end
-    for _, part in ipairs(acc:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture") then
-            part.Transparency = visible and 0 or 1
-        end
-    end
-end
-
-local function equipAccessoryIfMissing(name)
-    if character:FindFirstChild(name) then return end
-    local spec = loadAccessorySpec(name)
-    if not spec then return end
-    local accessory = buildAccessoryInstance(name, spec)
-    pcall(function() humanoid:AddAccessory(accessory) end)
-end
-
-local function equipWorm(unsheathed)
-    equipAccessoryIfMissing(WORM_SHEATHED)
-    equipAccessoryIfMissing(WORM_UNSHEATHED)
-    setAccessoryVisible(WORM_SHEATHED, not unsheathed)
-    setAccessoryVisible(WORM_UNSHEATHED, unsheathed)
-end
+end)
 
 -- =======================================================================
 -- 4. SISTEMA DE AUDIO E PARTICULAS
 -- =======================================================================
 local function playSFX(soundId, startTime)
     if not soundId or soundId == "rbxassetid://0" then return end
-    
+
     task.spawn(function()
         local sound = Instance.new("Sound")
         sound.SoundId = soundId
         sound.Volume = 4
         sound.Parent = hrp
-        
+
         if startTime then
             sound.TimePosition = startTime
         end
-        
+
         sound:Play()
         sound.Ended:Connect(function() sound:Destroy() end)
         task.delay(5, function() if sound and sound.Parent then sound:Destroy() end end)
@@ -230,15 +198,15 @@ local function playTPEffects(position)
     vfxPart.CanCollide = false
     vfxPart.Position = position
     vfxPart.Parent = workspace
-    
+
     local fxList = {
         {obj = PARTICLES:FindFirstChild("CyborgUp") and PARTICLES.CyborgUp:FindFirstChild("SmokeDark"), special = true},
         {obj = PARTICLES:FindFirstChild("Vanish") and PARTICLES.Vanish:FindFirstChild("Silhouette"), special = false},
         {obj = PARTICLES:FindFirstChild("Vanish") and PARTICLES.Vanish:FindFirstChild("Afterimage_Flip_Black"), special = false},
         {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Black_Shock"), special = false},
-        {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Smudge"), special = false}
+        {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Smudge"), special = false},
     }
-    
+
     for _, data in pairs(fxList) do
         local p = data.obj
         if p and p:IsA("ParticleEmitter") then
@@ -248,7 +216,7 @@ local function playTPEffects(position)
             clone:Emit(3)
         end
     end
-    
+
     task.delay(2, function() if vfxPart then vfxPart:Destroy() end end)
 end
 
@@ -261,31 +229,21 @@ end
 -- =======================================================================
 -- 5. LÓGICA DE EXECUÇÃO DAS SKILLS
 -- =======================================================================
-task.spawn(function()
-    for _, name in ipairs(ALWAYS_VISIBLE_ACCESSORIES) do
-        equipAccessoryIfMissing(name)
-        setAccessoryVisible(name, true)
-    end
-    equipWorm(false)
-end)
-
 local function runSkill(skillId)
-    pcall(equipWorm, true)
-    
     if skillId == "1" then
         pcall(playSFX, SFX_IDS[skillId], 0.5)
     else
         pcall(playSFX, SFX_IDS[skillId])
     end
-    
+
     local track = nil
-    
-    if skillId == "1" then 
+
+    if skillId == "1" then
         task.wait(1.5)
         playTPEffects(hrp.Position)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
         playTPEffects(hrp.Position)
-    elseif skillId == "2" then 
+    elseif skillId == "2" then
         task.wait(2.5)
         if ANIMS["2"] then
             pcall(function() track = animator:LoadAnimation(ANIMS["2"]) end)
@@ -293,52 +251,67 @@ local function runSkill(skillId)
         end
         task.wait(0.5)
         local ray = workspace:Raycast(hrp.Position, Vector3.new(0, -1000, 0))
-        if ray then 
+        if ray then
             playTPEffects(hrp.Position)
             hrp.CFrame = CFrame.new(ray.Position + Vector3.new(0, -0.3, 0))
             playTPEffects(hrp.Position)
         end
-    elseif skillId == "3" then 
+    elseif skillId == "3" then
+        -- Blink (5) usa o mesmo efeito de dash da Assassin's Dash (3)
         task.wait(1.5)
         playTPEffects(hrp.Position)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
         playTPEffects(hrp.Position)
-    elseif skillId == "4" then 
+    elseif skillId == "4" then
         hrp.Anchored = true
         task.wait(4)
         hrp.Anchored = false
     end
-    
+
     waitForTrack(track)
-    
-    pcall(equipWorm, false)
-    pcall(playSFX, SFX_SHEATH_REVERSE)
+end
+elseif skillId == "5" then
+        -- Blink (5) usa o mesmo efeito de dash da Assassin's Dash (3)
+        task.wait(0.5)
+        playTPEffects(hrp.Position)
+        hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
+        playTPEffects(hrp.Position)
+    end
 end
 
 -- =======================================================================
--- 6. CAPTURA DE TOQUE / CLIQUE COM PROTEÇÃO CORRIGIDA
+-- 6. CAPTURA DE TOQUE / CLIQUE
 -- =======================================================================
 UserInputService.InputBegan:Connect(function(input)
     if isBusy then return end
-    
+
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
         local pos = input.Position
-        
+
         for _, btn in pairs(hotbar:GetChildren()) do
             if btn:IsA("GuiButton") then
                 local btnPos = btn.AbsolutePosition
                 local btnSize = btn.AbsoluteSize
-                
+
                 if pos.X >= btnPos.X and pos.X <= (btnPos.X + btnSize.X) and pos.Y >= btnPos.Y and pos.Y <= (btnPos.Y + btnSize.Y) then
                     local skill = btn.Name
-                    
+
                     if skillNames[skill] then
-                        isBusy = true
-                        task.spawn(function()
-                            local ok, err = pcall(runSkill, skill)
-                            if not ok then warn("[Ability] Erro durante a skill: ", err) end
-                            isBusy = false
-                        end)
+                        local now = os.clock()
+                        local cooldown = COOLDOWNS[skill] or 0
+                        local last = lastUsed[skill]
+
+                        if last and (now - last) < cooldown then
+                            -- Ainda em cooldown, ignora o clique
+                        else
+                            lastUsed[skill] = now
+                            isBusy = true
+                            task.spawn(function()
+                                local ok, err = pcall(runSkill, skill)
+                                if not ok then warn("[Ability] Erro durante a skill: ", err) end
+                                isBusy = false
+                            end)
+                        end
                         break
                     end
                 end
