@@ -34,12 +34,12 @@ local COOLDOWNS = {
 -- =======================================================================
 -- 2. DADOS DA PASSIVA DE AUTO-ESQUIVA (ANIMAÇÕES)
 -- =======================================================================
-local AUTO_DODGE_COOLDOWN = 0.4 -- ALTERADO: era 1.5
-local AUTO_DODGE_DISTANCE = 8
+local AUTO_DODGE_COOLDOWN = 0.2 -- ALTERADO: era 1.5
+local AUTO_DODGE_DISTANCE = 12
 
-local normalRange = 10
-local specialRange = 20
-local skillRange = 20
+local normalRange = 20
+local specialRange = 30
+local skillRange = 30
 
 local comboIDs = {10480793962, 10480796021}
 local allIDs = {
