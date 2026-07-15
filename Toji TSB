@@ -17,6 +17,7 @@ local skillNames = {
     ["3"] = "Assassin's Dash",
     ["4"] = "Heavenly Counter",
     ["5"] = "Blink",
+    ["6"] = "Phantom Step",
 }
 
 local SFX_IDS = {
@@ -33,6 +34,7 @@ local COOLDOWNS = {
     ["3"] = 17,
     ["4"] = 17.4,
     ["5"] = 5,
+    ["6"] = 8,
 }
 
 -- IDs DA ISOH
@@ -80,9 +82,12 @@ for id, name in pairs(skillNames) do
     end
 end
 
--- Torna o botão "5" (Blink) visível
+-- Torna os botões "5" (Blink) e "6" (Phantom Step) visíveis
 if hotbar:FindFirstChild("5") then
     pcall(function() hotbar["5"].Visible = true end)
+end
+if hotbar:FindFirstChild("6") then
+    pcall(function() hotbar["6"].Visible = true end)
 end
 
 if charFolder:FindFirstChild("UltimateName") then
@@ -257,7 +262,6 @@ local function runSkill(skillId)
             playTPEffects(hrp.Position)
         end
     elseif skillId == "3" then
-        -- Blink (5) usa o mesmo efeito de dash da Assassin's Dash (3)
         task.wait(1.5)
         playTPEffects(hrp.Position)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
@@ -266,17 +270,30 @@ local function runSkill(skillId)
         hrp.Anchored = true
         task.wait(4)
         hrp.Anchored = false
-    end
-
-    waitForTrack(track)
-end
-elseif skillId == "5" then
-        -- Blink (5) usa o mesmo efeito de dash da Assassin's Dash (3)
+    elseif skillId == "5" then
+        -- Blink: mesmo efeito de dash da Assassin's Dash (3), porém mais rápido
         task.wait(0.5)
         playTPEffects(hrp.Position)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
         playTPEffects(hrp.Position)
+    elseif skillId == "6" then
+        -- Phantom Step: esquiva rápida sem dano, na direção em que o personagem está se movendo
+        -- (se estiver parado, esquiva para o lado direito)
+        local moveDir = humanoid.MoveDirection
+        local offset
+
+        if moveDir.Magnitude > 0.1 then
+            offset = moveDir.Unit * 10
+        else
+            offset = hrp.CFrame.RightVector * 10
+        end
+
+        playTPEffects(hrp.Position)
+        hrp.CFrame = hrp.CFrame + offset
+        playTPEffects(hrp.Position)
     end
+
+    waitForTrack(track)
 end
 
 -- =======================================================================
