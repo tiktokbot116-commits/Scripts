@@ -18,7 +18,7 @@ local skillNames = {
     ["3"] = "Assassin's Dash",
     ["4"] = "Heavenly Counter",
     ["5"] = "Blink",
-    ["6"] = "Rajada de Velocidade", -- Antiga "Phantom Step"
+    ["6"] = "Heavenly Restriction", -- Antiga "Phantom Step"
 }
 
 local SFX_IDS = {
@@ -37,18 +37,18 @@ local COOLDOWNS = {
     ["6"] = 8,
 }
 
-local SPEED_BOOST_VELOCITY = 30  
-local SPEED_BOOST_DURATION = 1.2   
+local SPEED_BOOST_VELOCITY = 50
+local SPEED_BOOST_DURATION = 3
 
 -- =======================================================================
 -- 2. DADOS DA PASSIVA DE AUTO-ESQUIVA (ANIMAÇÕES)
 -- =======================================================================
-local AUTO_DODGE_COOLDOWN = 1.5
-local AUTO_DODGE_DISTANCE = 12
+local AUTO_DODGE_COOLDOWN = 0.5
+local AUTO_DODGE_DISTANCE = 8
 
-local normalRange = 30
-local specialRange = 50
-local skillRange = 50
+local normalRange = 20
+local specialRange = 40
+local skillRange = 40
 
 local comboIDs = {10480793962, 10480796021}
 local allIDs = {
