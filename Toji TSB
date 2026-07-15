@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -17,7 +18,7 @@ local skillNames = {
     ["3"] = "Assassin's Dash",
     ["4"] = "Heavenly Counter",
     ["5"] = "Blink",
-    ["6"] = "Phantom Step",
+    ["6"] = "Rajada de Velocidade", -- Antiga "Phantom Step"
 }
 
 local SFX_IDS = {
@@ -27,30 +28,65 @@ local SFX_IDS = {
     ["4"] = "rbxassetid://124277180088599",
 }
 
--- Cooldown (segundos) por skill
 local COOLDOWNS = {
     ["1"] = 20,
     ["2"] = 20,
     ["3"] = 17,
     ["4"] = 17.4,
     ["5"] = 1,
-    ["6"] = 1,
+    ["6"] = 8,
 }
 
--- IDs DA ISOH
+local SPEED_BOOST_VELOCITY = 30  
+local SPEED_BOOST_DURATION = 1.2   
+
+-- =======================================================================
+-- 2. DADOS DA PASSIVA DE AUTO-ESQUIVA (ANIMAÇÕES)
+-- =======================================================================
+local AUTO_DODGE_COOLDOWN = 1.5
+local AUTO_DODGE_DISTANCE = 12
+
+local normalRange = 30
+local specialRange = 50
+local skillRange = 50
+
+local comboIDs = {10480793962, 10480796021}
+local allIDs = {
+	Saitama = { 10469493270, 10469630950, 10469639222, 10469643643, special = 10479335397 },
+	Garou = { 13532562418, 13532600125, 13532604085, 13294471966, special = 10479335397 },
+	Cyborg = { 13491635433, 13296577783, 13295919399, 13295936866, special = 10479335397 },
+	Sonic = { 13370310513, 13390230973, 13378751717, 13378708199, special = 13380255751 },
+	Metal = { 14004222985, 13997092940, 14001963401, 14136436157, special = 13380255751 },
+	Blade = { 15259161390, 15240216931, 15240176873, 15162694192, special = 13380255751 },
+	Tatsumaki = { 16515503507, 16515520431, 16515448089, 16552234590, special = 10479335397 },
+	Dragon = { 17889458563, 17889461810, 17889471098, 17889290569, special = 10479335397 },
+	Tech = { 123005629431309, 100059874351664, 104895379416342, 134775406437626, special = 10479335397 }
+}
+
+local skillIDs = {
+	[10468665991] = true, [10466974800] = true, [10471336737] = true, [12510170988] = true,
+	[12272894215] = true, [12296882427] = true, [12307656616] = true,
+	[101588604872680] = true, [105442749844047] = true, [109617620932970] = true,
+	[131820095363270] = true, [135289891173395] = true, [125955606488863] = true,
+	[12534735382] = true, [12502664044] = true, [12509505723] = true, [12618271998] = true, [12684390285] = true,
+	[13376869471] = true, [13294790250] = true, [13376962659] = true, [13501296372] = true, [13556985475] = true,
+	[145162735010] = true, [14046756619] = true, [14299135500] = true, [14351441234] = true,
+	[15290930205] = true, [15145462680] = true, [15295895753] = true, [15295336270] = true,
+	[16139108718] = true, [16515850153] = true, [16431491215] = true, [16597322398] = true, [16597912086] = true,
+	[17799224866] = true, [17838006839] = true, [17857788598] = true, [18179181663] = true,
+	[113166426814229] = true, [116753755471636] = true, [116153572280464] = true, [114095570398448] = true, [77509627104305] = true
+}
+
+-- IDs DA ISOH E ROUPAS
 local ISOH_ID = "97170279607570"
 local ISOH_TEX = "78781276461261"
 local ISOH_SIZE = Vector3.new(0.1, 0.1, 0.1)
 local ISOH_OFFSET = CFrame.new(0, -0.5, 0)
-
--- IDs DE ROUPAS 2D
 local SHIRT_ID = "75586310906790"
 local PANTS_ID = "15463727879"
-
 local KATANA_NAME = "#KATANAWEAPON"
 local SHEATH_NAME = "Sheathe"
 
--- TABELA DE ACESSÓRIOS (apenas o Toji Worm, sem a Worm Dagger)
 local ACCESSORY_DATA = {
     ["TojiWorm"]   = {Mesh = 17281749377, Texture = 17281718139, Part = "Torso", Offset = CFrame.new(0,0,0), Rot = CFrame.Angles(0,0,0)},
     ["Front"]      = {Mesh = 84517354800926, Texture = 112065449012887, Part = "Torso", Offset = CFrame.new(0,0,0), Rot = CFrame.Angles(0, math.rad(180), 0)},
@@ -63,9 +99,10 @@ local isBusy = false
 local createdParts = {}
 local createdISOH = nil
 local lastUsed = {}
+local lastAutoDodgeTime = 0
 
 -- =======================================================================
--- 2. VERIFICAÇÃO DO PERSONAGEM E SETUP DA UI
+-- 3. VERIFICAÇÃO DO PERSONAGEM E SETUP DA UI
 -- =======================================================================
 local charFolder = workspace:WaitForChild("Live"):WaitForChild(player.Name)
 
@@ -82,13 +119,8 @@ for id, name in pairs(skillNames) do
     end
 end
 
--- Torna os botões "5" (Blink) e "6" (Phantom Step) visíveis
-if hotbar:FindFirstChild("5") then
-    pcall(function() hotbar["5"].Visible = true end)
-end
-if hotbar:FindFirstChild("6") then
-    pcall(function() hotbar["6"].Visible = true end)
-end
+if hotbar:FindFirstChild("5") then pcall(function() hotbar["5"].Visible = true end) end
+if hotbar:FindFirstChild("6") then pcall(function() hotbar["6"].Visible = true end) end
 
 if charFolder:FindFirstChild("UltimateName") then
     charFolder.UltimateName.Value = "Heavenly Restriction"
@@ -102,7 +134,7 @@ local ANIMS = {
 }
 
 -- =======================================================================
--- 3. ACESSÓRIOS, ARMA E BAINHA
+-- 4. ACESSÓRIOS, ARMA E BAINHA
 -- =======================================================================
 local function applyClothing(char)
     local s = char:FindFirstChildOfClass("Shirt") or Instance.new("Shirt", char)
@@ -136,12 +168,11 @@ local function createAccessory(name, data, char)
     return part
 end
 
--- LOOP DE ATUALIZAÇÃO (recria o que estiver faltando a cada segundo)
 task.spawn(function()
     while task.wait(1) do
         local char = Workspace:FindFirstChild("Live") and Workspace.Live:FindFirstChild(player.Name)
         if char then
-            applyClothing(char) -- Aplica Camisa e Calça
+            applyClothing(char)
             makeInvisible(char:FindFirstChild(KATANA_NAME))
             makeInvisible(char:FindFirstChild(SHEATH_NAME))
 
@@ -164,7 +195,6 @@ task.spawn(function()
                 part.Transparency = 0
                 part.CanCollide = false
                 part.Parent = hold
-
                 local w = Instance.new("Weld", part)
                 w.Part0 = part; w.Part1 = hold; w.C0 = ISOH_OFFSET
                 createdISOH = part
@@ -174,7 +204,7 @@ task.spawn(function()
 end)
 
 -- =======================================================================
--- 4. SISTEMA DE AUDIO E PARTICULAS
+-- 5. SISTEMA DE AUDIO E PARTICULAS
 -- =======================================================================
 local function playSFX(soundId, startTime)
     if not soundId or soundId == "rbxassetid://0" then return end
@@ -185,10 +215,7 @@ local function playSFX(soundId, startTime)
         sound.Volume = 4
         sound.Parent = hrp
 
-        if startTime then
-            sound.TimePosition = startTime
-        end
-
+        if startTime then sound.TimePosition = startTime end
         sound:Play()
         sound.Ended:Connect(function() sound:Destroy() end)
         task.delay(5, function() if sound and sound.Parent then sound:Destroy() end end)
@@ -232,14 +259,10 @@ local function waitForTrack(track)
 end
 
 -- =======================================================================
--- 5. LÓGICA DE EXECUÇÃO DAS SKILLS
+-- 6. LÓGICA DE EXECUÇÃO DAS SKILLS
 -- =======================================================================
 local function runSkill(skillId)
-    if skillId == "1" then
-        pcall(playSFX, SFX_IDS[skillId], 0.5)
-    else
-        pcall(playSFX, SFX_IDS[skillId])
-    end
+    if skillId == "1" then pcall(playSFX, SFX_IDS[skillId], 0.5) else pcall(playSFX, SFX_IDS[skillId]) end
 
     local track = nil
 
@@ -271,34 +294,47 @@ local function runSkill(skillId)
         task.wait(4)
         hrp.Anchored = false
     elseif skillId == "5" then
-        -- Blink: mesmo efeito de dash da Assassin's Dash (3), porém mais rápido
         task.wait(0.5)
         playTPEffects(hrp.Position)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
         playTPEffects(hrp.Position)
     elseif skillId == "6" then
-        -- Phantom Step: esquiva rápida sem dano, na direção em que o personagem está se movendo
-        -- (se estiver parado, esquiva para o lado direito)
-        local moveDir = humanoid.MoveDirection
-        local offset
-
-        if moveDir.Magnitude > 0.1 then
-            offset = moveDir.Unit * 10
-        else
-            offset = hrp.CFrame.RightVector * 10
-        end
+        local bv = Instance.new("BodyVelocity")
+        bv.Name = "SpeedBoostVelocity"
+        bv.MaxForce = Vector3.new(30000, 0, 30000)
+        bv.P = 1250
+        bv.Velocity = hrp.CFrame.LookVector * SPEED_BOOST_VELOCITY
+        bv.Parent = hrp
 
         playTPEffects(hrp.Position)
-        hrp.CFrame = hrp.CFrame + offset
-        playTPEffects(hrp.Position)
+
+        local startTime = os.clock()
+        local conn
+        conn = RunService.Heartbeat:Connect(function()
+            if not bv or not bv.Parent then
+                if conn then conn:Disconnect() end
+                return
+            end
+
+            local elapsed = os.clock() - startTime
+            if elapsed >= SPEED_BOOST_DURATION then
+                bv:Destroy()
+                if conn then conn:Disconnect() end
+                return
+            end
+
+            local dir = humanoid.MoveDirection
+            if dir.Magnitude > 0.1 then
+                bv.Velocity = dir.Unit * SPEED_BOOST_VELOCITY
+            else
+                bv.Velocity = hrp.CFrame.LookVector * SPEED_BOOST_VELOCITY
+            end
+        end)
+        task.wait(SPEED_BOOST_DURATION)
     end
-
     waitForTrack(track)
 end
 
--- =======================================================================
--- 6. CAPTURA DE TOQUE / CLIQUE
--- =======================================================================
 UserInputService.InputBegan:Connect(function(input)
     if isBusy then return end
 
@@ -318,9 +354,7 @@ UserInputService.InputBegan:Connect(function(input)
                         local cooldown = COOLDOWNS[skill] or 0
                         local last = lastUsed[skill]
 
-                        if last and (now - last) < cooldown then
-                            -- Ainda em cooldown, ignora o clique
-                        else
+                        if not (last and (now - last) < cooldown) then
                             lastUsed[skill] = now
                             isBusy = true
                             task.spawn(function()
@@ -335,4 +369,109 @@ UserInputService.InputBegan:Connect(function(input)
             end
         end
     end
+end)
+
+-- =======================================================================
+-- 7. PASSIVA: DETECTOR DE ANIMAÇÃO E AUTO-ESQUIVA
+-- =======================================================================
+local function performAutoDodge()
+	if isBusy then return end
+	
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	if not char then return end
+	
+	local myHRP = char:FindFirstChild("HumanoidRootPart")
+	local hum = char:FindFirstChildWhichIsA("Humanoid")
+	if not myHRP or not hum then return end
+	
+	local now = tick()
+	if (now - lastAutoDodgeTime) < AUTO_DODGE_COOLDOWN then return end
+	lastAutoDodgeTime = now
+	
+	local moveDir = hum.MoveDirection
+	local offset
+	
+	if moveDir.Magnitude > 0.1 then
+		offset = moveDir.Unit * AUTO_DODGE_DISTANCE
+	else
+		offset = myHRP.CFrame.RightVector * AUTO_DODGE_DISTANCE
+	end
+	
+	isBusy = true
+	task.spawn(function()
+		local ok, err = pcall(function()
+			playTPEffects(myHRP.Position)
+			myHRP.CFrame = myHRP.CFrame + offset
+			playTPEffects(myHRP.Position)
+		end)
+		if not ok then warn("[Passiva] Erro na auto-esquiva: ", err) end
+		isBusy = false
+	end)
+end
+
+local function checkAnims()
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= player and plr.Character and plr.Character.Parent == workspace:FindFirstChild("Live") then
+			local char = plr.Character
+			local targetHRP = char:FindFirstChild("HumanoidRootPart")
+			local hum = char:FindFirstChildWhichIsA("Humanoid")
+			local myHRP = character and character:FindFirstChild("HumanoidRootPart")
+			
+			if targetHRP and hum and myHRP then
+				local dist = (targetHRP.Position - myHRP.Position).Magnitude
+				local targetAnimator = hum:FindFirstChildOfClass("Animator")
+				
+				if targetAnimator then
+					local anims = {}
+					for _, track in ipairs(targetAnimator:GetPlayingAnimationTracks()) do
+						local id = tonumber(track.Animation.AnimationId:match("%d+"))
+						if id then anims[id] = true end
+					end
+
+					local comboCount = 0
+					for _, id in ipairs(comboIDs) do
+						if anims[id] then comboCount += 1 end
+					end
+					
+					local dodged = false
+
+					for _, group in pairs(allIDs) do
+						local normalHits = 0
+						local special = anims[group.special]
+						
+						for i = 1, 4 do
+							if anims[group[i]] then normalHits += 1 end
+						end
+
+						if comboCount == 2 and normalHits >= 2 and dist <= specialRange then
+							performAutoDodge()
+							dodged = true
+							break
+						elseif normalHits > 0 and dist <= normalRange then
+							performAutoDodge()
+							dodged = true
+							break
+						elseif special and dist <= specialRange then
+							performAutoDodge()
+							dodged = true
+							break
+						end
+					end
+
+					if not dodged then
+						for animId in pairs(anims) do
+							if skillIDs[animId] and dist <= skillRange then
+								performAutoDodge()
+								break
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+RunService.Heartbeat:Connect(function()
+	pcall(checkAnims)
 end)
