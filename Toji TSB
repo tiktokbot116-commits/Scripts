@@ -32,14 +32,16 @@ local COOLDOWNS = {
 }
 
 -- =======================================================================
--- 2. DADOS DA PASSIVA DE AUTO-ESQUIVA (ANIMAÇÕES)
+-- 2. DADOS DA PASSIVA DE AUTO-ESQUIVA
 -- =======================================================================
-local AUTO_DODGE_COOLDOWN = 1.5
+local AUTO_DODGE_COOLDOWN = 0.1
 local AUTO_DODGE_DISTANCE = 12
+local LONG_DODGE_DISTANCE = 35 -- Distância extra para fugir de ataques imensos
 
 local normalRange = 30
 local specialRange = 50
 local skillRange = 50
+local largeAttackRange = 35 -- Raio para detectar efeitos colossais perto de você
 
 local comboIDs = {10480793962, 10480796021}
 local allIDs = {
@@ -87,13 +89,11 @@ local ACCESSORY_DATA = {
 }
 
 local isBusy = false
-local createdParts = {}
-local createdISOH = nil
 local lastUsed = {}
 local lastAutoDodgeTime = 0
 
 -- =======================================================================
--- 3. SETUP INICIAL DA UI
+-- 3. SETUP INICIAL DA UI E DO PERSONAGEM (RODA UMA VEZ POR SPAWN)
 -- =======================================================================
 local function setupUI()
     local hotbar = player.PlayerGui:WaitForChild("Hotbar", 5)
@@ -110,12 +110,8 @@ local function setupUI()
 
     if hotbarFrame:FindFirstChild("5") then pcall(function() hotbarFrame["5"].Visible = true end) end
 end
-
 task.spawn(setupUI)
 
--- =======================================================================
--- 4. ACESSÓRIOS, ARMA E BAINHA
--- =======================================================================
 local function applyClothing(char)
     local s = char:FindFirstChildOfClass("Shirt") or Instance.new("Shirt", char)
     local p = char:FindFirstChildOfClass("Pants") or Instance.new("Pants", char)
@@ -148,47 +144,50 @@ local function createAccessory(name, data, char)
     return part
 end
 
-task.spawn(function()
-    while task.wait(1) do
-        local char = Workspace:FindFirstChild("Live") and Workspace.Live:FindFirstChild(player.Name)
-        if char then
-            applyClothing(char)
-            makeInvisible(char:FindFirstChild(KATANA_NAME))
-            makeInvisible(char:FindFirstChild(SHEATH_NAME))
+local function onCharacterAdded(char)
+    -- Aguarda o personagem e as armas nativas do jogo carregarem
+    char:WaitForChild("HumanoidRootPart")
+    task.wait(1.5) 
+    
+    if char.Parent ~= workspace:FindFirstChild("Live") then return end
 
-            for name, data in pairs(ACCESSORY_DATA) do
-                if not createdParts[name] or not createdParts[name].Parent then
-                    if createdParts[name] then createdParts[name]:Destroy() end
-                    createdParts[name] = createAccessory(name, data, char)
-                end
-            end
+    applyClothing(char)
+    makeInvisible(char:FindFirstChild(KATANA_NAME))
+    makeInvisible(char:FindFirstChild(SHEATH_NAME))
 
-            local weapon = char:FindFirstChild(KATANA_NAME)
-            local hold = weapon and weapon:FindFirstChild("WeaponHold")
-
-            if hold and not createdISOH then
-                local part = Instance.new("MeshPart")
-                part.Name = "ISOH"
-                part.MeshId = "rbxassetid://" .. ISOH_ID
-                part.TextureID = "rbxassetid://" .. ISOH_TEX
-                part.Size = ISOH_SIZE
-                part.Transparency = 0
-                part.CanCollide = false
-                part.Parent = hold
-                local w = Instance.new("Weld", part)
-                w.Part0 = part; w.Part1 = hold; w.C0 = ISOH_OFFSET
-                createdISOH = part
-            end
-            
-            if char:FindFirstChild("UltimateName") then
-                char.UltimateName.Value = "Heavenly Restriction"
-            end
-        end
+    for name, data in pairs(ACCESSORY_DATA) do
+        createAccessory(name, data, char)
     end
-end)
+
+    local weapon = char:FindFirstChild(KATANA_NAME)
+    local hold = weapon and weapon:FindFirstChild("WeaponHold")
+
+    if hold then
+        local part = Instance.new("MeshPart")
+        part.Name = "ISOH"
+        part.MeshId = "rbxassetid://" .. ISOH_ID
+        part.TextureID = "rbxassetid://" .. ISOH_TEX
+        part.Size = ISOH_SIZE
+        part.Transparency = 0
+        part.CanCollide = false
+        part.Parent = hold
+        local w = Instance.new("Weld", part)
+        w.Part0 = part; w.Part1 = hold; w.C0 = ISOH_OFFSET
+    end
+    
+    if char:FindFirstChild("UltimateName") then
+        char.UltimateName.Value = "Heavenly Restriction"
+    end
+end
+
+-- Conecta no spawn e já tenta aplicar se o personagem existir
+player.CharacterAdded:Connect(onCharacterAdded)
+if player.Character then
+    task.spawn(function() onCharacterAdded(player.Character) end)
+end
 
 -- =======================================================================
--- 5. SISTEMA DE AUDIO E PARTICULAS
+-- 4. SISTEMA DE AUDIO E PARTICULAS
 -- =======================================================================
 local function playSFX(soundId, startTime)
     if not soundId or soundId == "rbxassetid://0" then return end
@@ -254,7 +253,7 @@ local function waitForTrack(track)
 end
 
 -- =======================================================================
--- 6. LÓGICA DE EXECUÇÃO DAS SKILLS
+-- 5. LÓGICA DE EXECUÇÃO DAS SKILLS
 -- =======================================================================
 local function runSkill(skillId)
     local char = player.Character
@@ -351,10 +350,9 @@ UserInputService.InputBegan:Connect(function(input)
 end)
 
 -- =======================================================================
--- 7. PASSIVA: DETECTOR DE ANIMAÇÃO E AUTO-ESQUIVA
+-- 6. PASSIVA: DETECTOR DE ANIMAÇÕES E GRANDES ATAQUES
 -- =======================================================================
-local function performAutoDodge()
-	-- Ignora isBusy propositalmente para o Auto-Dodge sempre te salvar
+local function performAutoDodge(isLongDodge)
 	local char = player.Character
 	if not char then return end
 	
@@ -368,11 +366,12 @@ local function performAutoDodge()
 	
 	local moveDir = hum.MoveDirection
 	local offset
+    local dist = isLongDodge and LONG_DODGE_DISTANCE or AUTO_DODGE_DISTANCE
 	
 	if moveDir.Magnitude > 0.1 then
-		offset = moveDir.Unit * AUTO_DODGE_DISTANCE
+		offset = moveDir.Unit * dist
 	else
-		offset = myHRP.CFrame.RightVector * AUTO_DODGE_DISTANCE
+		offset = myHRP.CFrame.RightVector * dist
 	end
 	
 	task.spawn(function()
@@ -385,6 +384,7 @@ local function performAutoDodge()
 	end)
 end
 
+-- Detecção de Animação e Entrada na Zona (Roda todo frame)
 local function checkAnims()
     local myChar = player.Character
     if not myChar then return end
@@ -424,15 +424,15 @@ local function checkAnims()
 						end
 
 						if comboCount == 2 and normalHits >= 2 and dist <= specialRange then
-							performAutoDodge()
+							performAutoDodge(false)
 							dodged = true
 							break
 						elseif normalHits > 0 and dist <= normalRange then
-							performAutoDodge()
+							performAutoDodge(false)
 							dodged = true
 							break
 						elseif special and dist <= specialRange then
-							performAutoDodge()
+							performAutoDodge(false)
 							dodged = true
 							break
 						end
@@ -440,8 +440,9 @@ local function checkAnims()
 
 					if not dodged then
 						for animId in pairs(anims) do
+                            -- Se estiver tocando a skill E entrar no raio permitido, ele dá o Dodge imediatamente
 							if skillIDs[animId] and dist <= skillRange then
-								performAutoDodge()
+								performAutoDodge(false)
 								break
 							end
 						end
@@ -454,4 +455,42 @@ end
 
 RunService.Heartbeat:Connect(function()
 	pcall(checkAnims)
+end)
+
+-- Detecção de Hitboxes/Partículas Colossais Próximas (Gatilho para Long Dodge)
+workspace.DescendantAdded:Connect(function(descendant)
+    pcall(function()
+        local myChar = player.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        
+        -- Ignora efeitos causados pelo seu próprio personagem
+        if descendant:IsDescendantOf(myChar) then return end
+
+        if descendant:IsA("BasePart") then
+            -- Espera um micro-instante para o Roblox definir o tamanho final da parte gerada
+            task.delay(0.05, function()
+                if not descendant or not descendant.Parent then return end
+                local sizeMag = descendant.Size.Magnitude
+                -- Magnitude > 20 indica que a parte gerada é colossal (efeito visual enorme ou hitboxes de explosão)
+                if sizeMag > 20 then
+                    local dist = (descendant.Position - myHRP.Position).Magnitude
+                    if dist <= largeAttackRange + (sizeMag / 2) then
+                        performAutoDodge(true) -- Realiza um Long Dodge
+                    end
+                end
+            end)
+        elseif descendant:IsA("ParticleEmitter") then
+            -- Verifica se os keypoints da partícula são muito grandes
+            if descendant.Size.Keypoints[1].Value > 15 then
+                local part = descendant.Parent
+                if part and part:IsA("BasePart") then
+                    local dist = (part.Position - myHRP.Position).Magnitude
+                    if dist <= largeAttackRange then
+                        performAutoDodge(true)
+                    end
+                end
+            end
+        end
+    end)
 end)
