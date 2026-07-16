@@ -389,28 +389,43 @@ local function runSkill(skillId)
     -- LIMPEZA PREVENTIVA: Garante que não haja animações "zumbis" travando o animator
     for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
         if track.Priority.Value >= Enum.AnimationPriority.Action.Value then
-            track:Stop(0) -- Para instantaneamente sem transição
-        end
-    end
+local function runSkill(skillId)
+    local char = player.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+    local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+    if not hrp or not humanoid or not animator then return end
 
     if skillId == "1" then pcall(playSFX, SFX_IDS[skillId], 0.5) else pcall(playSFX, SFX_IDS[skillId]) end
     currentSkillTrack = nil
 
+    -- 🛡️ FUNÇÃO ANTI-OVERRIDE DE ANIMAÇÃO 🛡️
+    -- Impede estritamente que a animação original do jogo cancele a nossa
     local function playCustomSkillAnim(animId)
+        -- Pausa microscópica para a animação original do jogo disparar primeiro
         task.wait(0.05)
         
+        -- Mata imediatamente as animações "Action" que o jogo tentou tocar
+        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+             if track.Priority.Value >= Enum.AnimationPriority.Action.Value then
+                 track:Stop()
+             end
+        end
+
         local anim = Instance.new("Animation")
         anim.AnimationId = "rbxassetid://" .. animId
         currentSkillTrack = animator:LoadAnimation(anim)
         currentSkillTrack.Priority = Enum.AnimationPriority.Action4
         currentSkillTrack:Play()
 
-        -- Trava de segurança: Se o jogo tentar tocar outra, a nossa prevalece
+        -- Trava para barrar qualquer outra animação que o jogo tente puxar depois
         if currentAnimConn then currentAnimConn:Disconnect() end
         currentAnimConn = animator.AnimationPlayed:Connect(function(track)
             if currentSkillTrack and track ~= currentSkillTrack then
                 if track.Priority.Value >= Enum.AnimationPriority.Action.Value then
-                    track:Stop(0)
+                    track:Stop()
                 end
             end
         end)
@@ -423,11 +438,11 @@ local function runSkill(skillId)
         playTPEffects(hrp.Position)
         
     elseif skillId == "2" then
-        task.wait(0.1) -- Delay curtinho inicial
+        task.wait(1.5)
         playCustomSkillAnim("115484690572880")
         
-        -- FIX: Tempo de 1.6s definido aqui
-        task.wait(1.6)
+        -- FIX 2: TP para baixo demorando mais tempo antes de acontecer (subiu de 0.5 para 1.2s)
+        task.wait(1.2)
         local ray = workspace:Raycast(hrp.Position, Vector3.new(0, -1000, 0))
         if ray then
             playTPEffects(hrp.Position)
@@ -437,6 +452,7 @@ local function runSkill(skillId)
         
     elseif skillId == "3" then
         playCustomSkillAnim("17838006839")
+        
         task.wait(1.45)
         playTPEffects(hrp.Position)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
@@ -453,12 +469,9 @@ local function runSkill(skillId)
         playTPEffects(hrp.Position)
     end
     
-    -- Aguarda o fim da animação com segurança
-    if currentSkillTrack then
-        currentSkillTrack.Stopped:Wait()
-    end
+    waitForTrack(currentSkillTrack)
     
-    -- RESGATE FINAL: Limpa a trava e garante que o Animator não fique travado
+    -- Limpa a trava de animação no final
     if currentAnimConn then currentAnimConn:Disconnect(); currentAnimConn = nil end
     isBusy = false
 end
