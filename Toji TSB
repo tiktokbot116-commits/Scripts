@@ -2,11 +2,13 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+local ReplicationEvent = ReplicatedStorage:WaitForChild("Replication")
 
 -- =======================================================================
--- 1. CONFIGURAÇÕES E DADOS
+-- 1. CONFIGURAÇÕES E DADOS GERAIS
 -- =======================================================================
 local skillNames = {
     ["1"] = "Heavenly Flurry",
@@ -31,10 +33,18 @@ local COOLDOWNS = {
     ["5"] = 1,
 }
 
+-- Novas Variaveis de Controle (incluindo trava de animação)
+local isBusy = false
+local currentSkillTrack = nil
+local currentSkillThread = nil
+local currentAnimConn = nil -- Variável nova para travar as animações do jogo
+local isUltimateActive = false
+local ULTIMATE_DURATION = 54 -- Duração da Ultimate
+
 -- =======================================================================
--- 2. DADOS DA PASSIVA DE AUTO-ESQUIVA (ANIMAÇÕES)
+-- 2. DADOS DA PASSIVA DE AUTO-ESQUIVA
 -- =======================================================================
-local AUTO_DODGE_COOLDOWN = 0.5 -- ALTERADO: era 1.5
+local AUTO_DODGE_COOLDOWN = 0.5
 local AUTO_DODGE_DISTANCE = 12
 
 local normalRange = 20
@@ -53,22 +63,9 @@ local allIDs = {
 	Dragon = { 17889458563, 17889461810, 17889471098, 17889290569, special = 10479335397 },
 	Tech = { 123005629431309, 100059874351664, 104895379416342, 134775406437626, special = 10479335397 }
 }
+local skillIDs = {[10468665991] = true, [10466974800] = true, [10471336737] = true, [12510170988] = true, [12272894215] = true, [12296882427] = true, [12307656616] = true, [101588604872680] = true, [105442749844047] = true, [109617620932970] = true, [131820095363270] = true, [135289891173395] = true, [125955606488863] = true, [12534735382] = true, [12502664044] = true, [12509505723] = true, [12618271998] = true, [12684390285] = true, [13376869471] = true, [13294790250] = true, [13376962659] = true, [13501296372] = true, [13556985475] = true, [145162735010] = true, [14046756619] = true, [14299135500] = true, [14351441234] = true, [15290930205] = true, [15145462680] = true, [15295895753] = true, [15295336270] = true, [16139108718] = true, [16515850153] = true, [16431491215] = true, [16597322398] = true, [16597912086] = true, [17799224866] = true, [17838006839] = true, [17857788598] = true, [18179181663] = true, [113166426814229] = true, [116753755471636] = true, [116153572280464] = true, [114095570398448] = true, [77509627104305] = true}
 
-local skillIDs = {
-	[10468665991] = true, [10466974800] = true, [10471336737] = true, [12510170988] = true,
-	[12272894215] = true, [12296882427] = true, [12307656616] = true,
-	[101588604872680] = true, [105442749844047] = true, [109617620932970] = true,
-	[131820095363270] = true, [135289891173395] = true, [125955606488863] = true,
-	[12534735382] = true, [12502664044] = true, [12509505723] = true, [12618271998] = true, [12684390285] = true,
-	[13376869471] = true, [13294790250] = true, [13376962659] = true, [13501296372] = true, [13556985475] = true,
-	[145162735010] = true, [14046756619] = true, [14299135500] = true, [14351441234] = true,
-	[15290930205] = true, [15145462680] = true, [15295895753] = true, [15295336270] = true,
-	[16139108718] = true, [16515850153] = true, [16431491215] = true, [16597322398] = true, [16597912086] = true,
-	[17799224866] = true, [17838006839] = true, [17857788598] = true, [18179181663] = true,
-	[113166426814229] = true, [116753755471636] = true, [116153572280464] = true, [114095570398448] = true, [77509627104305] = true
-}
-
--- IDs DA ISOH E ROUPAS
+-- ROUPAS E ACESSÓRIOS
 local ISOH_ID = "97170279607570"
 local ISOH_TEX = "78781276461261"
 local ISOH_SIZE = Vector3.new(0.1, 0.1, 0.1)
@@ -86,35 +83,107 @@ local ACCESSORY_DATA = {
     ["Right"]      = {Mesh = 73247424268835, Texture = 103027013003624, Part = "Right Arm", Offset = CFrame.new(0, 0.7, 0), Rot = CFrame.Angles(0,0,0)}
 }
 
-local isBusy = false
 local createdParts = {}
 local createdISOH = nil
 local lastUsed = {}
 local lastAutoDodgeTime = 0
 
 -- =======================================================================
--- 3. SETUP INICIAL DA UI
+-- 3. FUNÇÕES GERAIS DE EFEITOS E UI
 -- =======================================================================
+local function getCharHandler()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char, char:FindFirstChild("CharacterHandler")
+end
+
+local function playFxFromList(filterName)
+    local char, handler = getCharHandler()
+    if not handler then return end
+    
+    local PARTICLES = handler:FindFirstChild("Particles")
+    if not PARTICLES then return end
+
+    local fxList = {
+        {obj = PARTICLES:FindFirstChild("CyborgUp") and PARTICLES.CyborgUp:FindFirstChild("SmokeDark"), special = true},
+        {obj = PARTICLES:FindFirstChild("Vanish") and PARTICLES.Vanish:FindFirstChild("Silhouette"), special = false},
+        {obj = PARTICLES:FindFirstChild("Vanish") and PARTICLES.Vanish:FindFirstChild("Afterimage_Flip_Black"), special = false},
+        {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Black_Shock"), special = false},
+        {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Smudge"), special = false},
+    }
+
+    for _, item in pairs(fxList) do
+        if item.obj and item.obj.Parent.Name == filterName then
+            if item.obj:IsA("ParticleEmitter") then
+                item.obj:Emit(item.obj.Rate)
+            end
+        end
+    end
+end
+
 local function setupUI()
     local hotbar = player.PlayerGui:WaitForChild("Hotbar", 5)
     if not hotbar then return end
-    
     local hotbarFrame = hotbar:FindFirstChild("Backpack") and hotbar.Backpack:FindFirstChild("Hotbar")
     if not hotbarFrame then return end
-
     for id, name in pairs(skillNames) do
         if hotbarFrame:FindFirstChild(id) then
             pcall(function() hotbarFrame[id].Base.ToolName.Text = name end)
         end
     end
-
     if hotbarFrame:FindFirstChild("5") then pcall(function() hotbarFrame["5"].Visible = true end) end
 end
-
 task.spawn(setupUI)
 
 -- =======================================================================
--- 4. ACESSÓRIOS, ARMA E BAINHA (agora recriados 1x por spawn)
+-- 4. CANCELAMENTO DE SKILL POR DANO & AUTO-ESQUIVA
+-- =======================================================================
+local function performAutoDodge()
+	if isBusy then return end 
+	local char = player.Character
+	if not char then return end
+	local myHRP = char:FindFirstChild("HumanoidRootPart")
+	local hum = char:FindFirstChildWhichIsA("Humanoid")
+	if not myHRP or not hum then return end
+	
+	local now = tick()
+	if (now - lastAutoDodgeTime) < AUTO_DODGE_COOLDOWN then return end
+	lastAutoDodgeTime = now
+	
+	local moveDir = hum.MoveDirection
+	local offset = (moveDir.Magnitude > 0.1) and (moveDir.Unit * AUTO_DODGE_DISTANCE) or (myHRP.CFrame.RightVector * AUTO_DODGE_DISTANCE)
+	
+	task.spawn(function()
+		pcall(function()
+			playTPEffects(myHRP.Position)
+			myHRP.CFrame = myHRP.CFrame + offset
+			playTPEffects(myHRP.Position)
+		end)
+	end)
+end
+
+local function setupHealthMonitor(char)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if not hum then return end
+    
+    local lastHealth = hum.Health
+    hum.HealthChanged:Connect(function(newHealth)
+        if newHealth < lastHealth then -- Tomou dano
+            if isBusy then
+                -- Cancela a skill em execução e desabilita a trava de animações
+                if currentSkillTrack then currentSkillTrack:Stop(); currentSkillTrack = nil end
+                if currentAnimConn then currentAnimConn:Disconnect(); currentAnimConn = nil end
+                if currentSkillThread then task.cancel(currentSkillThread); currentSkillThread = nil end
+                
+                isBusy = false
+                performAutoDodge() 
+            end
+        end
+        lastHealth = newHealth
+    end)
+end
+
+-- =======================================================================
+-- 5. ACESSÓRIOS E MONTAGEM DO PERSONAGEM
 -- =======================================================================
 local function applyClothing(char)
     local s = char:FindFirstChildOfClass("Shirt") or Instance.new("Shirt", char)
@@ -148,22 +217,15 @@ local function createAccessory(name, data, char)
     return part
 end
 
--- Monta tudo (roupas, acessórios, ISOH) UMA ÚNICA VEZ por char.
--- Usa retries com task.wait porque as partes do char (Torso, Head, arma)
--- podem não existir ainda no primeiro frame do spawn.
 local function setupCharacterOnce(char)
-    -- reseta o estado local para este novo char
     createdParts = {}
     createdISOH = nil
-
     local attempts = 0
-    local maxAttempts = 15 -- ~15 segundos de tentativa no total
+    setupHealthMonitor(char)
 
-    while char and char.Parent and attempts < maxAttempts do
+    while char and char.Parent and attempts < 15 do
         attempts += 1
-
         local liveChar = Workspace:FindFirstChild("Live") and Workspace.Live:FindFirstChild(player.Name)
-        -- só prossegue quando o char "real" (dentro de Live) for o mesmo que estamos montando
         if liveChar == char then
             applyClothing(char)
             makeInvisible(char:FindFirstChild(KATANA_NAME))
@@ -173,17 +235,12 @@ local function setupCharacterOnce(char)
             for name, data in pairs(ACCESSORY_DATA) do
                 if not createdParts[name] or not createdParts[name].Parent then
                     local part = createAccessory(name, data, char)
-                    if part then
-                        createdParts[name] = part
-                    else
-                        allAccessoriesOk = false
-                    end
+                    if part then createdParts[name] = part else allAccessoriesOk = false end
                 end
             end
 
             local weapon = char:FindFirstChild(KATANA_NAME)
             local hold = weapon and weapon:FindFirstChild("WeaponHold")
-
             if hold and not createdISOH then
                 local part = Instance.new("MeshPart")
                 part.Name = "ISOH"
@@ -198,34 +255,20 @@ local function setupCharacterOnce(char)
                 createdISOH = part
             end
 
-            if char:FindFirstChild("UltimateName") then
-                char.UltimateName.Value = "Heavenly Restriction"
-            end
-
-            -- Se tudo que precisávamos já foi criado, encerra o loop de tentativas
-            if allAccessoriesOk and createdISOH then
-                break
-            end
+            if char:FindFirstChild("UltimateName") then char.UltimateName.Value = "Heavenly Restriction" end
+            if allAccessoriesOk and createdISOH then break end
         end
-
         task.wait(1)
     end
 end
 
-local function onCharacterAdded(char)
-    -- roda em uma task própria para não travar outros listeners
-    task.spawn(setupCharacterOnce, char)
-end
-
-if player.Character then
-    onCharacterAdded(player.Character)
-end
-player.CharacterAdded:Connect(onCharacterAdded)
+if player.Character then task.spawn(setupCharacterOnce, player.Character) end
+player.CharacterAdded:Connect(function(char) task.spawn(setupCharacterOnce, char) end)
 
 -- =======================================================================
--- 5. SISTEMA DE AUDIO E PARTICULAS
+-- 6. SISTEMA DE AUDIO E PARTICULAS
 -- =======================================================================
-local function playSFX(soundId, startTime)
+function playSFX(soundId, startTime)
     if not soundId or soundId == "rbxassetid://0" then return end
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -236,7 +279,6 @@ local function playSFX(soundId, startTime)
         sound.SoundId = soundId
         sound.Volume = 4
         sound.Parent = hrp
-
         if startTime then sound.TimePosition = startTime end
         sound:Play()
         sound.Ended:Connect(function() sound:Destroy() end)
@@ -244,7 +286,7 @@ local function playSFX(soundId, startTime)
     end)
 end
 
-local function playTPEffects(position)
+function playTPEffects(position)
     local vfxPart = Instance.new("Part")
     vfxPart.Size = Vector3.new(1, 1, 1)
     vfxPart.Transparency = 1
@@ -253,32 +295,27 @@ local function playTPEffects(position)
     vfxPart.Position = position
     vfxPart.Parent = workspace
 
-    local char = player.Character
-    if char then
-        local charHandler = char:FindFirstChild("CharacterHandler")
-        local PARTICLES = charHandler and charHandler:FindFirstChild("Particles")
-        
-        if PARTICLES then
-            local fxList = {
-                {obj = PARTICLES:FindFirstChild("CyborgUp") and PARTICLES.CyborgUp:FindFirstChild("SmokeDark"), special = true},
-                {obj = PARTICLES:FindFirstChild("Vanish") and PARTICLES.Vanish:FindFirstChild("Silhouette"), special = false},
-                {obj = PARTICLES:FindFirstChild("Vanish") and PARTICLES.Vanish:FindFirstChild("Afterimage_Flip_Black"), special = false},
-                {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Black_Shock"), special = false},
-                {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Smudge"), special = false},
-            }
-
-            for _, data in pairs(fxList) do
-                local p = data.obj
-                if p and p:IsA("ParticleEmitter") then
-                    local clone = p:Clone()
-                    if data.special then clone.Size = NumberSequence.new(clone.Size.Keypoints[1].Value * 0.5) end
-                    clone.Parent = vfxPart
-                    clone:Emit(3)
-                end
+    local char, charHandler = getCharHandler()
+    local PARTICLES = charHandler and charHandler:FindFirstChild("Particles")
+    
+    if PARTICLES then
+        local fxList = {
+            {obj = PARTICLES:FindFirstChild("CyborgUp") and PARTICLES.CyborgUp:FindFirstChild("SmokeDark"), special = true},
+            {obj = PARTICLES:FindFirstChild("Vanish") and PARTICLES.Vanish:FindFirstChild("Silhouette"), special = false},
+            {obj = PARTICLES:FindFirstChild("Vanish") and PARTICLES.Vanish:FindFirstChild("Afterimage_Flip_Black"), special = false},
+            {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Black_Shock"), special = false},
+            {obj = PARTICLES:FindFirstChild("Appear") and PARTICLES.Appear:FindFirstChild("Smudge"), special = false},
+        }
+        for _, data in pairs(fxList) do
+            local p = data.obj
+            if p and p:IsA("ParticleEmitter") then
+                local clone = p:Clone()
+                if data.special then clone.Size = NumberSequence.new(clone.Size.Keypoints[1].Value * 0.5) end
+                clone.Parent = vfxPart
+                clone:Emit(3)
             end
         end
     end
-
     task.delay(2, function() if vfxPart then vfxPart:Destroy() end end)
 end
 
@@ -289,8 +326,57 @@ local function waitForTrack(track)
 end
 
 -- =======================================================================
--- 6. LÓGICA DE EXECUÇÃO DAS SKILLS
+-- 7. LÓGICA DE ULTIMATE
 -- =======================================================================
+local function applyAwakening(data)
+    if not (data and data.Effect == "Fire Awk") then return end
+    local char = player.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildWhichIsA("Humanoid")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+    if not animator then return end
+
+    isUltimateActive = true
+    task.delay(ULTIMATE_DURATION, function()
+        isUltimateActive = false
+    end)
+
+    local hl = Instance.new("Highlight", char)
+    hl.FillColor = Color3.fromRGB(0, 0, 0)
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.FillTransparency = 0.5
+
+    playFxFromList("Vanish")
+    playFxFromList("Appear")
+
+    local ultAnim = Instance.new("Animation")
+    ultAnim.AnimationId = "rbxassetid://97401167464229"
+    local ultTrack = animator:LoadAnimation(ultAnim)
+    ultTrack.Priority = Enum.AnimationPriority.Action4
+    ultTrack:Play()
+
+    task.wait(4)
+    ultTrack:Stop()
+
+    local handler = char:FindFirstChild("CharacterHandler")
+    local anim = handler and handler:FindFirstChild("Animations") and handler.Animations:FindFirstChild("Start")
+    if anim then
+        local startTrack = animator:LoadAnimation(anim)
+        startTrack.Priority = Enum.AnimationPriority.Action4
+        startTrack:Play()
+    end
+end
+
+ReplicationEvent.OnClientEvent:Connect(function(data)
+    task.spawn(applyAwakening, data)
+end)
+
+-- =======================================================================
+-- 8. LÓGICA DE EXECUÇÃO DAS SKILLS BASE
+-- =======================================================================
+-- Substitua a função runSkill antiga por esta versão blindada:
+
 local function runSkill(skillId)
     local char = player.Character
     if not char then return end
@@ -298,43 +384,68 @@ local function runSkill(skillId)
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local humanoid = char:FindFirstChildWhichIsA("Humanoid")
     local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-    if not hrp or not humanoid then return end
+    if not hrp or not humanoid or not animator then return end
 
-    local charHandler = char:FindFirstChild("CharacterHandler")
-    local ANIMATIONS = charHandler and charHandler:FindFirstChild("Animations")
-    local anim2 = ANIMATIONS and ANIMATIONS:FindFirstChild("End", 5)
+    -- LIMPEZA PREVENTIVA: Garante que não haja animações "zumbis" travando o animator
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        if track.Priority.Value >= Enum.AnimationPriority.Action.Value then
+            track:Stop(0) -- Para instantaneamente sem transição
+        end
+    end
 
     if skillId == "1" then pcall(playSFX, SFX_IDS[skillId], 0.5) else pcall(playSFX, SFX_IDS[skillId]) end
+    currentSkillTrack = nil
 
-    local track = nil
+    local function playCustomSkillAnim(animId)
+        task.wait(0.05)
+        
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://" .. animId
+        currentSkillTrack = animator:LoadAnimation(anim)
+        currentSkillTrack.Priority = Enum.AnimationPriority.Action4
+        currentSkillTrack:Play()
+
+        -- Trava de segurança: Se o jogo tentar tocar outra, a nossa prevalece
+        if currentAnimConn then currentAnimConn:Disconnect() end
+        currentAnimConn = animator.AnimationPlayed:Connect(function(track)
+            if currentSkillTrack and track ~= currentSkillTrack then
+                if track.Priority.Value >= Enum.AnimationPriority.Action.Value then
+                    track:Stop(0)
+                end
+            end
+        end)
+    end
 
     if skillId == "1" then
         task.wait(1.5)
         playTPEffects(hrp.Position)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
         playTPEffects(hrp.Position)
+        
     elseif skillId == "2" then
-        task.wait(2.5)
-        if anim2 and animator then
-            pcall(function() track = animator:LoadAnimation(anim2) end)
-            if track then track:Play() end
-        end
-        task.wait(0.5)
+        task.wait(0.1) -- Delay curtinho inicial
+        playCustomSkillAnim("115484690572880")
+        
+        -- FIX: Tempo de 1.6s definido aqui
+        task.wait(1.6)
         local ray = workspace:Raycast(hrp.Position, Vector3.new(0, -1000, 0))
         if ray then
             playTPEffects(hrp.Position)
             hrp.CFrame = CFrame.new(ray.Position + Vector3.new(0, -0.3, 0))
             playTPEffects(hrp.Position)
         end
+        
     elseif skillId == "3" then
-        task.wait(1.5)
+        playCustomSkillAnim("17838006839")
+        task.wait(1.45)
         playTPEffects(hrp.Position)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -15)
         playTPEffects(hrp.Position)
+        
     elseif skillId == "4" then
-        hrp.Anchored = true
-        task.wait(4)
-        hrp.Anchored = false
+        playCustomSkillAnim("120504468846608")
+        task.wait(3.95)
+        
     elseif skillId == "5" then
         task.wait(0.5)
         playTPEffects(hrp.Position)
@@ -342,7 +453,14 @@ local function runSkill(skillId)
         playTPEffects(hrp.Position)
     end
     
-    waitForTrack(track)
+    -- Aguarda o fim da animação com segurança
+    if currentSkillTrack then
+        currentSkillTrack.Stopped:Wait()
+    end
+    
+    -- RESGATE FINAL: Limpa a trava e garante que o Animator não fique travado
+    if currentAnimConn then currentAnimConn:Disconnect(); currentAnimConn = nil end
+    isBusy = false
 end
 
 UserInputService.InputBegan:Connect(function(input)
@@ -350,7 +468,6 @@ UserInputService.InputBegan:Connect(function(input)
 
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
         local pos = input.Position
-        
         local hotbar = player.PlayerGui:FindFirstChild("Hotbar")
         local hotbarFrame = hotbar and hotbar:FindFirstChild("Backpack") and hotbar.Backpack:FindFirstChild("Hotbar")
         if not hotbarFrame then return end
@@ -364,6 +481,10 @@ UserInputService.InputBegan:Connect(function(input)
                     local skill = btn.Name
 
                     if skillNames[skill] then
+                        
+                        -- FIX 3: Bloqueia todas as skills base na ultimate, EXCETO a skill 5.
+                        if isUltimateActive and skill ~= "5" then return end 
+
                         local now = os.clock()
                         local cooldown = COOLDOWNS[skill] or 0
                         local last = lastUsed[skill]
@@ -371,10 +492,14 @@ UserInputService.InputBegan:Connect(function(input)
                         if not (last and (now - last) < cooldown) then
                             lastUsed[skill] = now
                             isBusy = true
-                            task.spawn(function()
+                            
+                            currentSkillThread = task.spawn(function()
                                 local ok, err = pcall(runSkill, skill)
-                                if not ok then warn("[Ability] Erro durante a skill: ", err) end
-                                isBusy = false
+                                if not ok then 
+                                    warn("[Ability] Erro durante a skill: ", err) 
+                                    isBusy = false
+                                    if currentAnimConn then currentAnimConn:Disconnect(); currentAnimConn = nil end
+                                end
                             end)
                         end
                         break
@@ -386,64 +511,20 @@ UserInputService.InputBegan:Connect(function(input)
 end)
 
 -- =======================================================================
--- 7. PASSIVA: DETECTOR DE ANIMAÇÃO (INÍCIO + CONTÍNUO) E AUTO-ESQUIVA
+-- 9. LISTENER DE ANIMAÇÕES PARA A PASSIVA
 -- =======================================================================
-local function performAutoDodge()
-	-- Ignora isBusy propositalmente para o Auto-Dodge sempre te salvar
-	local char = player.Character
-	if not char then return end
-	
-	local myHRP = char:FindFirstChild("HumanoidRootPart")
-	local hum = char:FindFirstChildWhichIsA("Humanoid")
-	if not myHRP or not hum then return end
-	
-	local now = tick()
-	if (now - lastAutoDodgeTime) < AUTO_DODGE_COOLDOWN then return end
-	lastAutoDodgeTime = now
-	
-	local moveDir = hum.MoveDirection
-	local offset
-	
-	if moveDir.Magnitude > 0.1 then
-		offset = moveDir.Unit * AUTO_DODGE_DISTANCE
-	else
-		offset = myHRP.CFrame.RightVector * AUTO_DODGE_DISTANCE
-	end
-	
-	task.spawn(function()
-		local ok, err = pcall(function()
-			playTPEffects(myHRP.Position)
-			myHRP.CFrame = myHRP.CFrame + offset
-			playTPEffects(myHRP.Position)
-		end)
-		if not ok then warn("[Passiva] Erro na auto-esquiva: ", err) end
-	end)
-end
-
--- Recebe um "mapa" {[animId]=true,...} de animações tocando em um alvo
--- e decide, com base na distância, se deve esquivar. Compartilhado entre
--- a checagem contínua (Heartbeat) e a checagem de início (AnimationPlayed).
 local function evaluateAnimsAndDodge(anims, dist)
     local comboCount = 0
-    for _, id in ipairs(comboIDs) do
-        if anims[id] then comboCount += 1 end
-    end
+    for _, id in ipairs(comboIDs) do if anims[id] then comboCount += 1 end end
 
     for _, group in pairs(allIDs) do
         local normalHits = 0
         local special = anims[group.special]
+        for i = 1, 4 do if anims[group[i]] then normalHits += 1 end end
 
-        for i = 1, 4 do
-            if anims[group[i]] then normalHits += 1 end
-        end
-
-        if comboCount == 2 and normalHits >= 2 and dist <= specialRange then
-            performAutoDodge()
-            return true
-        elseif normalHits > 0 and dist <= normalRange then
-            performAutoDodge()
-            return true
-        elseif special and dist <= specialRange then
+        if (comboCount == 2 and normalHits >= 2 and dist <= specialRange) or 
+           (normalHits > 0 and dist <= normalRange) or 
+           (special and dist <= specialRange) then
             performAutoDodge()
             return true
         end
@@ -455,7 +536,6 @@ local function evaluateAnimsAndDodge(anims, dist)
             return true
         end
     end
-
     return false
 end
 
@@ -468,8 +548,6 @@ local function getPlayingAnimsMap(targetAnimator)
     return anims
 end
 
--- Checagem CONTÍNUA (a cada Heartbeat): cobre animações que já estavam
--- tocando ou que se prolongam enquanto o jogador entra na zona de detecção.
 local function checkAnims()
     local myChar = player.Character
     if not myChar then return end
@@ -485,71 +563,47 @@ local function checkAnims()
 			if targetHRP and hum then
 				local dist = (targetHRP.Position - myHRP.Position).Magnitude
 				local targetAnimator = hum:FindFirstChildOfClass("Animator")
-				
 				if targetAnimator then
-					local anims = getPlayingAnimsMap(targetAnimator)
-					evaluateAnimsAndDodge(anims, dist)
+					evaluateAnimsAndDodge(getPlayingAnimsMap(targetAnimator), dist)
 				end
 			end
 		end
 	end
 end
 
--- Checagem de INÍCIO de animação: escuta AnimationPlayed de cada Animator
--- de outros players em tempo real, então mesmo que a animação seja curta
--- ou que o player só entre na zona no exato instante em que ela começa,
--- a esquiva dispara imediatamente (sem esperar o próximo Heartbeat).
 local hookedAnimators = {}
-
 local function hookAnimator(plr, targetAnimator)
     if hookedAnimators[targetAnimator] then return end
     hookedAnimators[targetAnimator] = true
-
     targetAnimator.AnimationPlayed:Connect(function(track)
         local id = tonumber(track.Animation.AnimationId:match("%d+"))
         if not id then return end
-
-        local myChar = player.Character
-        local targetChar = plr.Character
+        local myChar, targetChar = player.Character, plr.Character
         if not myChar or not targetChar then return end
-
-        local myHRP = myChar:FindFirstChild("HumanoidRootPart")
-        local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+        local myHRP, targetHRP = myChar:FindFirstChild("HumanoidRootPart"), targetChar:FindFirstChild("HumanoidRootPart")
         if not myHRP or not targetHRP then return end
 
-        local dist = (targetHRP.Position - myHRP.Position).Magnitude
-
-        -- monta o mapa incluindo essa animação recém-iniciada + as que já tocavam
         local anims = getPlayingAnimsMap(targetAnimator)
         anims[id] = true
-
-        evaluateAnimsAndDodge(anims, dist)
-    end)
-end
-
-local function hookCharacterAnimator(plr, char)
-    task.spawn(function()
-        local hum = char:WaitForChild("Humanoid", 5)
-        if not hum then return end
-        local animator = hum:FindFirstChildOfClass("Animator") or hum:WaitForChild("Animator", 5)
-        if not animator then return end
-        hookAnimator(plr, animator)
+        evaluateAnimsAndDodge(anims, (targetHRP.Position - myHRP.Position).Magnitude)
     end)
 end
 
 local function hookPlayer(plr)
     if plr == player then return end
-    if plr.Character then hookCharacterAnimator(plr, plr.Character) end
-    plr.CharacterAdded:Connect(function(char)
-        hookCharacterAnimator(plr, char)
-    end)
+    local function hookChar(char)
+        task.spawn(function()
+            local hum = char:WaitForChild("Humanoid", 5)
+            if hum then 
+                local animator = hum:FindFirstChildOfClass("Animator") or hum:WaitForChild("Animator", 5)
+                if animator then hookAnimator(plr, animator) end 
+            end
+        end)
+    end
+    if plr.Character then hookChar(plr.Character) end
+    plr.CharacterAdded:Connect(hookChar)
 end
 
-for _, plr in pairs(Players:GetPlayers()) do
-    hookPlayer(plr)
-end
+for _, plr in pairs(Players:GetPlayers()) do hookPlayer(plr) end
 Players.PlayerAdded:Connect(hookPlayer)
-
-RunService.Heartbeat:Connect(function()
-	pcall(checkAnims)
-end)
+RunService.Heartbeat:Connect(function() pcall(checkAnims) end)
