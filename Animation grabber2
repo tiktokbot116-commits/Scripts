@@ -1,0 +1,241 @@
+-- =======================================================================
+-- ANIM HUB V1.1 - COM FILTRO DE WORKSPACE
+-- =======================================================================
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Variáveis Globais do Sistema
+local SavedAnims = {}
+local currentTrack = nil
+local selected1 = nil
+local selected2 = nil
+
+-- =======================================================================
+-- CONSTRUÇÃO DA INTERFACE (HUB STYLE)
+-- =======================================================================
+local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+ScreenGui.Name = "AnimHub"
+ScreenGui.ResetOnSpawn = false
+
+-- Frame Principal
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 450, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+-- Barra Superior (Drag)
+local TopBar = Instance.new("Frame", MainFrame)
+TopBar.Size = UDim2.new(1, 0, 0, 30)
+TopBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+
+local Title = Instance.new("TextLabel", TopBar)
+Title.Size = UDim2.new(1, -10, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Text = "ANIM HUB V1.1 (Filtro Anti-Workspace)"
+Title.Font = Enum.Font.GothamBold
+Title.TextColor3 = Color3.fromRGB(200, 200, 200)
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.BackgroundTransparency = 1
+
+-- Sidebar (Abas)
+local SideBar = Instance.new("Frame", MainFrame)
+SideBar.Size = UDim2.new(0, 120, 1, -30)
+SideBar.Position = UDim2.new(0, 0, 0, 30)
+SideBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+SideBar.BorderSizePixel = 0
+
+local TabContainer = Instance.new("Frame", MainFrame)
+TabContainer.Size = UDim2.new(1, -120, 1, -30)
+TabContainer.Position = UDim2.new(0, 120, 0, 30)
+TabContainer.BackgroundTransparency = 1
+
+-- Lógica de arrastar (Drag)
+local dragging, dragInput, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+    end
+end)
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- =======================================================================
+-- FUNÇÕES DE CRIAÇÃO UI
+-- =======================================================================
+local function createButton(parent, text, pos, size, bgCol)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = size; btn.Position = pos; btn.Text = text
+    btn.BackgroundColor3 = bgCol; btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamSemibold; btn.TextSize = 12; btn.AutoButtonColor = true
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    return btn
+end
+
+-- =======================================================================
+-- CRIAÇÃO DAS ABAS
+-- =======================================================================
+local Tabs = {}
+local function createTab(name, posIdx)
+    local TabBtn = createButton(SideBar, name, UDim2.new(0, 5, 0, 5 + (posIdx * 35)), UDim2.new(1, -10, 0, 30), Color3.fromRGB(45, 45, 45))
+    local Frame = Instance.new("Frame", TabContainer)
+    Frame.Size = UDim2.new(1, 0, 1, 0); Frame.BackgroundTransparency = 1; Frame.Visible = false
+    
+    TabBtn.MouseButton1Click:Connect(function()
+        for _, t in pairs(Tabs) do t.Frame.Visible = false; t.Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end
+        Frame.Visible = true; TabBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end)
+    table.insert(Tabs, {Frame = Frame, Btn = TabBtn})
+    return Frame
+end
+
+local TabMonitor = createTab("Monitor", 0)
+local TabLibrary = createTab("Biblioteca", 1)
+local TabSequence = createTab("Sequenciador", 2)
+Tabs[1].Frame.Visible = true; Tabs[1].Btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+
+-- =======================================================================
+-- LÓGICA: ABA MONITOR
+-- =======================================================================
+local AnimInfo = Instance.new("TextLabel", TabMonitor)
+AnimInfo.Size = UDim2.new(1, -20, 0, 60); AnimInfo.Position = UDim2.new(0, 10, 0, 10)
+AnimInfo.BackgroundTransparency = 1; AnimInfo.TextColor3 = Color3.new(1,1,1)
+AnimInfo.Text = "Nenhuma animação detectada."
+AnimInfo.Font = Enum.Font.Gotham; AnimInfo.TextSize = 14
+
+local SaveBtn = createButton(TabMonitor, "Salvar na Biblioteca", UDim2.new(0, 10, 0, 80), UDim2.new(1, -20, 0, 30), Color3.fromRGB(0, 150, 0))
+local StopBtn = createButton(TabMonitor, "Parar Animação", UDim2.new(0, 10, 0, 120), UDim2.new(1, -20, 0, 30), Color3.fromRGB(150, 0, 0))
+
+local TimeInput = Instance.new("TextBox", TabMonitor)
+TimeInput.Size = UDim2.new(0.6, -15, 0, 30); TimeInput.Position = UDim2.new(0, 10, 0, 160)
+TimeInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20); TimeInput.TextColor3 = Color3.new(1,1,1)
+TimeInput.PlaceholderText = "Tempo em Segundos (Ex: 1.5)"
+Instance.new("UICorner", TimeInput).CornerRadius = UDim.new(0, 4)
+
+local PlayTimeBtn = createButton(TabMonitor, "Iniciar", UDim2.new(0.6, 5, 0, 160), UDim2.new(0.4, -15, 0, 30), Color3.fromRGB(50, 100, 200))
+
+-- =======================================================================
+-- LÓGICA: ABA BIBLIOTECA
+-- =======================================================================
+local LibScroll = Instance.new("ScrollingFrame", TabLibrary)
+LibScroll.Size = UDim2.new(1, -20, 1, -20); LibScroll.Position = UDim2.new(0, 10, 0, 10)
+LibScroll.BackgroundTransparency = 1; LibScroll.ScrollBarThickness = 4
+local UIList = Instance.new("UIListLayout", LibScroll); UIList.Padding = UDim.new(0, 5)
+
+-- =======================================================================
+-- LÓGICA: ABA SEQUENCIADOR
+-- =======================================================================
+local SeqInfo = Instance.new("TextLabel", TabSequence)
+SeqInfo.Size = UDim2.new(1, -20, 0, 80); SeqInfo.Position = UDim2.new(0, 10, 0, 10)
+SeqInfo.BackgroundTransparency = 1; SeqInfo.TextColor3 = Color3.new(1,1,1)
+SeqInfo.Text = "Selecione duas animações na Biblioteca\n\nAnim 1: Nenhuma\nAnim 2: Nenhuma"
+SeqInfo.Font = Enum.Font.Gotham; SeqInfo.TextSize = 13
+
+local PlaySeqBtn = createButton(TabSequence, "Tocar Sequência", UDim2.new(0, 10, 0, 100), UDim2.new(1, -20, 0, 40), Color3.fromRGB(200, 100, 0))
+local ClearSeqBtn = createButton(TabSequence, "Limpar Seleção", UDim2.new(0, 10, 0, 150), UDim2.new(1, -20, 0, 30), Color3.fromRGB(100, 100, 100))
+
+-- =======================================================================
+-- SISTEMA CORE: CAPTURAR, SALVAR E REPRODUZIR
+-- =======================================================================
+local function updateSeqText()
+    local t1 = selected1 and selected1.Name or "Nenhuma"
+    local t2 = selected2 and selected2.Name or "Nenhuma"
+    SeqInfo.Text = "Selecione duas animações na Biblioteca\n\nAnim 1: " .. t1 .. "\nAnim 2: " .. t2
+end
+
+local function refreshLibrary()
+    for _, v in pairs(LibScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    LibScroll.CanvasSize = UDim2.new(0, 0, 0, #SavedAnims * 35)
+    
+    for _, anim in pairs(SavedAnims) do
+        local btn = createButton(LibScroll, anim.Name, UDim2.new(0,0,0,0), UDim2.new(1, 0, 0, 30), Color3.fromRGB(50, 50, 50))
+        btn.MouseButton1Click:Connect(function()
+            if not selected1 then selected1 = anim; btn.BackgroundColor3 = Color3.fromRGB(200, 100, 0)
+            elseif not selected2 then selected2 = anim; btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+            end
+            updateSeqText()
+        end)
+    end
+end
+
+-- =======================================================================
+-- MONITORAMENTO COM FILTRO (A MÁGICA ACONTECE AQUI)
+-- =======================================================================
+local function hookAnimator()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    local animator = hum:WaitForChild("Animator")
+    
+    animator.AnimationPlayed:Connect(function(track)
+        -- Apenas ignora se a animação existir e for do Workspace (Ex: Animate Script)
+        if track.Animation and not track.Animation:IsDescendantOf(workspace) then
+            currentTrack = track
+            local id = track.Animation.AnimationId:match("%d+") or track.Animation.AnimationId
+            AnimInfo.Text = "Nome: " .. track.Name .. "\nID: " .. id
+        end
+    end)
+end
+
+task.spawn(hookAnimator)
+LocalPlayer.CharacterAdded:Connect(hookAnimator)
+
+-- =======================================================================
+-- EVENTOS DOS BOTÕES
+-- =======================================================================
+SaveBtn.MouseButton1Click:Connect(function()
+    if currentTrack then
+        table.insert(SavedAnims, {Name = currentTrack.Name, ID = currentTrack.Animation.AnimationId})
+        refreshLibrary()
+    end
+end)
+
+StopBtn.MouseButton1Click:Connect(function()
+    if currentTrack then currentTrack:Stop() end
+end)
+
+PlayTimeBtn.MouseButton1Click:Connect(function()
+    if currentTrack then
+        local timePos = tonumber(TimeInput.Text) or 0
+        currentTrack:Play()
+        currentTrack.TimePosition = timePos
+    end
+end)
+
+ClearSeqBtn.MouseButton1Click:Connect(function()
+    selected1 = nil; selected2 = nil
+    refreshLibrary()
+    updateSeqText()
+end)
+
+PlaySeqBtn.MouseButton1Click:Connect(function()
+    if not selected1 or not selected2 then return end
+    local char = LocalPlayer.Character
+    local animator = char and char:FindFirstChild("Humanoid") and char.Humanoid:FindFirstChild("Animator")
+    if not animator then return end
+    
+    local a1 = Instance.new("Animation"); a1.AnimationId = selected1.ID
+    local a2 = Instance.new("Animation"); a2.AnimationId = selected2.ID
+    
+    local t1 = animator:LoadAnimation(a1)
+    local t2 = animator:LoadAnimation(a2)
+    
+    t1:Play()
+    t1.Stopped:Connect(function()
+        t2:Play()
+    end)
+end)
+
