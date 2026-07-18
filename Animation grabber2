@@ -125,117 +125,243 @@ TimeInput.Size = UDim2.new(0.6, -15, 0, 30); TimeInput.Position = UDim2.new(0, 1
 TimeInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20); TimeInput.TextColor3 = Color3.new(1,1,1)
 TimeInput.PlaceholderText = "Tempo em Segundos (Ex: 1.5)"
 Instance.new("UICorner", TimeInput).CornerRadius = UDim.new(0, 4)
+local Player = game:GetService("Players").LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local PlayTimeBtn = createButton(TabMonitor, "Iniciar", UDim2.new(0.6, 5, 0, 160), UDim2.new(0.4, -15, 0, 30), Color3.fromRGB(50, 100, 200))
-
--- =======================================================================
--- LÓGICA: ABA BIBLIOTECA
--- =======================================================================
-local LibScroll = Instance.new("ScrollingFrame", TabLibrary)
-LibScroll.Size = UDim2.new(1, -20, 1, -20); LibScroll.Position = UDim2.new(0, 10, 0, 10)
-LibScroll.BackgroundTransparency = 1; LibScroll.ScrollBarThickness = 4
-local UIList = Instance.new("UIListLayout", LibScroll); UIList.Padding = UDim.new(0, 5)
-
--- =======================================================================
--- LÓGICA: ABA SEQUENCIADOR
--- =======================================================================
-local SeqInfo = Instance.new("TextLabel", TabSequence)
-SeqInfo.Size = UDim2.new(1, -20, 0, 80); SeqInfo.Position = UDim2.new(0, 10, 0, 10)
-SeqInfo.BackgroundTransparency = 1; SeqInfo.TextColor3 = Color3.new(1,1,1)
-SeqInfo.Text = "Selecione duas animações na Biblioteca\n\nAnim 1: Nenhuma\nAnim 2: Nenhuma"
-SeqInfo.Font = Enum.Font.Gotham; SeqInfo.TextSize = 13
-
-local PlaySeqBtn = createButton(TabSequence, "Tocar Sequência", UDim2.new(0, 10, 0, 100), UDim2.new(1, -20, 0, 40), Color3.fromRGB(200, 100, 0))
-local ClearSeqBtn = createButton(TabSequence, "Limpar Seleção", UDim2.new(0, 10, 0, 150), UDim2.new(1, -20, 0, 30), Color3.fromRGB(100, 100, 100))
-
--- =======================================================================
--- SISTEMA CORE: CAPTURAR, SALVAR E REPRODUZIR
--- =======================================================================
-local function updateSeqText()
-    local t1 = selected1 and selected1.Name or "Nenhuma"
-    local t2 = selected2 and selected2.Name or "Nenhuma"
-    SeqInfo.Text = "Selecione duas animações na Biblioteca\n\nAnim 1: " .. t1 .. "\nAnim 2: " .. t2
+-- Remove interface antiga se existir
+if PlayerGui:FindFirstChild("AnimManagerPRO") then
+    PlayerGui.AnimManagerPRO:Destroy()
 end
 
-local function refreshLibrary()
-    for _, v in pairs(LibScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-    LibScroll.CanvasSize = UDim2.new(0, 0, 0, #SavedAnims * 35)
+local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+ScreenGui.Name = "AnimManagerPRO"
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 600, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -300, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+-- ================= TITULOS =================
+local TitleLeft = Instance.new("TextLabel", MainFrame)
+TitleLeft.Size = UDim2.new(0.5, 0, 0, 30)
+TitleLeft.BackgroundTransparency = 1
+TitleLeft.Text = "TESTAR E SALVAR"
+TitleLeft.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLeft.Font = Enum.Font.SourceSansBold
+TitleLeft.TextSize = 18
+
+local TitleRight = Instance.new("TextLabel", MainFrame)
+TitleRight.Size = UDim2.new(0.5, 0, 0, 30)
+TitleRight.Position = UDim2.new(0.5, 0, 0, 0)
+TitleRight.BackgroundTransparency = 1
+TitleRight.Text = "BIBLIOTECA"
+TitleRight.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleRight.Font = Enum.Font.SourceSansBold
+TitleRight.TextSize = 18
+
+-- ================= PAINEIS =================
+local LeftPanel = Instance.new("ScrollingFrame", MainFrame)
+LeftPanel.Size = UDim2.new(0.48, 0, 1, -40)
+LeftPanel.Position = UDim2.new(0.01, 0, 0, 35)
+LeftPanel.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+LeftPanel.CanvasSize = UDim2.new(0, 0, 2.5, 0)
+LeftPanel.ScrollBarThickness = 6
+
+local RightPanel = Instance.new("ScrollingFrame", MainFrame)
+RightPanel.Size = UDim2.new(0.48, 0, 1, -100)
+RightPanel.Position = UDim2.new(0.51, 0, 0, 35)
+RightPanel.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+RightPanel.CanvasSize = UDim2.new(0, 0, 2, 0)
+RightPanel.ScrollBarThickness = 6
+
+-- ================= DADOS E FUNÇÕES GERAIS =================
+local Ids = {
+    16597322398, 16597912086, 96865367566704, 16139708727,
+    131492147325921, 119169968232874, 97347443597947, 10561370132258
+}
+
+local Biblioteca = {}
+local Selecionadas = {}
+
+local function PlayAnim(id)
+    local char = Player.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    if hum then
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://" .. id
+        local track = hum:LoadAnimation(anim)
+        track:Play()
+    end
+end
+
+-- ================= ATUALIZAR BIBLIOTECA =================
+local function AtualizarBiblioteca()
+    for _, child in pairs(RightPanel:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
     
-    for _, anim in pairs(SavedAnims) do
-        local btn = createButton(LibScroll, anim.Name, UDim2.new(0,0,0,0), UDim2.new(1, 0, 0, 30), Color3.fromRGB(50, 50, 50))
-        btn.MouseButton1Click:Connect(function()
-            if not selected1 then selected1 = anim; btn.BackgroundColor3 = Color3.fromRGB(200, 100, 0)
-            elseif not selected2 then selected2 = anim; btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    Selecionadas = {} -- Limpa seleções ao atualizar
+    
+    local yPosLib = 5
+    for index, data in ipairs(Biblioteca) do
+        local libItem = Instance.new("Frame", RightPanel)
+        libItem.Size = UDim2.new(0.95, 0, 0, 45)
+        libItem.Position = UDim2.new(0.025, 0, 0, yPosLib)
+        libItem.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        
+        local lbl = Instance.new("TextLabel", libItem)
+        lbl.Size = UDim2.new(0.55, 0, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = data.Name .. "\n(" .. data.ID .. ")"
+        lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+        lbl.TextScaled = true
+        
+        local playBtn = Instance.new("TextButton", libItem)
+        playBtn.Size = UDim2.new(0.2, 0, 0.8, 0)
+        playBtn.Position = UDim2.new(0.58, 0, 0.1, 0)
+        playBtn.Text = "▶"
+        playBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        playBtn.MouseButton1Click:Connect(function() PlayAnim(data.ID) end)
+        
+        local selBtn = Instance.new("TextButton", libItem)
+        selBtn.Size = UDim2.new(0.2, 0, 0.8, 0)
+        selBtn.Position = UDim2.new(0.79, 0, 0.1, 0)
+        selBtn.Text = "Sel"
+        selBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+        
+        local isSelected = false
+        selBtn.MouseButton1Click:Connect(function()
+            isSelected = not isSelected
+            if isSelected then
+                selBtn.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+                table.insert(Selecionadas, data)
+            else
+                selBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+                for i, v in ipairs(Selecionadas) do
+                    if v.ID == data.ID then
+                        table.remove(Selecionadas, i)
+                        break
+                    end
+                end
             end
-            updateSeqText()
         end)
+        
+        yPosLib = yPosLib + 50
     end
+    RightPanel.CanvasSize = UDim2.new(0, 0, 0, yPosLib)
 end
 
--- =======================================================================
--- MONITORAMENTO COM FILTRO (A MÁGICA ACONTECE AQUI)
--- =======================================================================
-local function hookAnimator()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local hum = char:WaitForChild("Humanoid")
-    local animator = hum:WaitForChild("Animator")
+-- ================= POPULAR TESTADOR (ESQUERDA) =================
+local yPos = 5
+for _, id in pairs(Ids) do
+    local container = Instance.new("Frame", LeftPanel)
+    container.Size = UDim2.new(0.95, 0, 0, 60)
+    container.Position = UDim2.new(0.025, 0, 0, yPos)
+    container.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+
+    local IdLabel = Instance.new("TextLabel", container)
+    IdLabel.Size = UDim2.new(1, 0, 0.3, 0)
+    IdLabel.BackgroundTransparency = 1
+    IdLabel.Text = "ID: " .. id
+    IdLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+
+    local TextBox = Instance.new("TextBox", container)
+    TextBox.Size = UDim2.new(0.5, 0, 0.6, 0)
+    TextBox.Position = UDim2.new(0.02, 0, 0.35, 0)
+    TextBox.PlaceholderText = "Nome da Skill..."
+    TextBox.Text = ""
+
+    local PlayBtn = Instance.new("TextButton", container)
+    PlayBtn.Size = UDim2.new(0.2, 0, 0.6, 0)
+    PlayBtn.Position = UDim2.new(0.54, 0, 0.35, 0)
+    PlayBtn.Text = "Tocar"
+    PlayBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+
+    local SaveBtn = Instance.new("TextButton", container)
+    SaveBtn.Size = UDim2.new(0.22, 0, 0.6, 0)
+    SaveBtn.Position = UDim2.new(0.76, 0, 0.35, 0)
+    SaveBtn.Text = "Salvar"
+    SaveBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+
+    PlayBtn.MouseButton1Click:Connect(function()
+        PlayAnim(id)
+    end)
+
+    SaveBtn.MouseButton1Click:Connect(function()
+        local nome = TextBox.Text ~= "" and TextBox.Text or "SemNome"
+        table.insert(Biblioteca, {Name = nome, ID = id})
+        SaveBtn.Text = "Salvo!"
+        SaveBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 150)
+        AtualizarBiblioteca()
+        task.wait(1)
+        SaveBtn.Text = "Salvar"
+        SaveBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    end)
+
+    yPos = yPos + 65
+end
+LeftPanel.CanvasSize = UDim2.new(0, 0, 0, yPos)
+
+-- ================= BOTÕES DA BIBLIOTECA (BAIXO DIREITA) =================
+local BottomRightContainer = Instance.new("Frame", MainFrame)
+BottomRightContainer.Size = UDim2.new(0.48, 0, 0, 60)
+BottomRightContainer.Position = UDim2.new(0.51, 0, 1, -65)
+BottomRightContainer.BackgroundTransparency = 1
+
+local JoinBtn = Instance.new("TextButton", BottomRightContainer)
+JoinBtn.Size = UDim2.new(1, 0, 0.45, 0)
+JoinBtn.Position = UDim2.new(0, 0, 0, 0)
+JoinBtn.Text = "Juntar as 2 Selecionadas"
+JoinBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+JoinBtn.Font = Enum.Font.SourceSansBold
+JoinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+local CopyAllBtn = Instance.new("TextButton", BottomRightContainer)
+CopyAllBtn.Size = UDim2.new(1, 0, 0.45, 0)
+CopyAllBtn.Position = UDim2.new(0, 0, 0.55, 0)
+CopyAllBtn.Text = "Copiar TODA a Biblioteca"
+CopyAllBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+CopyAllBtn.Font = Enum.Font.SourceSansBold
+CopyAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+JoinBtn.MouseButton1Click:Connect(function()
+    if #Selecionadas == 2 then
+        local stringComb = Selecionadas[1].Name .. "_(" .. Selecionadas[1].ID .. ") + " .. Selecionadas[2].Name .. "_(" .. Selecionadas[2].ID .. ")"
+        setclipboard(stringComb)
+        JoinBtn.Text = "Combinação Copiada!"
+        task.wait(1.5)
+        JoinBtn.Text = "Juntar as 2 Selecionadas"
+    elseif #Selecionadas > 2 then
+        JoinBtn.Text = "Selecione APENAS 2!"
+        task.wait(1.5)
+        JoinBtn.Text = "Juntar as 2 Selecionadas"
+    else
+        JoinBtn.Text = "Faltam seleções!"
+        task.wait(1.5)
+        JoinBtn.Text = "Juntar as 2 Selecionadas"
+    end
+end)
+
+CopyAllBtn.MouseButton1Click:Connect(function()
+    if #Biblioteca == 0 then
+        CopyAllBtn.Text = "Biblioteca Vazia!"
+        task.wait(1)
+        CopyAllBtn.Text = "Copiar TODA a Biblioteca"
+        return
+    end
     
-    animator.AnimationPlayed:Connect(function(track)
-        -- Apenas ignora se a animação existir e for do Workspace (Ex: Animate Script)
-        if track.Animation and not track.Animation:IsDescendantOf(workspace) then
-            currentTrack = track
-            local id = track.Animation.AnimationId:match("%d+") or track.Animation.AnimationId
-            AnimInfo.Text = "Nome: " .. track.Name .. "\nID: " .. id
+    local finalString = ""
+    for i, data in ipairs(Biblioteca) do
+        finalString = finalString .. data.Name .. "_(" .. data.ID .. ")"
+        if i < #Biblioteca then
+            finalString = finalString .. "\n"
         end
-    end)
-end
-
-task.spawn(hookAnimator)
-LocalPlayer.CharacterAdded:Connect(hookAnimator)
-
--- =======================================================================
--- EVENTOS DOS BOTÕES
--- =======================================================================
-SaveBtn.MouseButton1Click:Connect(function()
-    if currentTrack then
-        table.insert(SavedAnims, {Name = currentTrack.Name, ID = currentTrack.Animation.AnimationId})
-        refreshLibrary()
     end
-end)
-
-StopBtn.MouseButton1Click:Connect(function()
-    if currentTrack then currentTrack:Stop() end
-end)
-
-PlayTimeBtn.MouseButton1Click:Connect(function()
-    if currentTrack then
-        local timePos = tonumber(TimeInput.Text) or 0
-        currentTrack:Play()
-        currentTrack.TimePosition = timePos
-    end
-end)
-
-ClearSeqBtn.MouseButton1Click:Connect(function()
-    selected1 = nil; selected2 = nil
-    refreshLibrary()
-    updateSeqText()
-end)
-
-PlaySeqBtn.MouseButton1Click:Connect(function()
-    if not selected1 or not selected2 then return end
-    local char = LocalPlayer.Character
-    local animator = char and char:FindFirstChild("Humanoid") and char.Humanoid:FindFirstChild("Animator")
-    if not animator then return end
     
-    local a1 = Instance.new("Animation"); a1.AnimationId = selected1.ID
-    local a2 = Instance.new("Animation"); a2.AnimationId = selected2.ID
-    
-    local t1 = animator:LoadAnimation(a1)
-    local t2 = animator:LoadAnimation(a2)
-    
-    t1:Play()
-    t1.Stopped:Connect(function()
-        t2:Play()
-    end)
+    setclipboard(finalString)
+    CopyAllBtn.Text = "Biblioteca Copiada!"
+    task.wait(1.5)
+    CopyAllBtn.Text = "Copiar TODA a Biblioteca"
 end)
-
